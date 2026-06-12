@@ -1,0 +1,107 @@
+import logging
+from typing import Dict, Any, Optional, Tuple
+from infra.db.core_db_manager import core_db_manager
+from infra.cache.redis_manager import cache_manager
+from sqlalchemy import text
+
+logger = logging.getLogger("OmniCore.InfrastructureRegistry")
+
+class InfrastructureRegistry:
+    """
+    The Master Registry for OmniCore-AI.
+    Resolves Agent identities into Application infrastructure configurations.
+    Uses Redis for global distributed caching to support horizontal scaling.
+    """
+    def __init__(self):
+        # Local cache removed in favor of cache_manager (Redis)
+        pass
+
+    def get_app_context(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Resolves the primary application associated with an agent.
+        Returns the app_id, db_config, and tier.
+        """
+        # 1. Try to retrieve from Redis Cache
+        cached_context = cache_manager.get_session_context(agent_id)
+        if cached_context:
+            return cached_context
+
+        query = """
+            SELECT 
+                a.id as app_id, 
+                ai.db_host, ai.db_port, ai.db_user, ai.db_password, ai.db_name, ai.tier
+            FROM agent_app_mapping aam
+            JOIN apps a ON aam.app_id = a.id
+            JOIN app_infrastructure ai ON a.id = ai.app_id
+            WHERE aam.agent_id = :agent_id
+            LIMIT 1
+        """
+        
+        try:
+            result = core_db_manager.execute_raw(query, {"agent_id": agent_id}).fetchone()
+            if not result:
+                logger.warning(f"No infrastructure mapping found for agent: {agent_id}")
+                return None
+
+            # Format the DB config for the DynamicDbManager
+            config = {
+                "app_id": result.app_id,
+                "db_config": {
+                    "host": result.db_host,
+                    "port": result.db_port,
+                    "user": result.db_user,
+                    "password": result.db_password,
+                    "dbname": result.db_name
+                },
+                "tier": result.tier
+            }
+            
+            # Store in Redis for future requests (TTL: 1 hour)
+            cache_manager.set_session_context(agent_id, config, ttl=3600)
+            return config
+        except Exception as e:
+            logger.error(f"Error resolving app context for agent {agent_id}: {e}")
+            return None
+
+    def register_app(self, agent_id: str, app_name: str, db_config: Dict[str, Any], tier: str = "FREE") -> str:
+        """
+        Onboards a new SaaS instance and maps it to an agent.
+        """
+        import uuid
+        app_id = str(uuid.uuid4())
+        try:
+            # 1. Create the app
+            app_sql = "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner_id)"
+            core_db_manager.execute_raw(app_sql, {"id": app_id, "name": app_name, "owner_id": agent_id})
+
+            # 2. Create the infrastructure config
+            infra_sql = """
+                INSERT INTO app_infrastructure (app_id, db_host, db_port, db_user, db_password, db_name, tier)
+                VALUES (:app_id, :host, :port, :user, :password, :dbname, :tier)
+            """
+            core_db_manager.execute_raw(infra_sql, {
+                "app_id": app_id,
+                "host": db_config['host'],
+                "port": db_config['port'],
+                "user": db_config['user'],
+                "password": db_config['password'],
+                "dbname": db_config['dbname'],
+                "tier": tier
+            })
+
+            # 3. Map agent to app
+            mapping_sql = "INSERT INTO agent_app_mapping (agent_id, app_id) VALUES (:agent_id, :app_id)"
+            core_db_manager.execute_raw(mapping_sql, {"agent_id": agent_id, "app_id": app_id})
+
+            # Invalidate existing cache for this agent since infra has changed
+            if cache_manager.client:
+                cache_manager.client.delete(f"session:{agent_id}")
+
+            logger.info(f"Successfully registered app {app_name} for agent {agent_id} with ID {app_id}")
+            return app_id
+        except Exception as e:
+            logger.error(f"Failed to register app: {e}")
+            raise e
+
+# Singleton
+infrastructure_registry = InfrastructureRegistry()
