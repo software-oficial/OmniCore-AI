@@ -18,6 +18,8 @@ class CoreDbManager:
         self.engine = None
         self.session_factory = None
         self._initialize_engine()
+        # Auto-Doctor: Ensure schema is present on startup
+        self.init_schema()
 
     def _initialize_engine(self):
         db_url = os.getenv("OMNICORE_INTERNAL_DB_URL")
