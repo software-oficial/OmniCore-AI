@@ -40,13 +40,29 @@ register_stock_commands()
 register_sales_commands()
 register_whatsapp_commands()
 
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from api.routes import gateway, infra, agent, admin
+from infra.db.db_manager import db_manager
+...
 # 2. Include Modular Routes
 app.include_router(gateway.router)
 app.include_router(infra.router)
 app.include_router(agent.router)
 app.include_router(admin.router)
 
+# 3. Serve Frontend Panel
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+async def root():
+    """Redirects the root URL to the Developer Panel."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/static/index.html")
+
 async def pool_cleanup_worker():
+...
     """Background worker for DB pool eviction."""
     while True:
         try:
