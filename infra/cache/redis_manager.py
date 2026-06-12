@@ -1,7 +1,4 @@
-import redis
-import json
-import logging
-from typing import Optional, Any
+from config.settings import config
 
 logger = logging.getLogger("OmniCore.Cache")
 
@@ -11,23 +8,36 @@ class RedisManager:
     Implements Graceful Degradation: if Redis is down, the system remains 
     operational by falling back to primary storage.
     """
-    def __init__(self, host='localhost', port=6379, db=0):
-        self.host = host
-        self.port = port
-        self.db = db
+    def __init__(self, host=None, port=None, db=None, password=None, url=None):
+        self.host = host or config.REDIS_HOST
+        self.port = port or config.REDIS_PORT
+        self.db = db or config.REDIS_DB
+        self.password = password or config.REDIS_PASSWORD
+        self.url = url or config.REDIS_URL
         self._connect()
 
     def _connect(self):
         """Attempt to establish connection to Redis with strict validation."""
         try:
-            self.client = redis.StrictRedis(
-                host=self.host, 
-                port=self.port, 
-                db=self.db, 
-                decode_responses=True,
-                socket_connect_timeout=1,
-                socket_timeout=1
-            )
+            if self.url:
+                logger.info(f"Connecting to Redis via URL...")
+                self.client = redis.from_url(
+                    self.url, 
+                    decode_responses=True,
+                    socket_connect_timeout=1,
+                    socket_timeout=1
+                )
+            else:
+                logger.info(f"Connecting to Redis at {self.host}:{self.port}...")
+                self.client = redis.StrictRedis(
+                    host=self.host, 
+                    port=self.port, 
+                    db=self.db, 
+                    password=self.password,
+                    decode_responses=True,
+                    socket_connect_timeout=1,
+                    socket_timeout=1
+                )
             # FORCE synchronous validation
             if self.client.ping():
                 logger.info("✅ Connected to Redis for Ephemeral Learning Store.")
@@ -38,6 +48,7 @@ class RedisManager:
             self.client = None
 
     def is_available(self) -> bool:
+
         """Strictly returns True ONLY if Redis is responding to a ping."""
         if self.client is None:
             return False

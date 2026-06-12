@@ -14,9 +14,11 @@ class Config:
     INTERNAL_DB_URL = os.getenv("OMNICORE_INTERNAL_DB_URL", "sqlite:///omnicore_registry.db")
     
     # Redis Cache
-    REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-    REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+    REDIS_URL = os.getenv("REDIS_URL")
+    REDIS_HOST = os.getenv("REDIS_HOST") or os.getenv("REDISHOST", "localhost")
+    REDIS_PORT = int(os.getenv("REDIS_PORT") or os.getenv("REDISPORT", 6379))
     REDIS_DB = int(os.getenv("REDIS_DB", 0))
+    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD") or os.getenv("REDISPASSWORD")
     
     # System Limits
     POOL_CLEANUP_INTERVAL = 900 # 15 minutes
