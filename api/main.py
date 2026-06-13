@@ -41,6 +41,7 @@ app.include_router(gateway.router)
 app.include_router(infra.router)
 app.include_router(agent.router)
 app.include_router(admin.router)
+app.include_router(auth.router)
 
 # 3. Serve Frontend Panel
 app.mount("/static", StaticFiles(directory="static"), name="static")

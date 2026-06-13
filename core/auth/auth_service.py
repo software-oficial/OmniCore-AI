@@ -45,37 +45,55 @@ class AuthService:
         password_hash = self._hash_password(password)
         
         try:
-            user = core_db_manager.execute_raw(
+            result = core_db_manager.execute_raw(
                 "SELECT id, email FROM users WHERE email = :email AND password_hash = :pass",
                 {"email": email, "pass": password_hash}
-            ).fetchone()
+            )
+            user = result.fetchone()
             
             if not user:
                 return ServiceResponse.error_res("Invalid email or password", "INVALID_CREDENTIALS")
             
-            # In a full implementation, this would return a JWT
+            # Acceso estrictamente por índice para evitar errores de tupla
+            user_id = user[0]
+            user_email = user[1]
+            
             return ServiceResponse.success_res(
-                data={"user_id": user['id'], "email": user['email']}, 
+                data={"user_id": user_id, "email": user_email}, 
                 message="Login successful."
             )
         except Exception as e:
             return ServiceResponse.error_res(f"Login error: {str(e)}", "AUTH_ERROR")
 
-    def create_api_token(self, user_id: str, agent_id: str, token_name: str) -> ServiceResponse:
+    def create_api_token(self, user_id: str, agent_id: str, token_name: str, mode: str = "PRODUCTION") -> ServiceResponse:
         """
         Generates a new API token for a user's agent.
-        Enforces a maximum of 10 tokens per user.
+        Supports both LEARNING (ephemeral/Redis) and PRODUCTION (persistent/DB).
         """
-        # 1. Check Token Limit
-        token_count = core_db_manager.execute_raw(
+        from core.auth.token_manager import token_manager
+
+        # 1. Handle LEARNING Mode (Ephemeral)
+        if mode.upper() == "LEARNING":
+            # Los tokens de learning son puramente efímeros (Redis)
+            # No intentamos guardarlos en la DB para evitar errores de Foreign Key con agentes no registrados
+            token = token_manager.generate_token(agent_id, mode="LEARNING")
+            return ServiceResponse.success_res(
+                data={"api_token": token, "mode": "LEARNING"}, 
+                message=f"Ephemeral token '{token_name}' generated (Expires in 24h)."
+            )
+
+        # 2. Handle PRODUCTION Mode (Persistent)
+        # Check Token Limit
+        result = core_db_manager.execute_raw(
             "SELECT count(*) as count FROM api_tokens WHERE user_id = :uid",
             {"uid": user_id}
-        ).fetchone()['count']
+        )
+        token_count = result.fetchone()[0]
         
         if token_count >= 10:
-            return ServiceResponse.error_res("Token limit reached. You can have a maximum of 10 API tokens.", "TOKEN_LIMIT_EXCEEDED")
+            return ServiceResponse.error_res("Token limit reached. You can have a maximum of 10 Production API tokens.", "TOKEN_LIMIT_EXCEEDED")
         
-        # 2. Generate Token
+        # Generate Persistent Token
         raw_token = f"oc_{uuid.uuid4().hex}"
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         
@@ -85,8 +103,8 @@ class AuthService:
                 {"hash": token_hash, "uid": user_id, "aid": agent_id, "name": token_name}
             )
             return ServiceResponse.success_res(
-                data={"api_token": raw_token}, 
-                message=f"Token '{token_name}' generated successfully."
+                data={"api_token": raw_token, "mode": "PRODUCTION"}, 
+                message=f"Persistent token '{token_name}' generated successfully."
             )
         except Exception as e:
             return ServiceResponse.error_res(f"Token generation error: {str(e)}", "TOKEN_ERROR")

@@ -55,7 +55,7 @@ async def create_token(request: TokenCreateRequest, authorization: str = Header(
     # For now, we assume the authorization header contains the user_id or a session token.
     user_id = authorization.replace("Bearer ", "")
     
-    res = auth_service.create_api_token(user_id, request.agent_id, request.token_name)
+    res = auth_service.create_api_token(user_id, request.agent_id, request.token_name, request.mode)
     if not res.success:
         raise HTTPException(status_code=400, detail=res.message)
     return res.to_dict()
