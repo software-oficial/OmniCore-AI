@@ -27,31 +27,32 @@ def register_sales_commands():
         params_schema={"sale_id": "string", "transaction_id": "string"}
     )
     ai_gateway.register_command(
-        "cash.open", sales_service.open_cash_box, 
+        "sales.cash.open", sales_service.open_cash_box, 
         description="Opens the daily cash box with an initial balance.",
         params_schema={"amount": "float", "user_id": "string"}
     )
     ai_gateway.register_command(
-        "cash.close", sales_service.close_cash_box, 
+        "sales.cash.close", sales_service.close_cash_box, 
         description="Closes the cash box and calculates the final balance vs expected.",
         params_schema={"user_id": "string", "actual_amount": "float"}
     )
     
     # MercadoPago
     ai_gateway.register_command(
-        "pay.mp.create", mp_service.create_payment, 
+        "sales.pay.mp.create", mp_service.create_payment, 
         description="Generates a Mercado Pago payment link for a specific amount.",
         params_schema={"amount": "float", "external_reference": "string", "description": "string"}
     )
     ai_gateway.register_command(
-        "pay.mp.verify", mp_service.verify_payment, 
+        "sales.pay.mp.verify", mp_service.verify_payment, 
         description="Verifies the status of a Mercado Pago transaction via payment_id.",
         params_schema={"payment_id": "string"}
     )
     ai_gateway.register_command(
-        "pay.mp.refund", mp_service.refund_payment, 
+        "sales.pay.mp.refund", mp_service.refund_payment, 
         description="Processes a refund for a specific Mercado Pago transaction.",
         params_schema={"payment_id": "string", "reason": "string"}
     )
+
     
     logger.info("💰 Sales and Payments module commands registered successfully with full metadata.")
