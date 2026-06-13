@@ -429,9 +429,19 @@ async function executeCommand(command, params = {}) {
 
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            
+
             const section = document.getElementById(id);
             if (section) section.classList.add('active');
+
+            // Actualizar el estado activo del menú de navegación de forma segura
+            const links = document.querySelectorAll('.nav-link');
+            links.forEach(l => {
+                if (l.getAttribute('onclick')?.includes(`'${id}'`)) {
+                    l.classList.add('active');
+                }
+            });
+        }
+
             
             const links = document.querySelectorAll('.nav-link');
             links.forEach(l => {
