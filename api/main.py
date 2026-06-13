@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from api.routes import gateway, infra, agent, admin
 from infra.db.db_manager import db_manager
 from infra.logging.omni_logger import get_logger
@@ -9,6 +10,7 @@ from modules.sales.commands import register_sales_commands
 from modules.whatsapp.commands import register_whatsapp_commands
 from core.dispatcher.exceptions import handle_omnicore_exception
 import asyncio
+from datetime import datetime
 
 app = FastAPI(
     title="OmniCore-AI Engine", 
@@ -33,19 +35,7 @@ async def universal_exception_handler(request: Request, exc: Exception):
 register_stock_commands()
 register_sales_commands()
 register_whatsapp_commands()
-...
 
-# 1. Register Business Modules
-register_stock_commands()
-register_sales_commands()
-register_whatsapp_commands()
-
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from api.routes import gateway, infra, agent, admin
-from infra.db.db_manager import db_manager
-...
 # 2. Include Modular Routes
 app.include_router(gateway.router)
 app.include_router(infra.router)
@@ -62,8 +52,7 @@ async def root():
     return RedirectResponse(url="/static/index.html")
 
 async def pool_cleanup_worker():
-...
-    """Background worker for DB pool eviction."""
+    """Background worker for DB pool cleanup."""
     while True:
         try:
             db_manager.evict_idle_pools()
@@ -80,9 +69,7 @@ async def startup_event():
 async def health():
     try:
         from infra.cache.redis_manager import cache_manager
-        print(f"DEBUG: Checking Redis. Client: {cache_manager.client}")
         redis_ok = cache_manager.is_available()
-        print(f"DEBUG: Redis is_available() returned: {redis_ok}")
         pool_load = len(db_manager._engines)
         return {
             "status": "ok", 
@@ -100,7 +87,7 @@ async def health():
 @app.get("/api/heartbeat")
 async def heartbeat():
     return {
-        "timestamp": datetime.utcnow().isoformat() if 'datetime' in globals() else "now",
+        "timestamp": datetime.utcnow().isoformat(),
         "status": "ALIVE",
         "load": len(db_manager._engines)
     }

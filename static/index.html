@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmniCore-AI | Developer Panel</title>
+    <title>OmniCore-AI | Onboarding Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --primary: #6366f1;
@@ -15,6 +16,7 @@
             --accent: #22d3ee;
             --success: #10b981;
             --error: #ef4444;
+            --border: #334155;
         }
 
         body {
@@ -26,24 +28,27 @@
             min-height: 100vh;
         }
 
-        /* Sidebar */
         nav {
-            width: 260px;
+            width: 280px;
             background-color: var(--card-bg);
-            border-right: 1px solid #334155;
+            border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             padding: 2rem 1rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            box-sizing: border-box;
         }
 
         .logo {
             font-size: 1.5rem;
             font-weight: 800;
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
             color: var(--accent);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .nav-links {
@@ -53,12 +58,15 @@
         }
 
         .nav-link {
-            padding: 0.75rem 1rem;
+            padding: 0.8rem 1rem;
             color: var(--text-muted);
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 10px;
             transition: all 0.2s;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .nav-link:hover, .nav-link.active {
@@ -66,100 +74,99 @@
             color: white;
         }
 
-        /* Main Content */
         main {
             flex: 1;
             padding: 3rem;
-            overflow-y: auto;
+            max-width: 1100px;
+            margin: 0 auto;
         }
 
         .section {
             display: none;
-            max-width: 900px;
-            margin: 0 auto;
-            animation: fadeIn 0.3s ease;
+            animation: fadeIn 0.4s ease;
         }
 
-        .section.active {
-            display: block;
-        }
+        .section.active { display: block; }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        h1 { font-size: 2.5rem; margin-bottom: 1rem; }
-        p { color: var(--text-muted); line-height: 1.6; }
+        h1 { font-size: 2.8rem; margin-bottom: 1rem; color: white; }
+        h2 { font-size: 1.8rem; margin: 2rem 0 1rem; color: var(--accent); }
+        p { color: var(--text-muted); line-height: 1.7; font-size: 1.1rem; }
 
-        /* Cards & Forms */
         .card {
             background: var(--card-bg);
             padding: 2rem;
-            border-radius: 16px;
-            border: 1px solid #334155;
+            border-radius: 20px;
+            border: 1px solid var(--border);
             margin-bottom: 2rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
         }
 
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: var(--text-muted);
-        }
-
+        /* Registration Form */
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-weight: 500; }
         input {
             width: 100%;
-            padding: 0.75rem;
+            padding: 0.8rem;
             background: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
             color: white;
-            box-sizing: border-box;
             font-size: 1rem;
+            box-sizing: border-box;
         }
 
         button {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+            padding: 0.8rem 2rem;
+            border-radius: 10px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
-
-        button:hover { background: var(--primary-hover); }
+        button:hover { background: var(--primary-hover); transform: translateY(-2px); }
 
         .result-box {
             margin-top: 1.5rem;
-            padding: 1rem;
-            border-radius: 8px;
+            padding: 1.5rem;
+            border-radius: 12px;
             display: none;
-            font-family: monospace;
+            font-family: 'JetBrains Mono', monospace;
             word-break: break-all;
+            line-height: 1.5;
         }
-
         .result-success { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid var(--success); }
         .result-error { background: rgba(239, 68, 68, 0.1); color: var(--error); border: 1px solid var(--error); }
 
-        /* API Docs Styling */
-        .doc-item {
-            border-left: 4px solid var(--primary);
-            padding-left: 1.5rem;
-            margin-bottom: 2rem;
+        /* Docs & Blueprint */
+        .blueprint-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
         }
 
-        .method {
+        .step-card {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .method-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
             font-weight: bold;
-            color: var(--accent);
             margin-right: 10px;
+            background: var(--primary);
+            color: white;
         }
 
         code {
@@ -167,6 +174,18 @@
             padding: 0.2rem 0.4rem;
             border-radius: 4px;
             color: #e2e8f0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .example-block {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border: 1px solid var(--border);
+            white-space: pre-wrap;
+            color: #94a3b8;
+            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -175,67 +194,150 @@
     <nav>
         <div class="logo"><span>🤖</span> OmniCore-AI</div>
         <div class="nav-links">
-            <div class="nav-link active" onclick="showSection('welcome')">Bienvenida</div>
-            <div class="nav-link" onclick="showSection('register')">Registro de Agente</div>
-            <div class="nav-link" onclick="showSection('docs')">Documentación API</div>
-            <div class="nav-link" onclick="showSection('console')">Consola de Test</div>
+            <div class="nav-link active" onclick="showSection('welcome')"><i class="fas fa-home"></i> Inicio</div>
+            <div class="nav-link" onclick="showSection('register')"><i class="fas fa-user-plus"></i> Registro</div>
+            <div class="nav-link" onclick="showSection('docs')"><i class="fas fa-book"></i> Documentación</div>
+            <div class="nav-link" onclick="showSection('blueprint')"><i class="fas fa-map"></i> Frontend Plan</div>
+            <div class="nav-link" onclick="showSection('console')"><i class="fas fa-terminal"></i> Consola</div>
         </div>
     </nav>
 
     <main>
         <!-- Welcome Section -->
         <div id="welcome" class="section active">
-            <h1>Bienvenido al Meta-Orquestador</h1>
-            <p>OmniCore-AI es la capa de inteligencia que gestiona tu infraestructura de negocio. Desde aquí puedes registrarte como desarrollador, obtener tus credenciales y empezar a desplegar módulos de Stock, Ventas y WhatsApp.</p>
+            <h1>El Sistema Operativo de tu Negocio</h1>
+            <p>OmniCore-AI es un Meta-Orquestador diseñado para que Agentes de IA desplieguen y gestionen infraestructuras de negocio con cero fricción. Actúa como el puente inteligente entre la inteligencia artificial y la persistencia de datos real.</p>
+            
             <div class="card">
-                <h3>🚀 Guía rápida de inicio</h3>
-                <ol>
-                    <li>Ve a <b>Registro de Agente</b> y crea tu identidad.</li>
-                    <li>Copia tu <code>TOKEN</code> generado.</li>
-                    <li>Usa el token en el header <code>Authorization: Bearer YOUR_TOKEN</code> para llamar a la API.</li>
-                </ol>
+                <h2>🌟 ¿Qué puedes hacer aquí?</h2>
+                <div class="blueprint-grid">
+                    <div class="step-card">
+                        <strong>📦 Gestión de Stock</strong><br>
+                        Añade productos, actualiza inventarios y consulta existencias en tiempo real.
+                    </div>
+                    <div class="step-card">
+                        <strong>💰 Ventas y Caja</strong><br>
+                        Procesa transacciones, gestiona el cierre de caja y rastrea ingresos.
+                    </div>
+                    <div class="step-card">
+                        <strong>💬 Automatización WhatsApp</strong><br>
+                        Crea menús interactivos y flujos de conversación automatizados.
+                    </div>
+                    <div class="step-card">
+                        <strong>🛠️ Infraestructura Dinámica</strong><br>
+                        Despliega bases de datos externas y conéctalas al Core sin tocar una línea de código.
+                    </div>
+                </div>
             </div>
+            <button onclick="showSection('register')" style="font-size: 1.2rem; padding: 1rem 2.5rem;">Empezar Ahora <i class="fas fa-arrow-right"></i></button>
         </div>
 
         <!-- Register Section -->
         <div id="register" class="section">
-            <h1>Registro de Agente</h1>
-            <p>Crea una identidad de agente para comenzar a operar en modo LEARNING (Sandbox).</p>
+            <h1>Registro de Identidad</h1>
+            <p>Crea tu cuenta de desarrollador para obtener acceso al Sandbox (modo LEARNING).</p>
             <div class="card">
                 <div class="form-group">
-                    <label>Nombre del Agente / Empresa</label>
-                    <input type="text" id="agentName" placeholder="Ej: MiBotVentas_AI">
+                    <label>Nombre del Agente / Desarrollador</label>
+                    <input type="text" id="agentName" placeholder="Ej: AlphaBot_Dev">
                 </div>
-                <button onclick="registerAgent()">Registrar Agente</button>
+                <div class="form-group">
+                    <label>Nombre de la Plataforma / App</label>
+                    <input type="text" id="platformName" placeholder="Ej: MiTienda_Inteligente">
+                </div>
+                <button onclick="registerAgent()">Crear Identidad y Sandbox</button>
                 <div id="regResult" class="result-box"></div>
             </div>
         </div>
 
         <!-- Docs Section -->
         <div id="docs" class="section">
-            <h1>Documentación de la API</h1>
-            <p>OmniCore-AI utiliza una arquitectura basada en comandos. Cada acción es un comando ejecutado vía el Gateway.</p>
+            <h1>Documentación Técnica</h1>
+            <p>La API de OmniCore-AI es <strong>Command-Driven</strong>. No llamas a funciones, ejecutas comandos.</p>
             
-            <div class="doc-item">
-                <div><span class="method">POST</span> <code>/api/gateway/execute</code></div>
-                <p>El endpoint principal para ejecutar cualquier comando de negocio.</p>
-                <code>Header: Authorization: Bearer {token}</code>
-                <code>Body: { "command": "stock.add", "params": { ... } }</code>
+            <div class="card">
+                <h2><i class="fas fa-bolt"></i> El Gateway Principal</h2>
+                <p>Todos los comandos de negocio pasan por un único punto de entrada.</p>
+                <div class="doc-item">
+                    <span class="method-badge">POST</span> <code>/api/gateway/execute</code>
+                    <p>Envía un comando y recibe una respuesta estandarizada.</p>
+                    <div class="example-block">
+Header: Authorization: Bearer LEARNING_abc123...
+Body:
+{
+  "command": "stock.add",
+  "params": {
+    "name": "iPhone 15",
+    "price": 999.99,
+    "quantity": 5
+  }
+}
+                    </div>
+                </div>
             </div>
 
-            <div class="doc-item">
-                <div><span class="method">GET</span> <code>/api/agent/manifest</code></div>
-                <p>Retorna la ontología actual del sistema y la lista de comandos disponibles.</p>
+            <div class="card">
+                <h2>📚 Catálogo de Comandos</h2>
+                <p>Consulta el <code>/api/agent/manifest</code> para ver todos los comandos disponibles.</p>
+                <ul>
+                    <li><strong>stock.add</strong>: Agrega productos al inventario.</li>
+                    <li><strong>stock.list</strong>: Lista todos los productos disponibles.</li>
+                    <li><strong>sales.process</strong>: Registra una nueva venta.</li>
+                    <li><strong>whatsapp.process</strong>: Gestiona la lógica de un mensaje entrante.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Blueprint Section -->
+        <div id="blueprint" class="section">
+            <h1>Blueprint para Frontend</h1>
+            <p>Si estás construyendo una interfaz para OmniCore-AI, sigue este plan arquitectónico:</p>
+            
+            <div class="card">
+                <h2>1. Gestión de Estado de Autenticación</h2>
+                <p>Almacena el token obtenido en el registro en <code>localStorage</code> o <code>sessionStorage</code>.</p>
+                <code>const token = localStorage.getItem('omnicore_token');</code>
+            </div>
+
+            <div class="card">
+                <h2>2. Patrón de Comunicación (Command Pattern)</h2>
+                <p>Crea un servicio centralizado de API que envuelva todas las llamadas al Gateway.</p>
+                <div class="example-block">
+async function executeCommand(command, params = {}) {
+    const response = await fetch('/api/gateway/execute', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ command, params })
+    });
+    return response.json();
+}
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>3. Manejo de Respuestas (ServiceResponse)</h2>
+                <p>El sistema siempre responde con el mismo formato, facilitando el manejo de errores:</p>
+                <div class="example-block">
+{
+  "success": true/false,
+  "data": { ... },
+  "message": "Descripción del resultado",
+  "error_code": "CODE_XYZ",
+  "latency_ms": 12.4
+}
+                </div>
             </div>
         </div>
 
         <!-- Console Section -->
         <div id="console" class="section">
-            <h1>Consola de Prueba</h1>
-            <p>Prueba la API en tiempo real desde el navegador.</p>
+            <h1>Consola de Pruebas</h1>
             <div class="card">
                 <div class="form-group">
-                    <label>Tu Token de Acceso</label>
+                    <label>Token de Acceso</label>
                     <input type="text" id="testToken" placeholder="LEARNING_xxxxxx">
                 </div>
                 <div class="form-group">
@@ -246,7 +348,7 @@
                     <label>Parámetros (JSON)</label>
                     <input type="text" id="testParams" value="{}">
                 </div>
-                <button onclick="testApi()">Ejecutar Comando</button>
+                <button onclick="testApi()">Ejecutar en Producción</button>
                 <div id="consoleResult" class="result-box"></div>
             </div>
         </div>
@@ -264,24 +366,25 @@
 
         async function registerAgent() {
             const name = document.getElementById('agentName').value;
+            const platform = document.getElementById('platformName').value;
             const resultDiv = document.getElementById('regResult');
-            if(!name) return alert('Por favor ingresa un nombre');
+            if(!name || !platform) return alert('Por favor completa todos los campos');
 
             resultDiv.style.display = 'block';
             resultDiv.className = 'result-box';
-            resultDiv.innerText = 'Registrando...';
+            resultDiv.innerText = 'Configurando entorno de Sandbox...';
 
             try {
                 const response = await fetch(`${API_BASE}/agent/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
+                    body: JSON.stringify({ name, platform_name: platform })
                 });
                 const data = await response.json();
                 
                 if(response.ok) {
                     resultDiv.className = 'result-box result-success';
-                    resultDiv.innerHTML = `<strong>✅ Éxito</strong><br>Agent ID: ${data.agent_id}<br>Token: <code>${data.token}</code><br><br>Copia este token para la Consola de Test.`;
+                    resultDiv.innerHTML = `<strong>✅ Entorno Listo</strong><br>Agent ID: ${data.agent_id}<br>App ID: ${data.app_id}<br>Token: <code>${data.token}</code><br><br>Copia el token en la Consola de Test.`;
                 } else {
                     throw new Error(data.detail || 'Error desconocido');
                 }

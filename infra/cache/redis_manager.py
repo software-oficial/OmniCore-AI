@@ -63,20 +63,20 @@ class RedisManager:
             self.client = None # Invalidate client on failure
             return False
 
-    def set_session_context(self, app_id: str, context: dict, ttl: int = 1800):
+    def set_session_context(self, session_id: str, context: dict, ttl: int = 1800):
         """Caches the developer's profile and DB config to avoid Core DB hits."""
         if not self.is_available(): return
         try:
-            self.client.setex(f"session:{app_id}", ttl, json.dumps(context))
+            self.client.setex(f"session:{session_id}", ttl, json.dumps(context))
         except Exception as e:
             logger.warning(f"Failed to write to Redis cache: {e}")
 
-    def get_session_context(self, app_id: str) -> Optional[dict]:
+    def get_session_context(self, session_id: str) -> Optional[dict]:
         """Retrieves cached profile for instant validation."""
         if not self.is_available():
             return None
         try:
-            data = self.client.get(f"session:{app_id}")
+            data = self.client.get(f"session:{session_id}")
             return json.loads(data) if data else None
         except Exception as e:
             logger.warning(f"Failed to read from Redis cache: {e}")

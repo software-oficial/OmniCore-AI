@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 router = APIRouter(prefix="/api", tags=["Gateway"])
 
-@router.post("/command")
+@router.post("/gateway/execute")
 async def handle_command(
     command: str = Body(..., embed=True),
     params: Dict[str, Any] = Body(..., embed=True),
