@@ -96,18 +96,33 @@ class AIGateway:
 
     async def _handle_learning_mode(self, command_name: str, ctx: CoreContext, params: Dict[str, Any]):
         from core.governance.error_analytics_service import error_analytics_service
-        
+        import inspect
+
         # 1. Strict Parameter Validation (Fixing the 'Learning Black Hole')
         cmd_metadata = self.loader.get_metadata(command_name)
-        expected_params = cmd_metadata.get('params_schema', {})
+        handler = self.loader.get_handler(command_name)
         
+        # Use schema if available, otherwise infer from function signature
+        expected_params = cmd_metadata.get('params_schema', {})
+        if not expected_params and handler:
+            try:
+                sig = inspect.signature(handler)
+                # Identify parameters that are not 'session', 'context', 'self' and have no default value
+                expected_params = {
+                    name: "required" 
+                    for name, param in sig.parameters.items() 
+                    if name not in ('session', 'context', 'self') and param.default == inspect.Parameter.empty
+                }
+            except Exception as e:
+                logger.warning(f"Could not infer signature for {command_name}: {e}")
+
         if expected_params:
             missing_params = [p for p in expected_params if p not in params]
             if missing_params:
                 return ServiceResponse.error_res(
-                    message=f"💡 LEARNING ERROR: Missing parameters: {', '.join(missing_params)}. Check the API guide for the correct schema.",
+                    message=f"💡 LEARNING ERROR: Missing parameters: {', '.join(missing_params)}. Check the API guide or function signature for the correct schema.",
                     error_code="LEARNING_VALIDATION_ERROR",
-                    guide={"expected_params": expected_params, "received_params": list(params.keys())}
+                    guide={"expected_params": list(expected_params.keys()), "received_params": list(params.keys())}
                 )
 
         # 2. Mentorship and Learning Corrections
@@ -126,6 +141,19 @@ class AIGateway:
         if not handler:
             return ServiceResponse.error_res(f"Command {command_name} not found", "COMMAND_NOT_FOUND")
         
+        cmd_metadata = self.loader.get_metadata(command_name)
+        is_system = cmd_metadata.get('is_system', False)
+
+        if is_system:
+            try:
+                # System commands operate on the Core DB and do not require a business session
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(None, lambda: handler(session=None, context=ctx, **params))
+                return result if isinstance(result, ServiceResponse) else ServiceResponse.success_res(data=result)
+            except Exception as e:
+                from core.dispatcher.exceptions import handle_omnicore_exception
+                return handle_omnicore_exception(e)
+
         try:
             async with db_manager.get_session(ctx.app_id, ctx.db_config, ctx.tier) as session:
                 # Dynamic Schema Validation based on Command Metadata
