@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from typing import List, Dict, Any
 from pydantic import BaseModel
 from infra.db.core_db_manager import core_db_manager
