@@ -135,5 +135,15 @@ class StockService:
             logger.error(f"Error fetching history for {code}: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_GET_HISTORY_ERROR")
 
+    def get_low_stock(self, session: Session, context: CoreContext, threshold: float = 5.0) -> ServiceResponse:
+        """Lists products that are below the critical threshold."""
+        try:
+            query = text("SELECT * FROM products WHERE quantity < :threshold ORDER BY quantity ASC")
+            result = session.execute(query, {"threshold": threshold}).mappings().all()
+            return ServiceResponse.success_res(data=[dict(r) for r in result], message="Low stock products retrieved.")
+        except Exception as e:
+            logger.error(f"Error fetching low stock: {e}")
+            return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_LOW_STOCK_ERROR")
+
 # Singleton for the module
 stock_service = StockService()
