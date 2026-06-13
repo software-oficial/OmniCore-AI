@@ -30,24 +30,40 @@ class TokenManager:
     def validate_token(token: str) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         Returns (isValid, mode, agent_id).
-        Resolves the token via Redis to find the associated agent.
+        Resolves the token via Redis (ephemeral) or Core DB (persistent).
         """
-        if not token or "_" not in token:
+        if not token:
             return False, None, None
         
         try:
-            # 1. Try to resolve via Redis (Standard Flow)
-            session_data = cache_manager.get_session_context(token)
-            if session_data:
-                return True, session_data["mode"], session_data["agent_id"]
+            # 1. Try to resolve via Redis (Ephemeral/Session tokens)
+            if "_" in token:
+                session_data = cache_manager.get_session_context(token)
+                if session_data:
+                    return True, session_data["mode"], session_data["agent_id"]
             
-            # 2. Fallback: Simple Test Tokens (for development/seeding)
-            mode, identifier = token.split("_", 1)
-            if mode in ["LEARNING", "PRODUCTION"] and "test_agent" in identifier:
-                agent_id = identifier
-                if identifier == "test_agent_001":
-                    agent_id = "00000000-0000-0000-0000-000000000001"
-                return True, mode, agent_id
+            # 2. Try to resolve via Core DB (Persistent API Keys)
+            # We hash the provided token to match the storage in api_tokens table
+            token_hash = hashlib.sha256(token.encode()).hexdigest()
+            from infra.db.core_db_manager import core_db_manager
+            
+            token_data = core_db_manager.execute_raw(
+                "SELECT agent_id FROM api_tokens WHERE token_hash = :hash",
+                {"hash": token_hash}
+            ).fetchone()
+            
+            if token_data:
+                # Persistent tokens are always PRODUCTION mode
+                return True, "PRODUCTION", token_data["agent_id"]
+            
+            # 3. Fallback: Simple Test Tokens (for development/seeding)
+            if "_" in token:
+                mode, identifier = token.split("_", 1)
+                if mode in ["LEARNING", "PRODUCTION"] and "test_agent" in identifier:
+                    agent_id = identifier
+                    if identifier == "test_agent_001":
+                        agent_id = "00000000-0000-0000-0000-000000000001"
+                    return True, mode, agent_id
             
             return False, None, None
         except Exception as e:

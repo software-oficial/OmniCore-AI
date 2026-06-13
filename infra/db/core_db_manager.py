@@ -57,11 +57,28 @@ class CoreDbManager:
     def init_schema(self):
         """Initializes the core registry schema with PostgreSQL compatibility."""
         schema_sql = """
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS agents (
             id TEXT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             api_key VARCHAR(255) UNIQUE NOT NULL,
+            owner_user_id TEXT REFERENCES users(id),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS api_tokens (
+            token_hash TEXT PRIMARY KEY,
+            user_id TEXT REFERENCES users(id),
+            agent_id TEXT REFERENCES agents(id),
+            token_name VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_used TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS apps (

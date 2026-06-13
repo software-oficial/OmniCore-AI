@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from api.routes import gateway, infra, agent, admin
+from api.routes import gateway, infra, agent, admin, auth
 from infra.db.db_manager import db_manager
 from infra.logging.omni_logger import get_logger
 from config.settings import config
@@ -95,3 +95,4 @@ async def heartbeat():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=config.HOST, port=config.PORT)
+g.HOST, port=config.PORT)
