@@ -143,10 +143,3 @@ class AIGateway:
             return res
 
 ai_gateway = AIGateway()
-e_exception
-            from core.governance.error_analytics_service import error_analytics_service
-            res = handle_omnicore_exception(e)
-            error_analytics_service.track_error(ctx.agent_id, command_name, res.error_code, res.message)
-            return res
-
-ai_gateway = AIGateway()
