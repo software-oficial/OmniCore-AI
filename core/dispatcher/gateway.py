@@ -9,6 +9,8 @@ from core.registry.infrastructure_registry import infrastructure_registry
 from core.governance.governance_service import governance_service
 from infra.cache.redis_manager import cache_manager
 from infra.db.db_manager import db_manager
+from infra.validation.sanitizer import sanitizer
+from infra.validation.type_checker import type_checker
 
 logger = logging.getLogger("OmniCore.Gateway")
 error_logger = logging.getLogger("OmniCore.Errors")
@@ -52,6 +54,10 @@ class AIGateway:
                     except (ValueError, TypeError):
                         pass
 
+            # --- BLINDAJE: Sanitization ---
+            # Clean all string inputs to prevent XSS/Injection
+            params = sanitizer.sanitize_params(params)
+
         # 1. Token Validation
         t_auth_start = time.perf_counter()
 
@@ -90,6 +96,16 @@ class AIGateway:
         )
 
         logger.info(f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}")
+
+        # --- BLINDAJE: Type Validation ---
+        # Validate params against the registered schema before execution
+        if command_name and params:
+            cmd_metadata = self.loader.get_metadata(command_name)
+            schema = cmd_metadata.get('params_schema', {})
+            if isinstance(schema, dict):
+                is_valid_type, type_err = type_checker.validate_types(params, schema)
+                if not is_valid_type:
+                    return type_err
 
         # 3. Execution Path
         t_exec_start = time.perf_counter()
