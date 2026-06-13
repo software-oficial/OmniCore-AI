@@ -22,10 +22,15 @@ class AIGateway:
         from core.module_loader import module_loader
         self.loader = module_loader
 
-    def register_command(self, command_name: str, handler: Callable):
-        """Registers a command handler in the dynamic module loader as a metadata entry."""
-        self.loader._command_registry[command_name] = {"handler": handler}
-        logger.info(f"✅ Command Registered: {command_name}")
+    def register_command(self, command_name: str, handler: Callable, description: str = "No description provided", params_schema: Optional[Dict[str, Any]] = None):
+        """Registers a command handler with semantic metadata for AI discovery."""
+        self.loader._command_registry[command_name] = {
+            "handler": handler,
+            "description": description,
+            "params_schema": params_schema or {},
+            "registered_at": time.time()
+        }
+        logger.info(f"✅ Command Registered: {command_name} | Desc: {description}")
 
     async def execute(self, command_name: str, token: str, params: Dict[str, Any], request: Request):
         start_time = time.perf_counter()
@@ -132,6 +137,13 @@ class AIGateway:
                 return result if isinstance(result, ServiceResponse) else ServiceResponse.success_res(data=result)
         except Exception as e:
             from core.dispatcher.exceptions import handle_omnicore_exception
+            from core.governance.error_analytics_service import error_analytics_service
+            res = handle_omnicore_exception(e)
+            error_analytics_service.track_error(ctx.agent_id, command_name, res.error_code, res.message)
+            return res
+
+ai_gateway = AIGateway()
+e_exception
             from core.governance.error_analytics_service import error_analytics_service
             res = handle_omnicore_exception(e)
             error_analytics_service.track_error(ctx.agent_id, command_name, res.error_code, res.message)
