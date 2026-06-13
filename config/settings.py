@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -12,6 +13,17 @@ class Config:
     
     # Internal Registry DB
     INTERNAL_DB_URL = os.getenv("OMNICORE_INTERNAL_DB_URL", "sqlite:///omnicore_registry.db")
+    
+    # Parse DB URL for easy access to components
+    try:
+        parsed = urlparse(INTERNAL_DB_URL)
+        DB_HOST = parsed.hostname or "localhost"
+        DB_PORT = parsed.port or (5432 if "postgresql" in INTERNAL_DB_URL else 0)
+        DB_USER = parsed.username or "postgres"
+        DB_PASSWORD = parsed.password or ""
+        DB_NAME = parsed.path.lstrip('/') or "omnicore_registry"
+    except Exception:
+        DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME = "localhost", 5432, "postgres", "", "omnicore_registry"
     
     # Redis Cache
     REDIS_URL = os.getenv("REDIS_URL")

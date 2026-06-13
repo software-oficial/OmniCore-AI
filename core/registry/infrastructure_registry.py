@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Dict, Any, Optional, Tuple
 from infra.db.core_db_manager import core_db_manager
 from infra.cache.redis_manager import cache_manager
@@ -10,20 +11,30 @@ class InfrastructureRegistry:
     """
     The Master Registry for OmniCore-AI.
     Resolves Agent identities into Application infrastructure configurations.
-    Uses Redis for global distributed caching to support horizontal scaling.
+    Uses a tiered caching strategy: L1 (Local Memory) -> L2 (Redis) -> L3 (Core DB).
     """
     def __init__(self):
-        # Local cache removed in favor of cache_manager (Redis)
-        pass
+        # L1 Cache: Local memory for extreme speed (TTL based on simple timestamp)
+        self._l1_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+        self.L1_TTL = 300  # 5 minutes
 
     def get_app_context(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """
         Resolves the primary application associated with an agent.
         Returns the app_id, db_config, and tier.
         """
-        # 1. Try to retrieve from Redis Cache
+        now = time.time()
+
+        # 1. Try L1 Cache (Local Memory)
+        if agent_id in self._l1_cache:
+            timestamp, context = self._l1_cache[agent_id]
+            if now - timestamp < self.L1_TTL:
+                return context
+
+        # 2. Try L2 Cache (Redis)
         cached_context = cache_manager.get_session_context(agent_id)
         if cached_context:
+            self._l1_cache[agent_id] = (now, cached_context)
             return cached_context
 
         query = """
@@ -56,14 +67,22 @@ class InfrastructureRegistry:
                 "tier": result.tier
             }
             
-            # Store in Redis for future requests (TTL: 1 hour)
+            # Store in Redis (L2) and Local Memory (L1)
             cache_manager.set_session_context(agent_id, config, ttl=3600)
+            self._l1_cache[agent_id] = (now, config)
             return config
         except Exception as e:
             logger.error(f"Error resolving app context for agent {agent_id}: {e}")
             return None
 
+    def _invalidate_cache(self, agent_id: str):
+        """Removes agent from all cache tiers."""
+        self._l1_cache.pop(agent_id, None)
+        if cache_manager.client:
+            cache_manager.client.delete(f"session:{agent_id}")
+
     def get_app_by_id(self, app_id: str) -> Optional[Dict[str, Any]]:
+
         """Retrieves the configuration of a specific app by its ID."""
         query = """
             SELECT a.name, ai.db_host, ai.db_port, ai.db_user, ai.db_password, ai.db_name, ai.tier

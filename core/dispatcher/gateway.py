@@ -37,8 +37,24 @@ class AIGateway:
         start_time = time.perf_counter()
         traces = {}
         
+        # 0. Immediate Sanity Filter (Anti-Absurd Data)
+        # Rejects negative values for critical business fields regardless of mode
+        if params:
+            sanity_keywords = {'price', 'quantity', 'amount', 'total', 'stock', 'cost'}
+            for key, value in params.items():
+                if any(kw in key.lower() for kw in sanity_keywords):
+                    try:
+                        if float(value) < 0:
+                            return ServiceResponse.error_res(
+                                message=f"🚫 SANITY ERROR: Field '{key}' cannot have a negative value ({value}).",
+                                error_code="INVALID_DATA_RANGE"
+                            )
+                    except (ValueError, TypeError):
+                        pass
+
         # 1. Token Validation
         t_auth_start = time.perf_counter()
+
         is_valid, mode, agent_id = token_manager.validate_token(token)
         traces['auth_ms'] = (time.perf_counter() - t_auth_start) * 1000
         
@@ -73,8 +89,11 @@ class AIGateway:
             tier=app_context["tier"]
         )
 
+        logger.info(f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}")
+
         # 3. Execution Path
         t_exec_start = time.perf_counter()
+
         if flow:
             # BATCH EXECUTION MODE
             result = await self._handle_batch_execution(flow, ctx)

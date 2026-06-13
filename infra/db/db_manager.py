@@ -32,19 +32,6 @@ class DynamicDbManager:
         self._semaphore = asyncio.Semaphore(self.GLOBAL_MAX_CONCURRENCY)
 
     def _create_engine(self, db_config: Dict[str, Any], pool_size: int = 5, max_overflow: int = 10):
-        # --- Simulation Safeguard ---
-        # Prevent falling back to default local postgres if we are in the sim environment
-        # Since server is running on host and DB in Docker, we use localhost:5435 (mapped port)
-        if db_config.get('host') == 'localhost' and db_config.get('user') == 'postgres':
-            logger.warning("⚠️ Simulation Safeguard: Overriding default localhost:5432 config to localhost:5435")
-            db_config = {
-                "host": "localhost",
-                "port": 5435,
-                "user": "omnicore_user",
-                "password": "omnicore_password",
-                "dbname": "business_test"
-            }
-        
         url = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['dbname']}"
         
         # Log the connection string (masking password for security)
