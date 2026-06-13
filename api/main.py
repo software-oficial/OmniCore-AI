@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from api.routes import gateway, infra, agent, admin, auth
+from api.routes import gateway, infra, agent, admin, auth, dev
 from infra.db.db_manager import db_manager
 from infra.logging.omni_logger import get_logger
 from config.settings import config
@@ -36,12 +36,18 @@ register_stock_commands()
 register_sales_commands()
 register_whatsapp_commands()
 
+from core.system_service import system_service
+from core.dispatcher.gateway import ai_gateway
+ai_gateway.register_command("system.deploy_schema", system_service.deploy_schema, description="Deploys the database schema blueprints to the client's external DB.")
+
 # 2. Include Modular Routes
 app.include_router(gateway.router)
+
 app.include_router(infra.router)
 app.include_router(agent.router)
 app.include_router(admin.router)
 app.include_router(auth.router)
+app.include_router(dev.router)
 
 # 3. Serve Frontend Panel
 app.mount("/static", StaticFiles(directory="static"), name="static")

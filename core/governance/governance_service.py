@@ -18,7 +18,13 @@ class GovernanceService:
         # Cache for tiers hierarchy to avoid frequent DB hits
         self._tier_hierarchy_cache: Dict[str, int] = {}
 
+    def clear_tier_cache(self):
+        """Invalidates the local tier hierarchy cache."""
+        self._tier_hierarchy_cache.clear()
+        logger.info("Governance tier cache cleared.")
+
     def _get_tier_level(self, tier_name: str) -> int:
+
         """Resolves the numeric level of a tier from cache or DB."""
         tier_name = tier_name.upper()
         if tier_name in self._tier_hierarchy_cache:
