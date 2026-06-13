@@ -1,7 +1,7 @@
 import requests
 import logging
 from typing import Dict, Any, Optional
-from core.dispatcher.core_types import ServiceResponse
+from core.dispatcher.core_types import ServiceResponse, CoreContext
 
 logger = logging.getLogger("OmniCore.MercadoPagoService")
 
