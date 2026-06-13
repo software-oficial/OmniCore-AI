@@ -97,15 +97,23 @@ class AIGateway:
 
         logger.info(f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}")
 
-        # --- BLINDAJE: Type Validation ---
-        # Validate params against the registered schema before execution
+        # --- BLINDAJE: Type Validation & Parameter Filtering ---
+        filtered_params = params
         if command_name and params:
             cmd_metadata = self.loader.get_metadata(command_name)
             schema = cmd_metadata.get('params_schema', {})
+            
             if isinstance(schema, dict):
+                # 1. Strict Type Validation
                 is_valid_type, type_err = type_checker.validate_types(params, schema)
                 if not is_valid_type:
                     return type_err
+                
+                # 2. Strict Parameter Filtering (Anti-Mass Assignment)
+                # Only allow keys that are explicitly defined in the schema
+                filtered_params = {k: v for k, v in params.items() if k in schema}
+                if len(filtered_params) != len(params):
+                    logger.warning(f"⚠️ Mass Assignment Attempt blocked for {command_name}. Dropped keys: {set(params.keys()) - set(schema.keys())}")
 
         # 3. Execution Path
         t_exec_start = time.perf_counter()
@@ -116,11 +124,11 @@ class AIGateway:
             cmd_for_telemetry = "gateway.batch"
         elif mode == "LEARNING":
             # SINGLE COMMAND - LEARNING
-            result = await self._handle_learning_mode(command_name, ctx, params)
+            result = await self._handle_learning_mode(command_name, ctx, filtered_params)
             cmd_for_telemetry = command_name
         else:
             # SINGLE COMMAND - PRODUCTION
-            result = await self._handle_production_mode(command_name, ctx, params)
+            result = await self._handle_production_mode(command_name, ctx, filtered_params)
             cmd_for_telemetry = command_name
         traces['exec_ms'] = (time.perf_counter() - t_exec_start) * 1000
         
