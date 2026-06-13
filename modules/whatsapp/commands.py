@@ -1,9 +1,11 @@
 import logging
+import logging
 from core.dispatcher.gateway import ai_gateway
 from .whatsapp_service import whatsapp_service
 from .bot_engine import bot_engine
 from .state_manager import state_manager
 from .menu_manager import menu_manager
+from . import bot_commands
 
 logger = logging.getLogger("OmniCore.WhatsappCommands")
 
@@ -17,6 +19,33 @@ def register_whatsapp_commands():
         "bot.process_message", bot_engine.process_message, 
         description="Main entry point for bot interactions. Processes a message and returns a response.",
         params_schema={"user_id": "string", "message": "string", "context": "string"}
+    )
+
+    # Bot Orchestration (NEW: Fixing State Persistence)
+    ai_gateway.register_command(
+        "bot.navigate", bot_commands.bot_navigate, 
+        description="Changes the current menu state for a user and returns the new menu content.",
+        params_schema={"sender": "string", "menu_name": "string"}
+    )
+    ai_gateway.register_command(
+        "bot.welcome", bot_commands.bot_welcome, 
+        description="Initiates conversation and sets state to main menu.",
+        params_schema={"sender": "string"}
+    )
+    ai_gateway.register_command(
+        "bot.show_menu", bot_commands.bot_show_menu, 
+        description="Displays a menu without changing state.",
+        params_schema={"menu_name": "string"}
+    )
+    ai_gateway.register_command(
+        "bot.set_human_mode", bot_commands.bot_set_human_mode, 
+        description="Activates human intervention mode for a phone number.",
+        params_schema={"phone": "string"}
+    )
+    ai_gateway.register_command(
+        "bot.set_bot_mode", bot_commands.bot_set_bot_mode, 
+        description="Returns control to the bot for a phone number.",
+        params_schema={"phone": "string"}
     )
 
     # State Management
@@ -39,12 +68,12 @@ def register_whatsapp_commands():
     # Menu Management
     ai_gateway.register_command(
         "bot.menu.list", menu_manager.get_all_menus, 
-        description="Returns all available conversation menus and their structures.",
+        description="Returns all configured menus in the tenant DB.",
         params_schema={}
     )
     ai_gateway.register_command(
         "bot.menu.get", menu_manager.get_menu_by_name, 
-        description="Retrieves the structure of a specific menu by its name.",
+        description="Retrieves the structure of a specific menu by name.",
         params_schema={"menu_name": "string"}
     )
 
@@ -56,4 +85,5 @@ def register_whatsapp_commands():
     )
 
     logger.info("💬 WhatsApp and Bot commands registered successfully with full metadata.")
+
 
