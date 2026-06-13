@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
+from typing import List, Dict, Any
 from pydantic import BaseModel
 from infra.db.core_db_manager import core_db_manager
 from core.auth.token_manager import token_manager
@@ -16,6 +16,54 @@ class RegisterResponse(BaseModel):
     app_id: str
     token: str
     message: str
+
+@router.get("/me")
+async def get_my_agent(authorization: str = Header(None)):
+    """
+    Retrieves the agent associated with the authenticated user.
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    user_id = authorization.replace("Bearer ", "")
+    try:
+        result = core_db_manager.execute_raw(
+            "SELECT id, name FROM agents WHERE owner_user_id = :uid LIMIT 1",
+            {"uid": user_id}
+        )
+        agent = result.fetchone()
+        if not agent:
+            raise HTTPException(status_code=404, detail="No agent found for this user")
+        return {"agent_id": agent[0], "name": agent[1]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve agent: {str(e)}")
+
+@router.get("/projects", response_model=List[Dict[str, Any]])
+async def list_projects(agent_id: str):
+    """
+    Lists all projects (apps) associated with a specific agent.
+    """
+    try:
+        # Find all app_ids mapped to this agent
+        mappings = core_db_manager.execute_raw(
+            "SELECT app_id FROM agent_app_mapping WHERE agent_id = :aid",
+            {"aid": agent_id}
+        ).fetchall()
+        
+        app_ids = [m[0] for m in mappings]
+        
+        if not app_ids:
+            return []
+            
+        # Get app details
+        apps = core_db_manager.execute_raw(
+            "SELECT id, name FROM apps WHERE id IN :ids",
+            {"ids": tuple(app_ids)}
+        ).fetchall()
+        
+        return [{"id": a[0], "name": a[1]} for a in apps]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve projects: {str(e)}")
 
 @router.post("/register", response_model=RegisterResponse)
 async def register_agent(request: RegisterRequest):

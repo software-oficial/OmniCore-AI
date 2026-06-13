@@ -75,7 +75,7 @@ class CoreDbManager:
         CREATE TABLE IF NOT EXISTS api_tokens (
             token_hash TEXT PRIMARY KEY,
             user_id TEXT REFERENCES users(id),
-            agent_id TEXT REFERENCES agents(id),
+            agent_id TEXT,
             token_name VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_used TIMESTAMP

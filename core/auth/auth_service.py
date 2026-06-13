@@ -112,11 +112,17 @@ class AuthService:
     def list_user_tokens(self, user_id: str) -> ServiceResponse:
         """Lists all tokens associated with a user."""
         try:
-            tokens = core_db_manager.execute_raw(
+            result = core_db_manager.execute_raw(
                 "SELECT token_name, agent_id, created_at FROM api_tokens WHERE user_id = :uid",
                 {"uid": user_id}
-            ).fetchall()
-            return ServiceResponse.success_res(data=[dict(t) for t in tokens], message="Tokens retrieved.")
+            )
+            rows = result.fetchall()
+            # Convert tuple to dict explicitly to avoid dictionary update sequence error
+            tokens = [
+                {"token_name": row[0], "agent_id": row[1], "created_at": str(row[2])} 
+                for row in rows
+            ]
+            return ServiceResponse.success_res(data=tokens, message="Tokens retrieved.")
         except Exception as e:
             return ServiceResponse.error_res(f"Error retrieving tokens: {str(e)}", "TOKEN_ERROR")
 

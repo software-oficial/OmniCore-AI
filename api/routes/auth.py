@@ -18,6 +18,7 @@ class LoginRequest(BaseModel):
 class TokenCreateRequest(BaseModel):
     agent_id: str
     token_name: str
+    mode: str = "PRODUCTION"
 
 class TokenResponse(BaseModel):
     token_name: str

@@ -110,7 +110,6 @@
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
         }
 
-        /* Registration Form */
         .form-group { margin-bottom: 1.5rem; }
         label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-weight: 500; }
         input {
@@ -148,7 +147,6 @@
         .result-success { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid var(--success); }
         .result-error { background: rgba(239, 68, 68, 0.1); color: var(--error); border: 1px solid var(--error); }
 
-        /* Docs & Blueprint */
         .blueprint-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -191,6 +189,33 @@
             color: #94a3b8;
             font-size: 0.9rem;
         }
+
+        .token-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #0f172a;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-top: 10px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .copy-btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
@@ -212,27 +237,14 @@
         <!-- Welcome Section -->
         <div id="welcome" class="section active">
             <h1>El Sistema Operativo de tu Negocio</h1>
-            <p>OmniCore-AI es un Meta-Orquestador diseñado para que Agentes de IA desplieguen y gestionen infraestructuras de negocio con cero fricción. Actúa como el puente inteligente entre la inteligencia artificial y la persistencia de datos real.</p>
-            
+            <p>OmniCore-AI es un Meta-Orquestador diseñado para que Agentes de IA desplieguen y gestionen infraestructuras de negocio con cero fricción.</p>
             <div class="card">
                 <h2>🌟 ¿Qué puedes hacer aquí?</h2>
                 <div class="blueprint-grid">
-                    <div class="step-card">
-                        <strong>📦 Gestión de Stock</strong><br>
-                        Añade productos, actualiza inventarios y consulta existencias en tiempo real.
-                    </div>
-                    <div class="step-card">
-                        <strong>💰 Ventas y Caja</strong><br>
-                        Procesa transacciones, gestiona el cierre de caja y rastrea ingresos.
-                    </div>
-                    <div class="step-card">
-                        <strong>💬 Automatización WhatsApp</strong><br>
-                        Crea menús interactivos y flujos de conversación automatizados.
-                    </div>
-                    <div class="step-card">
-                        <strong>🛠️ Infraestructura Dinámica</strong><br>
-                        Despliega bases de datos externas y conéctalas al Core sin tocar una línea de código.
-                    </div>
+                    <div class="step-card"><strong>📦 Gestión de Stock</strong><br>Añade productos y consulta existencias.</div>
+                    <div class="step-card"><strong>💰 Ventas y Caja</strong><br>Procesa transacciones y rastrea ingresos.</div>
+                    <div class="step-card"><strong>💬 WhatsApp</strong><br>Crea flujos de conversación automatizados.</div>
+                    <div class="step-card"><strong>🛠️ Infraestructura</strong><br>Despliega bases de datos dinámicas.</div>
                 </div>
             </div>
             <button onclick="showSection('register')" style="font-size: 1.2rem; padding: 1rem 2.5rem;">Empezar Ahora <i class="fas fa-arrow-right"></i></button>
@@ -292,87 +304,69 @@
                 <button onclick="registerAgent()">Crear Identidad y Sandbox</button>
                 <div id="regResult" class="result-box"></div>
             </div>
+            <div class="card">
+                <h2>🚀 Mis Proyectos Sandbox</h2>
+                <div id="sandboxProjectsList" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                    <p style="color: var(--text-muted);">Cargando proyectos...</p>
+                </div>
+            </div>
         </div>
 
         <!-- Docs Section -->
         <div id="docs" class="section">
             <h1>Documentación Técnica</h1>
-            <p>La API de OmniCore-AI es <strong>Command-Driven</strong>. No llamas a funciones, ejecutas comandos.</p>
-            
+            <p>La API de OmniCore-AI es <strong>Command-Driven</strong>.</p>
             <div class="card">
                 <h2><i class="fas fa-bolt"></i> El Gateway Principal</h2>
-                <p>Todos los comandos de negocio pasan por un único punto de entrada.</p>
                 <div class="doc-item">
                     <span class="method-badge">POST</span> <code>/api/gateway/execute</code>
-                    <p>Envía un comando y recibe una respuesta estandarizada.</p>
-                    <div class="example-block">
-Header: Authorization: Bearer LEARNING_abc123...
-Body:
-{
-  "command": "stock.add",
-  "params": {
-    "name": "iPhone 15",
-    "price": 999.99,
-    "quantity": 5
-  }
-}
-                    </div>
+                    <div class="example-block">Header: Authorization: Bearer TOKEN
+Body: {"command": "stock.add", "params": {}}</div>
                 </div>
-            </div>
-
-            <div class="card">
-                <h2>📚 Catálogo de Comandos</h2>
-                <p>Consulta el <code>/api/agent/manifest</code> para ver todos los comandos disponibles.</p>
-                <ul>
-                    <li><strong>stock.add</strong>: Agrega productos al inventario.</li>
-                    <li><strong>stock.list</strong>: Lista todos los productos disponibles.</li>
-                    <li><strong>sales.process</strong>: Registra una nueva venta.</li>
-                    <li><strong>whatsapp.process</strong>: Gestiona la lógica de un mensaje entrante.</li>
-                </ul>
             </div>
         </div>
 
         <!-- Blueprint Section -->
         <div id="blueprint" class="section">
             <h1>Blueprint para Frontend</h1>
-            <p>Si estás construyendo una interfaz para OmniCore-AI, sigue este plan arquitectónico:</p>
-            
             <div class="card">
-                <h2>1. Gestión de Estado de Autenticación</h2>
-                <p>Almacena el token obtenido en el registro en <code>localStorage</code> o <code>sessionStorage</code>.</p>
-                <code>const token = localStorage.getItem('omnicore_token');</code>
+                <h2>1. Gestión de Estado</h2>
+                <code>const token = localStorage.getItem('omnicore_auth_token');</code>
             </div>
+        </div>
 
+        <!-- Tokens Section -->
+        <div id="tokens" class="section">
+            <h1>Gestión de Tokens de API</h1>
             <div class="card">
-                <h2>2. Patrón de Comunicación (Command Pattern)</h2>
-                <p>Crea un servicio centralizado de API que envuelva todas las llamadas al Gateway.</p>
-                <div class="example-block">
-async function executeCommand(command, params = {}) {
-    const response = await fetch('/api/gateway/execute', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ command, params })
-    });
-    return response.json();
-}
+                <h2>Generar Nuevo Token</h2>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <label>Seleccionar Proyecto / App</label>
+                    <select id="projectSelector" style="width: 100%; padding: 0.8rem; background: #0f172a; border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 1rem;">
+                        <option value="">Cargando proyectos...</option>
+                    </select>
+                    <p id="projectHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">Selecciona un proyecto para vincular el token.</p>
                 </div>
+
+                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                    <div style="flex: 1;">
+                        <label>Tipo de Token</label>
+                        <select id="tokenMode" style="width: 100%; padding: 0.8rem; background: #0f172a; border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 1rem;">
+                            <option value="PRODUCTION">🚀 Producción (Persistente)</option>
+                            <option value="LEARNING">🧪 Learning (Efímero - 24h)</option>
+                        </select>
+                    </div>
+                    <div style="margin-top: 1.8rem;">
+                        <button onclick="createToken()" style="height: 45px;">Generar Token</button>
+                    </div>
+                </div>
+                
+                <div id="tokenResult" class="result-box"></div>
             </div>
-
             <div class="card">
-                <h2>3. Manejo de Respuestas (ServiceResponse)</h2>
-                <p>El sistema siempre responde con el mismo formato, facilitando el manejo de errores:</p>
-                <div class="example-block">
-{
-  "success": true/false,
-  "data": { ... },
-  "message": "Descripción del resultado",
-  "error_code": "CODE_XYZ",
-  "latency_ms": 12.4
-}
-                </div>
+                <h2>Tokens Activos</h2>
+                <div id="tokensList" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 1rem;"></div>
             </div>
         </div>
 
@@ -392,7 +386,7 @@ async function executeCommand(command, params = {}) {
                     <label>Parámetros (JSON)</label>
                     <input type="text" id="testParams" value="{}">
                 </div>
-                <button onclick="testApi()">Ejecutar en Producción</button>
+                <button onclick="testApi()">Ejecutar</button>
                 <div id="consoleResult" class="result-box"></div>
             </div>
         </div>
@@ -403,28 +397,31 @@ async function executeCommand(command, params = {}) {
         let authToken = localStorage.getItem('omnicore_auth_token');
 
         function updateAuthUI() {
-            const loginBtn = document.getElementById('nav-login');
+            const nav = document.getElementById('main-nav');
+            const main = document.getElementById('main-content');
             const logoutBtn = document.getElementById('nav-logout');
             const protectedLinks = document.querySelectorAll('.nav-link.protected');
 
             if (authToken) {
-                loginBtn.classList.add('hidden');
+                nav.style.display = 'flex';
+                main.style.display = 'block';
                 logoutBtn.classList.remove('hidden');
                 protectedLinks.forEach(l => l.classList.remove('hidden'));
+                showSection('welcome');
             } else {
-                loginBtn.classList.remove('hidden');
+                nav.style.display = 'none';
+                main.style.display = 'block';
                 logoutBtn.classList.add('hidden');
                 protectedLinks.forEach(l => l.classList.add('hidden'));
+                showSection('login');
             }
         }
 
         function showSection(id) {
-            if (id !== 'welcome' && id !== 'register' && id !== 'login' && id !== 'user-register') {
-                if (!authToken) {
-                    alert('Debes iniciar sesión para acceder a esta sección');
-                    showSection('login');
-                    return;
-                }
+            const publicSections = ['welcome', 'register', 'login', 'user-register'];
+            if (!publicSections.includes(id) && !authToken) {
+                showSection('login');
+                return;
             }
 
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -433,16 +430,6 @@ async function executeCommand(command, params = {}) {
             const section = document.getElementById(id);
             if (section) section.classList.add('active');
 
-            // Actualizar el estado activo del menú de navegación de forma segura
-            const links = document.querySelectorAll('.nav-link');
-            links.forEach(l => {
-                if (l.getAttribute('onclick')?.includes(`'${id}'`)) {
-                    l.classList.add('active');
-                }
-            });
-        }
-
-            
             const links = document.querySelectorAll('.nav-link');
             links.forEach(l => {
                 if (l.getAttribute('onclick')?.includes(`'${id}'`)) {
@@ -455,7 +442,7 @@ async function executeCommand(command, params = {}) {
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPass').value;
             const resultDiv = document.getElementById('loginResult');
-            if(!email || !password) return alert('Por favor completa todos los campos');
+            if(!email || !password) return alert('Complete todos los campos');
 
             resultDiv.style.display = 'block';
             resultDiv.className = 'result-box';
@@ -468,14 +455,12 @@ async function executeCommand(command, params = {}) {
                     body: JSON.stringify({ email, password })
                 });
                 const data = await response.json();
-                
                 if(response.ok) {
                     authToken = data.data.user_id; 
                     localStorage.setItem('omnicore_auth_token', authToken);
                     resultDiv.className = 'result-box result-success';
                     resultDiv.innerText = '✅ Login exitoso. Redirigiendo...';
                     updateAuthUI();
-                    setTimeout(() => showSection('welcome'), 1000);
                 } else {
                     throw new Error(data.detail || 'Credenciales incorrectas');
                 }
@@ -489,7 +474,7 @@ async function executeCommand(command, params = {}) {
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPass').value;
             const resultDiv = document.getElementById('userRegResult');
-            if(!email || !password) return alert('Por favor completa todos los campos');
+            if(!email || !password) return alert('Complete todos los campos');
 
             resultDiv.style.display = 'block';
             resultDiv.className = 'result-box';
@@ -502,13 +487,12 @@ async function executeCommand(command, params = {}) {
                     body: JSON.stringify({ email, password })
                 });
                 const data = await response.json();
-                
                 if(response.ok) {
                     resultDiv.className = 'result-box result-success';
-                    resultDiv.innerHTML = '✅ Cuenta creada con éxito. Ahora puedes iniciar sesión.';
+                    resultDiv.innerHTML = '✅ Cuenta creada. Inicie sesión ahora.';
                     setTimeout(() => showSection('login'), 2000);
                 } else {
-                    throw new Error(data.detail || 'Error al registrar usuario');
+                    throw new Error(data.detail || 'Error al registrar');
                 }
             } catch (e) {
                 resultDiv.className = 'result-box result-error';
@@ -516,34 +500,52 @@ async function executeCommand(command, params = {}) {
             }
         }
 
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Copiado al portapapeles');
+            }).catch(err => {
+                console.error('Error al copiar: ', err);
+            });
+        }
+
         async function createToken() {
-            const name = document.getElementById('tokenName').value;
-            const agentId = document.getElementById('tokenAgentId').value;
+            const agentId = localStorage.getItem('omnicore_last_agent_id');
+            const projectId = document.getElementById('projectSelector').value;
             const mode = document.getElementById('tokenMode').value;
             const resultDiv = document.getElementById('tokenResult');
-            if(!name || !agentId) return alert('Por favor completa todos los campos');
+            
+            if(!agentId || !projectId) return alert('Selecciona un proyecto válido');
+
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[-T:.Z]/g, '').slice(0, 12);
+            const autoName = `TOKEN_${timestamp}_${mode}`;
 
             resultDiv.style.display = 'block';
             resultDiv.className = 'result-box';
-            resultDiv.innerText = 'Generando token...';
+            resultDiv.innerText = 'Generando token para el proyecto...';
 
             try {
                 const response = await fetch(`${API_BASE}/auth/tokens/create`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({ agent_id: agentId, token_name: name, mode: mode })
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                    body: JSON.stringify({ agent_id: agentId, token_name: autoName, mode: mode })
                 });
                 const data = await response.json();
-                
                 if(response.ok) {
+                    const token = data.data.api_token;
                     resultDiv.className = 'result-box result-success';
-                    resultDiv.innerHTML = `<strong>✅ Token Generado</strong><br>Token: <code>${data.data.api_token}</code><br>Modo: ${data.data.mode}`;
+                    resultDiv.innerHTML = `
+                        <strong>✅ Token Generado (${mode}):</strong>
+                        <div class="token-display">
+                            <code>${token}</code>
+                            <button class="copy-btn" onclick="copyToClipboard('${token}')">Copiar</button>
+                        </div>
+                        <p style="font-size:0.8rem; margin-top:5px">Vinculado a Proyecto: <code>${projectId}</code></p>
+                        <p style="font-size:0.8rem">Nombre asignado: <code>${autoName}</code></p>
+                    `;
                     loadTokens();
                 } else {
-                    throw new Error(data.detail || 'Error al generar token');
+                    throw new Error(data.detail || 'Error al generar');
                 }
             } catch (e) {
                 resultDiv.className = 'result-box result-error';
@@ -558,25 +560,16 @@ async function executeCommand(command, params = {}) {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
                 const data = await response.json();
-                
                 if(response.ok) {
                     const tokens = data.data;
-                    if(tokens.length === 0) {
-                        listDiv.innerHTML = '<p style="color: var(--text-muted);">No tienes tokens de producción activos.</p>';
-                        return;
-                    }
-                    
-                    listDiv.innerHTML = tokens.map(t => `
+                    listDiv.innerHTML = tokens.length ? tokens.map(t => `
                         <div class="step-card" style="display: flex; justify-content: space-between; align-items: center; border-left-color: var(--accent);">
-                            <div>
-                                <strong>${t.token_name}</strong><br>
-                                <small style="color: var(--text-muted);">Agente: ${t.agent_id}</small>
-                            </div>
+                            <div><strong>${t.token_name}</strong><br><small>${t.agent_id}</small></div>
                             <button onclick="revokeToken('${t.token_hash || 'UNKNOWN'}')" style="background: var(--error); padding: 0.5rem 1rem; font-size: 0.8rem;">Revocar</button>
                         </div>
-                    `).join('');
+                    `).join('') : '<p style="color: var(--text-muted);">Sin tokens activos.</p>';
                 } else {
-                    throw new Error(data.detail || 'Error al cargar tokens');
+                    throw new Error(data.detail || 'Error al cargar');
                 }
             } catch (e) {
                 listDiv.innerHTML = `<p class="result-error" style="display: block;">Error: ${e.message}</p>`;
@@ -584,47 +577,83 @@ async function executeCommand(command, params = {}) {
         }
 
         async function revokeToken(hash) {
-            if(!confirm('¿Estás seguro de que deseas revocar este token?')) return;
+            if(!confirm('¿Revocar este token?')) return;
             try {
                 const response = await fetch(`${API_BASE}/auth/tokens/${hash}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
-                if(response.ok) {
-                    alert('Token revocado con éxito');
-                    loadTokens();
-                } else {
-                    alert('Error al revocar token');
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
+                if(response.ok) { alert('Revocado'); loadTokens(); }
+            } catch (e) { alert('Error: ' + e.message); }
         }
 
-        // Modificar showSection para cargar tokens cuando se entra a la sección
         const originalShowSection = showSection;
         showSection = function(id) {
             originalShowSection(id);
-            if(id === 'tokens') loadTokens();
+            if(id === 'tokens') {
+                loadTokens();
+                loadProjects();
+            }
+            if(id === 'register') {
+                loadProjects();
+            }
         };
+
+        async function loadProjects() {
+            const agentId = localStorage.getItem('omnicore_last_agent_id');
+            const selector = document.getElementById('projectSelector');
+            const sandboxList = document.getElementById('sandboxProjectsList');
+            
+            if(!agentId) {
+                if(selector) selector.innerHTML = '<option value="">No hay agente registrado</option>';
+                if(sandboxList) sandboxList.innerHTML = '<p style="color: var(--text-muted);">Crea un agente primero para ver tus proyectos.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/agent/projects?agent_id=${agentId}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                if(response.ok) {
+                    const projects = data;
+                    if(projects.length === 0) {
+                        if(selector) selector.innerHTML = '<option value="">Ningún proyecto encontrado</option>';
+                        if(sandboxList) sandboxList.innerHTML = '<p style="color: var(--text-muted);">Aún no has creado proyectos.</p>';
+                    } else {
+                        if(selector) selector.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                        if(sandboxList) {
+                            sandboxList.innerHTML = projects.map(p => `
+                                <div class="step-card" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div><strong>${p.name}</strong><br><small>ID: ${p.id}</small></div>
+                                    <button class="copy-btn" onclick="copyToClipboard('${p.id}')">Copiar ID</button>
+                                </div>
+                            `).join('');
+                        }
+                    }
+                } else {
+                    throw new Error(data.detail || 'Error al cargar proyectos');
+                }
+            } catch (e) {
+                if(selector) selector.innerHTML = `<option value="">Error al cargar proyectos</option>`;
+                if(sandboxList) sandboxList.innerHTML = `<p class="result-error" style="display: block;">Error: ${e.message}</p>`;
+                console.error('Error projects:', e);
+            }
+        }
 
         function logout() {
             localStorage.removeItem('omnicore_auth_token');
             authToken = null;
             updateAuthUI();
-            showSection('welcome');
         }
 
         async function registerAgent() {
             const name = document.getElementById('agentName').value;
             const platform = document.getElementById('platformName').value;
             const resultDiv = document.getElementById('regResult');
-            if(!name || !platform) return alert('Por favor completa todos los campos');
-
+            if(!name || !platform) return alert('Complete los campos');
             resultDiv.style.display = 'block';
-            resultDiv.className = 'result-box';
-            resultDiv.innerText = 'Configurando entorno de Sandbox...';
-
+            resultDiv.innerText = 'Configurando...';
             try {
                 const response = await fetch(`${API_BASE}/agent/register`, {
                     method: 'POST',
@@ -632,13 +661,29 @@ async function executeCommand(command, params = {}) {
                     body: JSON.stringify({ name, platform_name: platform })
                 });
                 const data = await response.json();
-                
                 if(response.ok) {
+                    localStorage.setItem('omnicore_last_agent_id', data.agent_id);
                     resultDiv.className = 'result-box result-success';
-                    resultDiv.innerHTML = `<strong>✅ Entorno Listo</strong><br>Agent ID: ${data.agent_id}<br>App ID: ${data.app_id}<br>Token: <code>${data.token}</code><br><br>Copia el token en la Consola de Test.`;
-                } else {
-                    throw new Error(data.detail || 'Error desconocido');
-                }
+                    resultDiv.innerHTML = `
+                        <strong>✅ Identidad Creada</strong>
+                        <div style="margin-top:10px">
+                            <label style="font-size:0.8rem">Agent ID:</label>
+                            <div class="token-display">
+                                <code>${data.agent_id}</code>
+                                <button class="copy-btn" onclick="copyToClipboard('${data.agent_id}')">Copiar</button>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px">
+                            <label style="font-size:0.8rem">Token de Acceso:</label>
+                            <div class="token-display">
+                                <code>${data.token}</code>
+                                <button class="copy-btn" onclick="copyToClipboard('${data.token}')">Copiar</button>
+                            </div>
+                        </div>
+                        <p style="font-size:0.8rem; margin-top:10px; color:var(--accent)">El ID ha sido guardado automáticamente para generar tokens.</p>
+                    `;
+                    loadProjects();
+                } else { throw new Error(data.detail); }
             } catch (e) {
                 resultDiv.className = 'result-box result-error';
                 resultDiv.innerText = 'Error: ' + e.message;
@@ -650,25 +695,16 @@ async function executeCommand(command, params = {}) {
             const command = document.getElementById('testCommand').value;
             const paramsRaw = document.getElementById('testParams').value;
             const resultDiv = document.getElementById('consoleResult');
-
-            if(!token) return alert('Ingresa tu token primero');
-
+            if(!token) return alert('Token requerido');
             resultDiv.style.display = 'block';
-            resultDiv.className = 'result-box';
             resultDiv.innerText = 'Ejecutando...';
-
             try {
-                const params = JSON.parse(paramsRaw);
                 const response = await fetch(`${API_BASE}/gateway/execute`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ command, params })
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ command, params: JSON.parse(paramsRaw) })
                 });
                 const data = await response.json();
-                
                 resultDiv.className = 'result-box result-success';
                 resultDiv.innerText = JSON.stringify(data, null, 2);
             } catch (e) {
