@@ -108,7 +108,7 @@ class AdminService:
         except Exception as e:
             return ServiceResponse.error_res(f"Plan creation failed: {str(e)}", "PLAN_ERROR")
 
-    def map_command_to_plan(self, params: Dict[str, Any]) -> ServiceResponse:
+    def map_command_to_plan(self, session=None, context=None, **params) -> ServiceResponse:
         try:
             core_db_manager.execute_raw(
                 """
@@ -116,7 +116,7 @@ class AdminService:
                 VALUES (:cmd, :tier) 
                 ON CONFLICT(command_name) DO UPDATE SET min_tier = :tier
                 """,
-                {"cmd": params['command_name'], "tier": params['min_//S_T_R_I_N_G_E_R_R_O_S_S_D_E_T_E_C_T_E_D_C_O_R_R_E_C_T_I_N_G_N_O_W_S_S_S_H_A_T_S_T_A_R_T_H_E_R_E_D_S_I_G_N_L_A_T_S_L_I_S_T_H_E_T_O_K_E_N_S_S_Y_S_T_E_M_C_L_E_A_N_C_O_D_E_I_S_R_E_A_D_Y_P_U_S_H_T_O_R_A_I_L_W_A_Y,tier].upper()}
+                {"cmd": params['command_name'], "tier": params['min_tier'].upper()}
             )
             return ServiceResponse.success_res(message=f"Command {params['command_name']} mapped to {params['min_tier']}.")
         except Exception as e:
