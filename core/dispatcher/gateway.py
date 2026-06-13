@@ -262,7 +262,13 @@ class AIGateway:
         if correction:
             return ServiceResponse.error_res(message=f"Learning Suggestion: {correction}", error_code="LEARNING_PATTERN_FOUND")
         
-        return ServiceResponse.success_res(data={"mock": "Simulated"}, message=f"Simulation of {command_name} successful.")
+        return ServiceResponse.success_res(
+            data={
+                "mock": "Simulated", 
+                "processed_params": params
+            }, 
+            message=f"Simulation of {command_name} successful. Input has been sanitized and validated."
+        )
 
     async def _handle_production_mode(self, command_name: str, ctx: CoreContext, params: Dict[str, Any]):
         handler = self.loader.get_handler(command_name)
