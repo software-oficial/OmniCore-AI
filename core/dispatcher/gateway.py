@@ -22,15 +22,16 @@ class AIGateway:
         from core.module_loader import module_loader
         self.loader = module_loader
 
-    def register_command(self, command_name: str, handler: Callable, description: str = "No description provided", params_schema: Optional[Dict[str, Any]] = None):
+    def register_command(self, command_name: str, handler: Callable, description: str = "No description provided", params_schema: Optional[Dict[str, Any]] = None, is_system: bool = False):
         """Registers a command handler with semantic metadata for AI discovery."""
         self.loader._command_registry[command_name] = {
             "handler": handler,
             "description": description,
             "params_schema": params_schema or {},
-            "registered_at": time.time()
+            "registered_at": time.time(),
+            "is_system": is_system
         }
-        logger.info(f"✅ Command Registered: {command_name} | Desc: {description}")
+        logger.info(f"✅ Command Registered: {command_name} | Desc: {description} | System: {is_system}")
 
     async def execute(self, command_name: str, token: str, params: Dict[str, Any], request: Request):
         start_time = time.perf_counter()
