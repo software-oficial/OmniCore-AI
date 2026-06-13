@@ -74,8 +74,6 @@ class AuthService:
 
         # 1. Handle LEARNING Mode (Ephemeral)
         if mode.upper() == "LEARNING":
-            # Los tokens de learning son puramente efímeros (Redis)
-            # No intentamos guardarlos en la DB para evitar errores de Foreign Key con agentes no registrados
             token = token_manager.generate_token(agent_id, mode="LEARNING")
             return ServiceResponse.success_res(
                 data={"api_token": token, "mode": "LEARNING"}, 
@@ -83,6 +81,17 @@ class AuthService:
             )
 
         # 2. Handle PRODUCTION Mode (Persistent)
+        # CRITICAL: Verify user exists to prevent Foreign Key violations
+        user_exists = core_db_manager.execute_raw(
+            "SELECT 1 FROM users WHERE id = :uid", {"uid": user_id}
+        ).scalar()
+        
+        if not user_exists:
+            return ServiceResponse.error_res(
+                "The specified user ID does not exist in the system.", 
+                "USER_NOT_FOUND"
+            )
+
         # Check Token Limit
         result = core_db_manager.execute_raw(
             "SELECT count(*) as count FROM api_tokens WHERE user_id = :uid",
@@ -107,7 +116,8 @@ class AuthService:
                 message=f"Persistent token '{token_name}' generated successfully."
             )
         except Exception as e:
-            return ServiceResponse.error_res(f"Token generation error: {str(e)}", "TOKEN_ERROR")
+            logger.error(f"Database error during token insertion: {e}")
+            return ServiceResponse.error_res(f"Token generation failed due to a database error: {str(e)}", "TOKEN_DB_ERROR")
 
     def list_user_tokens(self, user_id: str) -> ServiceResponse:
         """Lists all tokens associated with a user."""

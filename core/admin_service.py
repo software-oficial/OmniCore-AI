@@ -72,20 +72,7 @@ class AdminService:
         app_id = params.get('app_id')
         token_name = params.get('token_name')
         user_id = params.get('user_id')
-        if not all([app_id, token_name, user_id]):
-            return ServiceResponse.error_res("Missing app_id, token_name, or user_id", "MISSING_PARAMS")
-
-        p = params if params is not None else {}
-        app_id = p.get('app_id')
-        token_name = p.get('token_name')
-        user_id = p.get('user_id')
-        if not all([app_id, token_name, user_id]):
-            return ServiceResponse.error_res("Missing app_id, token_name, or user_id", "MISSING_PARAMS")
-
-
-        app_id = params.get('app_id')
-        token_name = params.get('token_name')
-        user_id = params.get('user_id')
+        
         if not all([app_id, token_name, user_id]):
             return ServiceResponse.error_res("Missing app_id, token_name, or user_id", "MISSING_PARAMS")
             
@@ -95,6 +82,7 @@ class AdminService:
         
         agent_id = res[0]
         return auth_service.create_api_token(user_id=user_id, agent_id=agent_id, token_name=token_name)
+
 
     def create_custom_plan(self, params: Dict[str, Any]) -> ServiceResponse:
         try:

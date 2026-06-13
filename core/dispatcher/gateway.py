@@ -219,7 +219,7 @@ class AIGateway:
         if not command_name:
             return ServiceResponse.error_res("No command specified", "COMMAND_MISSING")
 
-        # 1. Existence Check (Eliminating the 'Lying Simulator')
+        # 1. Existence Check
         handler = self.loader.get_handler(command_name)
         if not handler:
             return ServiceResponse.error_res(
@@ -227,30 +227,19 @@ class AIGateway:
                 error_code="COMMAND_NOT_FOUND"
             )
 
-        # 2. Strict Parameter Validation
+        # 2. Pedagogical Type and Parameter Validation
         cmd_metadata = self.loader.get_metadata(command_name)
+        schema = cmd_metadata.get('params_schema', {})
         
-        # Use schema if available, otherwise infer from function signature
-        expected_params = cmd_metadata.get('params_schema', {})
-        if not expected_params:
-            try:
-                sig = inspect.signature(handler)
-                # Identify parameters that are not 'session', 'context', 'self' and have no default value
-                expected_params = {
-                    name: "required" 
-                    for name, param in sig.parameters.items() 
-                    if name not in ('session', 'context', 'self') and param.default == inspect.Parameter.empty
-                }
-            except Exception as e:
-                logger.warning(f"Could not infer signature for {command_name}: {e}")
-
-        if expected_params:
-            missing_params = [p for p in expected_params if p not in params]
-            if missing_params:
+        if isinstance(schema, dict):
+            from infra.validation.type_checker import type_checker
+            is_valid, type_err = type_checker.validate_types(params, schema)
+            if not is_valid:
+                # Transform dry error into a lesson (Error -> Why -> Example)
                 return ServiceResponse.error_res(
-                    message=f"💡 LEARNING ERROR: Missing parameters: {', '.join(missing_params)}. Check the API guide or function signature for the correct schema.",
-                    error_code="LEARNING_VALIDATION_ERROR",
-                    guide={"expected_params": list(expected_params.keys()), "received_params": list(params.keys())}
+                    message=f"💡 LEARNING ERROR: {type_err.message}\n\nWhy: The system requires strict typing for business integrity.\nExample: For this command, use {schema}.",
+                    error_code="LEARNING_TYPE_ERROR",
+                    guide={"expected_schema": schema}
                 )
 
         # 3. Mentorship and Learning Corrections
@@ -262,12 +251,16 @@ class AIGateway:
         if correction:
             return ServiceResponse.error_res(message=f"Learning Suggestion: {correction}", error_code="LEARNING_PATTERN_FOUND")
         
+        # 4. Pedagogical Success (Implementation Detail)
+        implementation_note = f"In PRODUCTION, this command would be dispatched to the handler associated with '{command_name}'. It would inject a SQLAlchemy session for the tenant's DB, verify PBAC permissions via the GovernanceService, and commit the transaction atomically."
+        
         return ServiceResponse.success_res(
             data={
                 "mock": "Simulated", 
-                "processed_params": params
+                "processed_params": params,
+                "internal_flow": "Request -> Token Val -> Infra Lookup -> Session Injection -> Governance Check -> Module Execution"
             }, 
-            message=f"Simulation of {command_name} successful. Input has been sanitized and validated."
+            message=f"💡 SUCCESS: Simulation of {command_name} successful.\n\n{implementation_note}"
         )
 
     async def _handle_production_mode(self, command_name: str, ctx: CoreContext, params: Dict[str, Any]):
@@ -311,6 +304,16 @@ class AIGateway:
                 # The handler is usually synchronous; we run it in a thread to avoid blocking the loop
                 loop = asyncio.get_event_loop()
                 result = await loop.run_in_executor(None, lambda: handler(session=session, context=ctx, **params))
+                return result if isinstance(result, ServiceResponse) else ServiceResponse.success_res(data=result)
+        except Exception as e:
+            from core.dispatcher.exceptions import handle_omnicore_exception
+            from core.governance.error_analytics_service import error_analytics_service
+            res = handle_omnicore_exception(e)
+            error_analytics_service.track_error(ctx.agent_id, command_name, res.error_code, res.message)
+            return res
+
+ai_gateway = AIGateway()
+ne, lambda: handler(session=session, context=ctx, **params))
                 return result if isinstance(result, ServiceResponse) else ServiceResponse.success_res(data=result)
         except Exception as e:
             from core.dispatcher.exceptions import handle_omnicore_exception
