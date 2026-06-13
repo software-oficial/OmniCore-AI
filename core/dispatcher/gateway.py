@@ -313,13 +313,3 @@ class AIGateway:
             return res
 
 ai_gateway = AIGateway()
-ne, lambda: handler(session=session, context=ctx, **params))
-                return result if isinstance(result, ServiceResponse) else ServiceResponse.success_res(data=result)
-        except Exception as e:
-            from core.dispatcher.exceptions import handle_omnicore_exception
-            from core.governance.error_analytics_service import error_analytics_service
-            res = handle_omnicore_exception(e)
-            error_analytics_service.track_error(ctx.agent_id, command_name, res.error_code, res.message)
-            return res
-
-ai_gateway = AIGateway()
