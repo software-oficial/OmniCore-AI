@@ -79,6 +79,26 @@ async def get_help():
                 "latency_ms": "Processing time in milliseconds"
             }
         },
+        "best_practices": {
+            "state_management": {
+                "guide": "Avoid asking the same question twice. Use 'bot.state.set' to store user data (name, address, cart) and 'bot.state.get' to retrieve it in the next turn.",
+                "example_flow": "Settle Name -> bot.state.set(user_id, 'name', 'Juan') -> Next Turn -> bot.state.get(user_id, 'name') -> 'Hola Juan!'"
+            },
+            "order_of_operations": {
+                "complete_sale_flow": [
+                    "1. sales.process (Initialize the order)",
+                    "2. pay.mp.create (Generate the payment link)",
+                    "3. pay.mp.verify (Check if payment was completed)",
+                    "4. sales.confirm (Mark order as paid)",
+                    "5. stock.update (Decrement inventory)"
+                ],
+                "onboarding_flow": [
+                    "1. /api/dev/clients/onboard (Create client)",
+                    "2. /api/dev/clients/{id}/deploy (Setup database tables)",
+                    "3. /api/dev/clients/{id}/tokens (Generate agent access)"
+                ]
+            }
+        },
         "available_commands": categories
     }
     return help_guide

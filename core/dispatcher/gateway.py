@@ -96,6 +96,21 @@ class AIGateway:
 
     async def _handle_learning_mode(self, command_name: str, ctx: CoreContext, params: Dict[str, Any]):
         from core.governance.error_analytics_service import error_analytics_service
+        
+        # 1. Strict Parameter Validation (Fixing the 'Learning Black Hole')
+        cmd_metadata = self.loader.get_metadata(command_name)
+        expected_params = cmd_metadata.get('params_schema', {})
+        
+        if expected_params:
+            missing_params = [p for p in expected_params if p not in params]
+            if missing_params:
+                return ServiceResponse.error_res(
+                    message=f"💡 LEARNING ERROR: Missing parameters: {', '.join(missing_params)}. Check the API guide for the correct schema.",
+                    error_code="LEARNING_VALIDATION_ERROR",
+                    guide={"expected_params": expected_params, "received_params": list(params.keys())}
+                )
+
+        # 2. Mentorship and Learning Corrections
         guided = error_analytics_service.get_guided_solution(command_name, "COMMON_ERROR")
         if guided:
             return ServiceResponse.error_res(message=f"💡 MENTORSHIP: {guided}", error_code="LEARNING_PATTERN_FOUND")
