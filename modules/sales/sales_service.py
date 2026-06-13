@@ -74,7 +74,7 @@ class SalesService:
     def process_sale(self, session: Session, context: CoreContext, client_name: str, items: List[Dict[str, Any]], payment_method: str, cash_box_id: Optional[int] = None, paga_con: float = 0.0) -> ServiceResponse:
         """
         Atomic sale process: Validates stock, creates sale, deducts inventory, and updates cash box.
-        Items: [{"code": "PROD1", "quantity": 2}, ...]
+        Items: [{"product_code": "PROD1", "quantity": 2}, ...]
         """
         try:
             total_amount = 0.0
@@ -82,15 +82,15 @@ class SalesService:
 
             # 1. Validation and Calculation
             for item in items:
-                code = item['code']
+                product_code = item['product_code']
                 qty = item['quantity']
                 
                 # Call stock_service logic internally using SAME session for atomicity
                 product_query = text("SELECT name, price, quantity FROM products WHERE code = :code FOR UPDATE")
-                product = session.execute(product_query, {"code": code}).mappings().first()
+                product = session.execute(product_query, {"code": product_code}).mappings().first()
                 
                 if not product:
-                    return ServiceResponse.error_res(f"Product {code} not found", "PRODUCT_NOT_FOUND")
+                    return ServiceResponse.error_res(f"Product {product_code} not found", "PRODUCT_NOT_FOUND")
                 
                 if product['quantity'] < qty:
                     return ServiceResponse.error_res(f"Insufficient stock for {product['name']}", "STOCK_INSUFFICIENT")
@@ -98,7 +98,7 @@ class SalesService:
                 subtotal = float(product['price']) * qty
                 total_amount += subtotal
                 processed_items.append({
-                    "code": code, "qty": qty, "price": float(product['price']), "subtotal": subtotal
+                    "product_code": product_code, "qty": qty, "price": float(product['price']), "subtotal": subtotal
                 })
 
             # 2. Create Sale Record
@@ -118,13 +118,13 @@ class SalesService:
                     VALUES (:sale_id, :code, :qty, :price, :sub)
                 """)
                 session.execute(item_query, {
-                    "sale_id": sale_id, "code": pi['code'], "qty": pi['qty'], "price": pi['price'], "sub": pi['subtotal']
+                    "sale_id": sale_id, "code": pi['product_code'], "qty": pi['qty'], "price": pi['price'], "sub": pi['subtotal']
                 })
 
             # 4. Deduct Stock
             for pi in processed_items:
                 stock_update = text("UPDATE products SET quantity = quantity - :qty WHERE code = :code")
-                session.execute(stock_update, {"qty": pi['qty'], "code": pi['code']})
+                session.execute(stock_update, {"qty": pi['qty'], "code": pi['product_code']})
 
             # 5. Update Cash Box if applicable
             if cash_box_id:
@@ -153,12 +153,12 @@ class SalesService:
             processed_items = []
 
             for item in items:
-                code = item['code']
-                product = session.execute(text("SELECT price FROM products WHERE code = :code"), {"code": code}).mappings().first()
-                if not product: return ServiceResponse.error_res(f"Product {code} not found", "PRODUCT_NOT_FOUND")
+                product_code = item['product_code']
+                product = session.execute(text("SELECT price FROM products WHERE code = :code"), {"code": product_code}).mappings().first()
+                if not product: return ServiceResponse.error_res(f"Product {product_code} not found", "PRODUCT_NOT_FOUND")
                 subtotal = float(product['price']) * item['quantity']
                 total_amount += subtotal
-                processed_items.append({"code": item['code'], "qty": item['quantity'], "price": float(product['price']), "subtotal": subtotal})
+                processed_items.append({"product_code": item['product_code'], "qty": item['quantity'], "price": float(product['price']), "subtotal": subtotal})
 
             sale_query = text("""
                 INSERT INTO sales (client_name, total_amount, status, payment_method) 
@@ -171,7 +171,7 @@ class SalesService:
                 session.execute(text("""
                     INSERT INTO sale_items (sale_id, product_code, quantity, unit_price, subtotal) 
                     VALUES (:sale_id, :code, :qty, :price, :sub)
-                """), {"sale_id": sale_id, "code": pi['code'], "qty": pi['qty'], "price": pi['price'], "sub": pi['subtotal']})
+                """), {"sale_id": sale_id, "code": pi['product_code'], "qty": pi['qty'], "price": pi['price'], "sub": pi['subtotal']})
 
             session.commit()
             return ServiceResponse.success_res(data={"sale_id": sale_id}, message="Pending sale created.")

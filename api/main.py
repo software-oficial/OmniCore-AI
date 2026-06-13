@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from api.routes import gateway, infra, agent, admin, auth, dev
+from api.routes import gateway, infra, agent, admin, auth, dev, business
 from infra.db.db_manager import db_manager
 from infra.logging.omni_logger import get_logger
 from config.settings import config
@@ -50,7 +50,7 @@ ai_gateway.register_command("dev.admin.map_command", admin_service.map_command_t
 
 # 2. Include Modular Routes
 app.include_router(gateway.router)
-
+app.include_router(business.router)
 app.include_router(infra.router)
 app.include_router(agent.router)
 app.include_router(admin.router)

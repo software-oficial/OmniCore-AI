@@ -1,7 +1,7 @@
 import logging
 import time
 import asyncio
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Callable, List
 from fastapi import HTTPException, Request
 from core.dispatcher.core_types import CoreContext, ServiceResponse
 from core.auth.token_manager import token_manager
@@ -33,19 +33,18 @@ class AIGateway:
         }
         logger.info(f"✅ Command Registered: {command_name} | Desc: {description} | System: {is_system}")
 
-    async def execute(self, command_name: str, token: str, params: Dict[str, Any], request: Request):
+    async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None):
         start_time = time.perf_counter()
-        logger.info(f"📩 Incoming Request: command={command_name} | token_prefix={token[:10]}...")
         
         # 1. Token Validation
         is_valid, mode, agent_id = token_manager.validate_token(token)
         if not is_valid:
-            logger.warning(f"⚠️ Auth Failed: Invalid token used for {command_name}")
+            logger.warning(f"⚠️ Auth Failed: Invalid token used")
             res = ServiceResponse.error_res("Invalid or expired token", "AUTH_TOKEN_INVALID")
             duration_ms = (time.perf_counter() - start_time) * 1000
             res.latency_ms = duration_ms
             from core.telemetry.telemetry_service import telemetry_service
-            telemetry_service.track_request("unknown", "unknown", command_name, duration_ms / 1000, False)
+            telemetry_service.track_request("unknown", "unknown", "gateway.execute", duration_ms / 1000, False)
             return res
 
         # 2. Context Retrieval
@@ -56,7 +55,7 @@ class AIGateway:
             duration_ms = (time.perf_counter() - start_time) * 1000
             res.latency_ms = duration_ms
             from core.telemetry.telemetry_service import telemetry_service
-            telemetry_service.track_request(agent_id, "unknown", command_name, duration_ms / 1000, False)
+            telemetry_service.track_request(agent_id, "unknown", "gateway.execute", duration_ms / 1000, False)
             return res
         
         ctx = CoreContext(
@@ -67,33 +66,101 @@ class AIGateway:
             tier=app_context["tier"]
         )
 
-        # 3. Mode-Based Execution (Now fully async)
-        if mode == "LEARNING":
+        # 3. Execution Path
+        if flow:
+            # BATCH EXECUTION MODE
+            result = await self._handle_batch_execution(flow, ctx)
+            cmd_for_telemetry = "gateway.batch"
+        elif mode == "LEARNING":
+            # SINGLE COMMAND - LEARNING
             result = await self._handle_learning_mode(command_name, ctx, params)
+            cmd_for_telemetry = command_name
         else:
+            # SINGLE COMMAND - PRODUCTION
             result = await self._handle_production_mode(command_name, ctx, params)
+            cmd_for_telemetry = command_name
         
         duration_ms = (time.perf_counter() - start_time) * 1000
         result.latency_ms = duration_ms
         
         from core.telemetry.telemetry_service import telemetry_service
-        telemetry_service.track_request(agent_id, ctx.app_id, command_name, duration_ms / 1000, result.success)
+        telemetry_service.track_request(agent_id, ctx.app_id, cmd_for_telemetry, duration_ms / 1000, result.success)
 
         # System Audit Log
         try:
             from infra.db.core_db_manager import core_db_manager
             audit_query = "INSERT INTO system_audit_log (agent_id, app_id, command, status, message) VALUES (:agent_id, :app_id, :command, :status, :message)"
             core_db_manager.execute_raw(audit_query, {
-                "agent_id": agent_id, "app_id": ctx.app_id, "command": command_name,
+                "agent_id": agent_id, "app_id": ctx.app_id, "command": cmd_for_telemetry,
                 "status": "SUCCESS" if result.success else "FAILED", "message": result.message[:255]
             })
         except Exception as e:
             logger.error(f"Audit log failure: {e}")
 
         if not result.success:
-            error_logger.error(f"❌ Command Failure: {command_name} | Agent={agent_id} | Code={result.error_code}")
+            error_logger.error(f"❌ Command/Flow Failure: {cmd_for_telemetry} | Agent={agent_id} | Code={result.error_code}")
             
         return result
+
+    async def _handle_batch_execution(self, flow: List[Dict[str, Any]], ctx: CoreContext) -> ServiceResponse:
+        """
+        Executes a sequence of commands within a SINGLE database session.
+        Ensures total atomicity: if one command fails, the entire flow is rolled back.
+        """
+        if not flow:
+            return ServiceResponse.error_res("Empty flow provided", "EMPTY_FLOW")
+
+        logger.info(f"🚀 Starting Batch Execution: {len(flow)} commands | Agent={ctx.agent_id}")
+        
+        try:
+            async with db_manager.get_session(ctx.app_id, ctx.db_config, ctx.tier) as session:
+                results = []
+                
+                for idx, step in enumerate(flow):
+                    cmd_name = step.get('command')
+                    params = step.get('params', {})
+                    
+                    if not cmd_name:
+                        return ServiceResponse.error_res(f"Step {idx} missing 'command' name", "FLOW_INVALID_STEP")
+
+                    handler = self.loader.get_handler(cmd_name)
+                    if not handler:
+                        return ServiceResponse.error_res(f"Command {cmd_name} (Step {idx}) not found", "COMMAND_NOT_FOUND")
+                    
+                    # Governance check for every step in the flow
+                    is_allowed, error_res = governance_service.validate_access(cmd_name, ctx, session)
+                    if not is_allowed:
+                        session.rollback()
+                        return ServiceResponse.error_res(
+                            message=f"Governance failure at step {idx} ({cmd_name}): {error_res.message}",
+                            error_code=error_res.error_code
+                        )
+                    
+                    # Execution of the step
+                    loop = asyncio.get_event_loop()
+                    step_result = await loop.run_in_executor(None, lambda: handler(session=session, context=ctx, **params))
+                    
+                    if not isinstance(step_result, ServiceResponse) or not step_result.success:
+                        session.rollback()
+                        msg = step_result.message if isinstance(step_result, ServiceResponse) else "Unexpected handler return"
+                        code = step_result.error_code if isinstance(step_result, ServiceResponse) else "HANDLER_ERROR"
+                        return ServiceResponse.error_res(
+                            message=f"Flow failed at step {idx} ({cmd_name}): {msg}",
+                            error_code=code
+                        )
+                    
+                    results.append(step_result)
+
+                # ALL steps succeeded -> Final Commit
+                session.commit()
+                return ServiceResponse.success_res(
+                    data={"results": [r.to_dict() if isinstance(r, ServiceResponse) else r for r in results]},
+                    message=f"Flow executed successfully. {len(flow)} steps committed."
+                )
+
+        except Exception as e:
+            logger.error(f"Batch execution critical failure: {e}")
+            return ServiceResponse.error_res(f"Critical flow failure: {str(e)}", "FLOW_CRITICAL_ERROR")
 
     async def _handle_learning_mode(self, command_name: str, ctx: CoreContext, params: Dict[str, Any]):
         from core.governance.error_analytics_service import error_analytics_service

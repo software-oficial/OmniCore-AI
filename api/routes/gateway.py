@@ -2,28 +2,104 @@ from fastapi import APIRouter, Header, Body
 from core.dispatcher.gateway import ai_gateway
 from core.dispatcher.core_types import ServiceResponse
 from core.module_loader import module_loader
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List
 
 router = APIRouter(prefix="/api", tags=["Gateway"])
 
-@router.get("/gateway/manifest")
-async def get_manifest():
+@router.get("/gateway/openapi")
+async def get_openapi():
     """
-    Returns the dynamic manifest of all registered commands.
-    Essential for AI Agents to understand the system's capabilities.
+    Generates a full OpenAPI 3.0 specification of the Gateway's command-driven API.
+    This allows developers to use Swagger UI or Postman to explore and test the API.
     """
     registry = module_loader._command_registry
-    manifest = {
-        "total_commands": len(registry),
-        "commands": [
-            {
-                "name": name, 
-                "metadata": meta if isinstance(meta, dict) else {"handler": "function"}
-            } 
-            for name, meta in registry.items()
-        ]
+    
+    # Base OpenAPI structure
+    openapi_spec = {
+        "openapi": "3.0.0",
+        "info": {
+            "title": "OmniCore-AI Gateway API",
+            "description": "Command-driven API for AI Agents and Developers to manage business logic.",
+            "version": "1.0.0"
+        },
+        "servers": [{"url": "/api"}],
+        "components": {
+            "securitySchemes": {
+                "BearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer"
+                }
+            },
+            "schemas": {
+                "ServiceResponse": {
+                    "type": "object",
+                    "properties": {
+                        "success": {"type": "boolean"},
+                        "message": {"type": "string"},
+                        "data": {"type": "object", "nullable": True},
+                        "error_code": {"type": "string", "nullable": True},
+                        "latency_ms": {"type": "number"}
+                    }
+                }
+            }
+        },
+        "security": [{"BearerAuth": []}],
+        "paths": {}
     }
-    return manifest
+
+    # We model the Gateway as a single endpoint that takes a command name and params.
+    # However, for better DX, we can represent each command as a virtual path.
+    for name, meta in registry.items():
+        if not isinstance(meta, dict): continue
+        
+        description = meta.get('description', 'No description provided')
+        params_schema = meta.get('params_schema', {})
+        
+        # Create a virtual path for each command to make it visible in Swagger
+        # e.g., /gateway/execute/stock.add
+        path = f"/gateway/execute/{name}"
+        
+        # Map our simple type hints to OpenAPI types
+        properties = {}
+        for p_name, p_type in params_schema.items():
+            oa_type = "string"
+            if p_type == "float": oa_type = "number"
+            elif p_type == "int": oa_type = "integer"
+            elif p_type == "boolean": oa_type = "boolean"
+            elif "list" in p_type: oa_type = "array"
+            
+            properties[p_name] = {"type": oa_type}
+
+        openapi_spec["paths"][path] = {
+            "post": {
+                "summary": f"Execute {name}",
+                "description": description,
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": properties,
+                                "required": [p for p, t in params_schema.items() if t != "optional"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ServiceResponse"}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    return openapi_spec
 
 @router.get("/gateway/help")
 async def get_help():
@@ -104,16 +180,25 @@ async def get_help():
     return help_guide
 
 @router.post("/gateway/execute")
-
 async def handle_command(
-    command: str = Body(..., embed=True),
-    params: Dict[str, Any] = Body(..., embed=True),
+    command: Optional[str] = Body(None, embed=True),
+    params: Optional[Dict[str, Any]] = Body(None, embed=True),
+    flow: Optional[List[Dict[str, Any]]] = Body(None, embed=True),
     authorization: str = Header(None)
 ):
     if not authorization:
         return ServiceResponse.error_res("Missing Authorization Header", "AUTH_HEADER_MISSING").to_dict()
-    
+
     # Accept both 'Bearer <token>' and direct '<token>'
     token = authorization.split(" ")[1] if authorization.startswith("Bearer ") else authorization
-    result = await ai_gateway.execute(command, token, params, None)
+
+    # Pass all possible execution modes to the gateway
+    result = await ai_gateway.execute(
+        command_name=command, 
+        token=token, 
+        params=params, 
+        request=None, # In a real app, we'd pass the FastAPI request object
+        flow=flow
+    )
     return result.to_dict()
+

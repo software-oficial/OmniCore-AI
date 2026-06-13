@@ -63,7 +63,7 @@ class StockService:
             logger.error(f"Error fetching product {code}: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_GET_ERROR")
 
-    def update_stock(self, session: Session, context: CoreContext, code: str, amount: int, reason: str = "MANUAL") -> ServiceResponse:
+    def update_stock(self, session: Session, context: CoreContext, code: str, quantity: int, reason: str = "MANUAL") -> ServiceResponse:
         """
         Updates the quantity of a product using atomic transactions.
         Prevents negative stock.
@@ -76,7 +76,7 @@ class StockService:
             if current_qty is None:
                 return ServiceResponse.error_res(f"Product {code} not found", "PRODUCT_NOT_FOUND")
             
-            new_qty = current_qty + amount
+            new_qty = current_qty + quantity
             if new_qty < 0:
                 return ServiceResponse.error_res("Insufficient stock to complete the operation", "STOCK_INSUFFICIENT")
             
@@ -93,7 +93,7 @@ class StockService:
                 INSERT INTO stock_movements (product_code, amount, reason, user_id) 
                 VALUES (:code, :amount, :reason, :user_id)
             """)
-            session.execute(movement_query, {"code": code, "amount": amount, "reason": reason, "user_id": context.user_id})
+            session.execute(movement_query, {"code": code, "amount": quantity, "reason": reason, "user_id": context.user_id})
             
             session.commit()
             return ServiceResponse.success_res(
