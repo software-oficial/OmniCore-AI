@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Body
 from core.registry.infrastructure_registry import infrastructure_registry
 from core.auth.auth_service import auth_service
 from typing import Dict, Any, List
@@ -71,7 +71,7 @@ async def update_client_tier(app_id: str, tier: str):
     return {"success": True, "message": f"Client {app_id} updated to {tier}."}
 
 @router.post("/clients/{app_id}/tokens", dependencies=[Depends(verify_dev_access)])
-async def generate_client_token(app_id: str, token_name: str, user_id: str):
+async def generate_client_token(app_id: str, token_name: str = Body(...), user_id: str = Body(...)):
     """
     Generates a production token for a client's agent.
     """
