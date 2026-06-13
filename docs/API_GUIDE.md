@@ -47,14 +47,44 @@ Este endpoint actúa como un proxy inteligente que valida la seguridad, inyecta 
 - `pay.mp.refund`: Procesa devolución de dinero.
 
 ### 💬 Módulo de WhatsApp (`bot.*`, `wa.*`)
-- `bot.process_message`: Entrada principal del Bot (orquestador de menús).
-- `bot.state.get` / `set` / `clear`: Gestión del contexto del usuario.
-- `bot.menu.list` / `get`: Administración de la estructura de menús.
-- `wa.process_message`: Procesamiento básico de mensajes entrantes.
+
+Este módulo implementa un motor de conversación con **Persistencia de Estado Híbrida** (Redis + DB Tenant).
+
+**Comandos de Orquestación (El Cerebro):**
+- `bot.process_message`: Entrada principal. Analiza el texto, verifica el estado actual y delega la acción.
+- `bot.navigate`: Mueve al usuario a un menú específico y persiste el cambio de estado.
+- `bot.welcome`: Inicializa la conversación y posiciona al usuario en el menú principal.
+- `bot.show_menu`: Muestra el contenido de un menú sin alterar el estado actual.
+- `bot.set_human_mode` / `bot.set_bot_mode`: Activa o desactiva la intervención humana.
+
+**Gestión de Estado y Menús:**
+- `bot.state.get` / `set` / `clear`: Manipulación directa del contexto efímero del usuario.
+- `bot.menu.list` / `get`: Consultas sobre la estructura de navegación configurada.
+- `wa.process_message`: Gateway de bajo nivel para el procesamiento de payloads raw.
 
 ---
 
-## 🔄 Ciclo de Vida de una Petición
+## 🗄️ Requisitos de Base de Datos (Infraestructura del Cliente)
+
+Para que OmniCore-AI funcione, el desarrollador debe desplegar el esquema de negocio en la **DB Externa** del cliente. Sin estas tablas, el sistema devolverá `INFRA_NOT_FOUND` o errores de ejecución.
+
+### 1. Tablas de Persistencia de Estado (OBLIGATORIO)
+El bot requiere una tabla para recordar dónde se quedó el usuario:
+```sql
+CREATE TABLE IF NOT EXISTS bot_states (
+    sender VARCHAR(50) PRIMARY KEY,
+    state_data JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 2. Tablas de Estructura de Bot (WhatsApp)
+Para gestionar menús dinámicos:
+- `whatsapp_conversations`: Control de intervención humana y estado global.
+- `whatsapp_menus`: Definición de textos de los menús.
+- `whatsapp_menu_options`: Mapeo de opciones $\rightarrow$ Acciones (Navegación, Comandos o Humano).
+
+*Consulte el archivo `modules/whatsapp/blueprint.sql` para obtener el script completo de creación.*
 
 1. **Auth**: El Gateway valida el token y recupera el `agent_id`.
 2. **Infra Lookup**: Se busca la DB asociada a ese agente/app.
