@@ -65,10 +65,11 @@ def bot_show_menu(session: Session, context: CoreContext, menu_name: str = "main
         options_text = " | ".join(options_list)
         
         return ServiceResponse.success_res(
-            message=f"{menu['text']}
+            message=f"""{menu['text']}
 
-Options: {options_text}"
+Options: {options_text}"""
         )
+
     except Exception as e:
         logger.error(f"Error in bot_show_menu: {e}")
         return ServiceResponse.error_res("Menu display error", "DISPLAY_ERROR")
