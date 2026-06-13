@@ -35,9 +35,13 @@ class AIGateway:
 
     async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None):
         start_time = time.perf_counter()
+        traces = {}
         
         # 1. Token Validation
+        t_auth_start = time.perf_counter()
         is_valid, mode, agent_id = token_manager.validate_token(token)
+        traces['auth_ms'] = (time.perf_counter() - t_auth_start) * 1000
+        
         if not is_valid:
             logger.warning(f"⚠️ Auth Failed: Invalid token used")
             res = ServiceResponse.error_res("Invalid or expired token", "AUTH_TOKEN_INVALID")
@@ -48,7 +52,10 @@ class AIGateway:
             return res
 
         # 2. Context Retrieval
+        t_infra_start = time.perf_counter()
         app_context = infrastructure_registry.get_app_context(agent_id)
+        traces['infra_ms'] = (time.perf_counter() - t_infra_start) * 1000
+        
         if not app_context:
             logger.warning(f"⚠️ Infrastructure not found for agent: {agent_id}")
             res = ServiceResponse.error_res("No associated business infrastructure found.", "INFRA_NOT_FOUND")
@@ -67,6 +74,7 @@ class AIGateway:
         )
 
         # 3. Execution Path
+        t_exec_start = time.perf_counter()
         if flow:
             # BATCH EXECUTION MODE
             result = await self._handle_batch_execution(flow, ctx)
@@ -79,6 +87,7 @@ class AIGateway:
             # SINGLE COMMAND - PRODUCTION
             result = await self._handle_production_mode(command_name, ctx, params)
             cmd_for_telemetry = command_name
+        traces['exec_ms'] = (time.perf_counter() - t_exec_start) * 1000
         
         duration_ms = (time.perf_counter() - start_time) * 1000
         result.latency_ms = duration_ms
@@ -86,7 +95,8 @@ class AIGateway:
         from core.telemetry.telemetry_service import telemetry_service
         telemetry_service.track_request(agent_id, ctx.app_id, cmd_for_telemetry, duration_ms / 1000, result.success)
 
-        # System Audit Log
+        # 4. System Audit Log
+        t_audit_start = time.perf_counter()
         try:
             from infra.db.core_db_manager import core_db_manager
             audit_query = "INSERT INTO system_audit_log (agent_id, app_id, command, status, message) VALUES (:agent_id, :app_id, :command, :status, :message)"
@@ -96,6 +106,10 @@ class AIGateway:
             })
         except Exception as e:
             logger.error(f"Audit log failure: {e}")
+        traces['audit_ms'] = (time.perf_counter() - t_audit_start) * 1000
+
+        # Log detailed latency breakdown for debugging
+        logger.info(f"⏱️ Latency Trace [{cmd_for_telemetry}]: Auth={traces['auth_ms']:.2f}ms | Infra={traces['infra_ms']:.2f}ms | Exec={traces['exec_ms']:.2f}ms | Audit={traces['audit_ms']:.2f}ms | Total={duration_ms:.2f}ms")
 
         if not result.success:
             error_logger.error(f"❌ Command/Flow Failure: {cmd_for_telemetry} | Agent={agent_id} | Code={result.error_code}")
@@ -103,6 +117,7 @@ class AIGateway:
         return result
 
     async def _handle_batch_execution(self, flow: List[Dict[str, Any]], ctx: CoreContext) -> ServiceResponse:
+
         """
         Executes a sequence of commands within a SINGLE database session.
         Ensures total atomicity: if one command fails, the entire flow is rolled back.
@@ -166,13 +181,23 @@ class AIGateway:
         from core.governance.error_analytics_service import error_analytics_service
         import inspect
 
-        # 1. Strict Parameter Validation (Fixing the 'Learning Black Hole')
-        cmd_metadata = self.loader.get_metadata(command_name)
+        if not command_name:
+            return ServiceResponse.error_res("No command specified", "COMMAND_MISSING")
+
+        # 1. Existence Check (Eliminating the 'Lying Simulator')
         handler = self.loader.get_handler(command_name)
+        if not handler:
+            return ServiceResponse.error_res(
+                message=f"💡 LEARNING ERROR: Command '{command_name}' does not exist in the OmniCore Registry. Please check the API guide for available commands.",
+                error_code="COMMAND_NOT_FOUND"
+            )
+
+        # 2. Strict Parameter Validation
+        cmd_metadata = self.loader.get_metadata(command_name)
         
         # Use schema if available, otherwise infer from function signature
         expected_params = cmd_metadata.get('params_schema', {})
-        if not expected_params and handler:
+        if not expected_params:
             try:
                 sig = inspect.signature(handler)
                 # Identify parameters that are not 'session', 'context', 'self' and have no default value
@@ -193,7 +218,7 @@ class AIGateway:
                     guide={"expected_params": list(expected_params.keys()), "received_params": list(params.keys())}
                 )
 
-        # 2. Mentorship and Learning Corrections
+        # 3. Mentorship and Learning Corrections
         guided = error_analytics_service.get_guided_solution(command_name, "COMMON_ERROR")
         if guided:
             return ServiceResponse.error_res(message=f"💡 MENTORSHIP: {guided}", error_code="LEARNING_PATTERN_FOUND")

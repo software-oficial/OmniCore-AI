@@ -13,7 +13,7 @@ TOKEN = "PRODUCTION_test_agent_001"
 
 def call_cmd(command, params=None):
     payload = {"command": command, "params": params or {}}
-    res = requests.post(f"{BASE_URL}/api/command", json=payload, headers={"Authorization": f"Bearer {TOKEN}"})
+    res = requests.post(f"{BASE_URL}/api/gateway/execute", json=payload, headers={"Authorization": f"Bearer {TOKEN}"})
     try:
         data = res.json()
         if not data.get('success'):
