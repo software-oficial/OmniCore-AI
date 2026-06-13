@@ -23,12 +23,24 @@ logger = get_logger("OmniCore.Main")
 async def universal_exception_handler(request: Request, exc: Exception):
     """
     Global Safety Net: Ensures the system NEVER returns HTML.
-    Every single error is converted into a structured OmniCore JSON response.
+    Internal technical details are masked to prevent leaking system architecture.
     """
-    service_res = handle_omnicore_exception(exc)
+    if isinstance(exc, HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"success": False, "message": exc.detail}
+        )
+    
+    # Log the real error internally for the admin
+    logger.error("CRITICAL_SYSTEM_ERROR", f"Unhandled exception: {str(exc)}")
+    
+    # Return a generic response to the developer/client
     return JSONResponse(
-        status_code=getattr(exc, 'status_code', 500),
-        content=service_res.to_dict()
+        status_code=500,
+        content={
+            "success": False, 
+            "message": "An unexpected internal server error occurred. Please contact technical support."
+        }
     )
 
 # 1. Register Business Modules

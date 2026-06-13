@@ -36,7 +36,7 @@ async def get_my_agent(authorization: str = Header(None)):
             raise HTTPException(status_code=404, detail="No agent found for this user")
         return {"agent_id": agent[0], "name": agent[1]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve agent: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred. Please contact support.")
 
 @router.get("/projects", response_model=List[Dict[str, Any]])
 async def list_projects(agent_id: str):
@@ -63,7 +63,7 @@ async def list_projects(agent_id: str):
         
         return [{"id": a[0], "name": a[1]} for a in apps]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve projects: {str(e)}")
+        raise HTTPException(status_code=500, detail="An internal server error occurred while retrieving projects.")
 
 @router.post("/register", response_model=RegisterResponse)
 async def register_agent(request: RegisterRequest):
@@ -113,7 +113,14 @@ async def register_agent(request: RegisterRequest):
         token = token_manager.generate_token(agent_id, mode="LEARNING")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Registration failed due to an internal server error.")
+
+    return RegisterResponse(
+        agent_id=agent_id,
+        app_id=app_id,
+        token=token,
+        message="Welcome to OmniCore-AI! Your Sandbox environment is ready."
+    )
 
     return RegisterResponse(
         agent_id=agent_id,
