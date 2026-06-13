@@ -1,5 +1,4 @@
 import logging
-import logging
 from core.dispatcher.gateway import ai_gateway
 from .whatsapp_service import whatsapp_service
 from .bot_engine import bot_engine
