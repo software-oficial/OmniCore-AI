@@ -28,9 +28,10 @@ def bot_navigate(session: Session, context: CoreContext, sender: str, menu_name:
         options_list = [f"{i+1}. {opt['label']}" for i, opt in enumerate(options)]
         options_text = " | ".join(options_list)
         
-        full_text = f"{menu['text']}
+        full_text = f"""{menu['text']}
 
-Options: {options_text}"
+Options: {options_text}"""
+
         
         return ServiceResponse.success_res(
             data={"current_menu": menu_name},
