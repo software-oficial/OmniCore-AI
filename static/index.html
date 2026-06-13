@@ -195,20 +195,20 @@
 </head>
 <body>
 
-    <nav>
+    <nav id="main-nav">
         <div class="logo"><span>🤖</span> OmniCore-AI</div>
         <div class="nav-links">
             <div class="nav-link active" onclick="showSection('welcome')"><i class="fas fa-home"></i> Inicio</div>
             <div class="nav-link protected" onclick="showSection('docs')"><i class="fas fa-book"></i> Documentación</div>
             <div class="nav-link protected" onclick="showSection('blueprint')"><i class="fas fa-map"></i> Frontend Plan</div>
+            <div class="nav-link protected" onclick="showSection('tokens')"><i class="fas fa-key"></i> Mis Tokens</div>
             <div class="nav-link protected" onclick="showSection('console')"><i class="fas fa-terminal"></i> Consola</div>
             <div class="nav-link" onclick="showSection('register')"><i class="fas fa-user-plus"></i> Sandbox</div>
-            <div class="nav-link" id="nav-login" onclick="showSection('login')"><i class="fas fa-sign-in-alt"></i> Login</div>
             <div class="nav-link hidden" id="nav-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Salir</div>
         </div>
     </nav>
 
-    <main>
+    <main id="main-content">
         <!-- Welcome Section -->
         <div id="welcome" class="section active">
             <h1>El Sistema Operativo de tu Negocio</h1>
