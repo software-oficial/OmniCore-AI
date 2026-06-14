@@ -25,10 +25,13 @@ class TypeChecker:
     def validate_types(cls, params: Dict[str, Any], schema: Dict[str, str]) -> Tuple[bool, Optional[ServiceResponse]]:
         """
         Validates parameters against the provided schema.
+        Collects all errors to avoid sequential debugging.
         Returns (isValid, optional_error_response).
         """
         if not schema:
             return True, None
+
+        errors = []
 
         for param_name, expected_type_str in schema.items():
             # Skip optional parameters if they are missing
@@ -37,12 +40,8 @@ class TypeChecker:
                     continue
             
             if param_name not in params:
-                # This should be caught by the handler's signature check, 
-                # but we provide a clear error here for the Gateway.
-                return False, ServiceResponse.error_res(
-                    message=f"Missing required parameter: {param_name}",
-                    error_code="MISSING_PARAMETER"
-                )
+                errors.append(f"Missing required parameter: {param_name}")
+                continue
 
             value = params[param_name]
             
@@ -50,11 +49,21 @@ class TypeChecker:
             if "[" in expected_type_str:
                 base_type = expected_type_str.split("[")[0]
                 if not cls._check_base_type(value, base_type):
-                    return False, cls._type_error_res(param_name, expected_type_str, value)
+                    actual_type = type(value).__name__
+                    errors.append(f"Invalid type for '{param_name}'. Expected {expected_type_str}, got {actual_type}")
                 continue
 
             if not cls._check_base_type(value, expected_type_str):
-                return False, cls._type_error_res(param_name, expected_type_str, value)
+                actual_type = type(value).__name__
+                errors.append(f"Invalid type for '{param_name}'. Expected {expected_type_str}, got {actual_type}")
+
+        if errors:
+            # Combine all errors into a single pedagogical message
+            full_error_message = "Validation failed with multiple errors:\n- " + "\n- ".join(errors)
+            return False, ServiceResponse.error_res(
+                message=full_error_message,
+                error_code="VALIDATION_FAILED"
+            )
 
         return True, None
 
