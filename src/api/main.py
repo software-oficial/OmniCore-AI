@@ -90,6 +90,20 @@ app.include_router(dev.router)
 import os
 from fastapi import HTTPException
 
+@app.get("/debug/filesystem")
+async def debug_filesystem():
+    """
+    Temporary diagnostic endpoint to inspect container filesystem.
+    """
+    results = {}
+    paths_to_inspect = ["/", "/app", "/src"]
+    for p in paths_to_inspect:
+        try:
+            results[p] = os.listdir(p)
+        except Exception as e:
+            results[p] = f"Error: {str(e)}"
+    return results
+
 def find_static_dir():
     """
     Robustly attempts to find the 'static' directory by locating the project root.
@@ -107,14 +121,15 @@ def find_static_dir():
         check_path = os.path.dirname(check_path)
     
     if root_path:
-        logger.info("LOG_SYSTEM", f"Project root identified at: {root_path}")
+        # Use print as fallback for critical diagnostics in case logger.info is filtered
+        print(f"DEBUG: Project root identified at: {root_path}")
         static_candidate = os.path.join(root_path, "static")
-        logger.info("LOG_SYSTEM", f"Checking static candidate: {static_candidate}")
+        print(f"DEBUG: Checking static candidate: {static_candidate}")
         if os.path.isdir(static_candidate):
             return static_candidate
 
     # 2. Fallback: Exhaustive search in immediate parents
-    logger.info("LOG_SYSTEM", "Root markers not found, attempting fallback search...")
+    print("DEBUG: Root markers not found, attempting fallback search...")
     current_dir = os.path.dirname(os.path.abspath(__file__))
     paths_to_check = [
         os.path.join(os.path.dirname(os.path.dirname(current_dir)), "static"), # /app/static
@@ -126,7 +141,7 @@ def find_static_dir():
     
     for path in paths_to_check:
         abs_path = os.path.abspath(path)
-        logger.info("LOG_SYSTEM", f"Checking fallback path: {abs_path}")
+        print(f"DEBUG: Checking fallback path: {abs_path}")
         if os.path.isdir(abs_path):
             return abs_path
             
