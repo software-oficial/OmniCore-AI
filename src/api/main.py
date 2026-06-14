@@ -88,15 +88,51 @@ app.include_router(dev.router)
 
 # 3. Serve Frontend Panel
 import os
-# Subir 3 niveles: src/api/main.py -> src/api/ -> src/ -> root/
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+from fastapi import HTTPException
+
+def find_static_dir():
+    """
+    Attempts to find the 'static' directory in likely locations.
+    """
+    # Current file: /app/src/api/main.py
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Potential paths to check
+    paths_to_check = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))), "static"), # Root: /app/static
+        os.path.join(os.path.dirname(os.path.dirname(current_dir)), "static"),                  # Inside src: /app/src/static
+        "static",                                                                              # CWD: ./static
+    ]
+    
+    for path in paths_to_check:
+        if os.path.isdir(path):
+            logger.info("LOG_SYSTEM", f"Static directory found at: {os.path.abspath(path)}")
+            return path
+            
+    logger.error("LOG_SYSTEM", "Static directory NOT found in any expected location. Frontend will be unavailable.")
+    return None
+
+static_path = find_static_dir()
+if static_path:
+    app.mount("/static", StaticFiles(directory=static_path), name="static")
+else:
+    # Fallback: mount a dummy route to avoid 404s on the mount point itself if needed, 
+    # or just let it be. We use a custom handler to explain the missing assets.
+    @app.get("/static/{file_path:path}")
+    async def static_fallback(file_path: str):
+        raise HTTPException(status_code=404, detail="Static assets directory is missing on the server.")
 
 @app.get("/")
 async def root():
     """Redirects the root URL to the Developer Panel."""
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/static/index.html")
+    # Only redirect if static assets are available, otherwise show error
+    if static_path:
+        return RedirectResponse(url="/static/index.html")
+    return JSONResponse(
+        status_code=503, 
+        content={"success": False, "message": "Frontend assets not found. Please contact administrator."}
+    )
 
 async def pool_cleanup_worker():
     """Background worker for DB pool cleanup."""
