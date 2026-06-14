@@ -39,10 +39,19 @@ async def get_my_agent(authorization: str = Header(None)):
         raise HTTPException(status_code=500, detail="An internal server error occurred. Please contact support.")
 
 @router.get("/projects", response_model=List[Dict[str, Any]])
-async def list_projects(agent_id: str):
+async def list_projects(authorization: str = Header(None)):
     """
-    Lists all projects (apps) associated with a specific agent.
+    Lists all projects (apps) associated with the authenticated agent.
     """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
+    token = authorization.replace("Bearer ", "")
+    is_valid, agent_id, _ = token_manager.validate_token(token)
+    
+    if not is_valid:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
     try:
         # Find all app_ids mapped to this agent
         mappings = core_db_manager.execute_raw(
@@ -63,6 +72,7 @@ async def list_projects(agent_id: str):
         
         return [{"id": a[0], "name": a[1]} for a in apps]
     except Exception as e:
+        logger.error(f"Error retrieving projects: {e}")
         raise HTTPException(status_code=500, detail="An internal server error occurred while retrieving projects.")
 
 @router.post("/register", response_model=RegisterResponse)
