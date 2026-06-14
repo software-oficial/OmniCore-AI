@@ -9,19 +9,22 @@ from contextlib import asynccontextmanager
 from src.core.dispatcher.exceptions import InfrastructureException
 
 logger = logging.getLogger("OmniCore.DbPool")
-
 class DynamicDbManager:
     """
     Dynamic Database Manager for OmniCore-AI.
-    
+
     Implements a Circuit Breaker pattern and Global Concurrency Control
     to prevent cascading failures and DB saturation.
     """
     def __init__(self):
+        # Connection & Pool Management
         self._engines: Dict[str, Any] = {}
         self._session_factories: Dict[str, Any] = {}
         self._last_accessed: Dict[str, float] = {}
-        
+
+        # Circuit Breaker State
+        self._circuit_breakers: Dict[str, Dict[str, Any]] = {}
+
         # Configuration Constants
         self.MAX_ENGINES = 100  # Maximum number of active DB pools in memory
         self.FAILURE_THRESHOLD = 3
