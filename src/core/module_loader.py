@@ -20,43 +20,74 @@ class ModuleLoader:
 
     def load_module(self, module_name: str):
         """
-        Dynamically loads or reloads a module from the filesystem.
-        Automatically discovers commands decorated with @command.
+        Dynamically loads modules from a domain directory.
+        Searches for all .py files in the domain folder and registers commands.
         """
-        module_path = f"{self.modules_dir}.{module_name}"
+        # Convert domain name (e.g., 'stock') to a path (e.g., 'src/domains/stock')
+        domain_path = f"src/domains/{module_name}"
         try:
-            if module_path in sys.modules:
-                logger.info(f"♻️ Hot-Swapping module: {module_name}")
-                module = importlib.reload(sys.modules[module_path])
-            else:
-                logger.info(f"📦 Loading module: {module_name}")
-                module = importlib.import_module(module_path)
+            import os
+            if not os.path.exists(domain_path):
+                logger.error(f"❌ Domain directory not found: {domain_path}")
+                return False
 
-            self._loaded_modules[module_name] = module
+            # Find all .py files in the domain directory (excluding __init__.py)
+            files = [f for f in os.listdir(domain_path) if f.endswith('.py') and f != '__init__.py']
+            
+            for file in files:
+                # Convert filename to module path (e.g., 'stock_service.py' -> 'src.domains.stock.stock_service')
+                module_short_name = file[:-3]
+                module_path = f"{self.modules_dir}.{module_name}.{module_short_name}"
+                
+                try:
+                    if module_path in sys.modules:
+                        logger.info(f"♻️ Hot-Swapping module: {module_path}")
+                        module = importlib.reload(sys.modules[module_path])
+                    else:
+                        logger.info(f"📦 Loading module: {module_path}")
+                        module = importlib.import_module(module_path)
 
-            # --- AUTO-DISCOVERY LOGIC ---
-            # Scan the module for functions decorated with @command
-            commands_found = 0
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-                if callable(attr) and getattr(attr, "_is_omnicore_command", False):
-                    cmd_name = getattr(attr, "_command_name")
+                    self._loaded_modules[module_path] = module
 
-                    # Register the function in the master registry
-                    self._command_registry[cmd_name] = {
-                        "handler": attr,
-                        "description": getattr(attr, "_command_description"),
-                        "params_schema": getattr(attr, "_command_params_schema"),
-                        "registered_at": time.time(),
-                        "is_system": getattr(attr, "_command_is_system")
-                    }
-                    commands_found += 1
+                    # --- ENHANCED AUTO-DISCOVERY LOGIC ---
+                    commands_found = 0
+                    # 1. Scan module attributes for callables (functions or objects)
+                    for attr_name in dir(module):
+                        attr = getattr(module, attr_name)
+                        
+                        # Handle module-level functions
+                        if callable(attr) and getattr(attr, "_is_omnicore_command", False):
+                            self._register_command(attr)
+                            commands_found += 1
+                        
+                        # Handle object methods (singletons)
+                        elif hasattr(attr, "__dict__") or hasattr(attr, "__slots__"):
+                            # Scan the object's methods
+                            for member_name in dir(attr):
+                                member = getattr(attr, member_name)
+                                if callable(member) and getattr(member, "_is_omnicore_command", False):
+                                    self._register_command(member)
+                                    commands_found += 1
 
-            logger.info(f"✅ Module {module_name} loaded. {commands_found} commands auto-discovered.")
+                    logger.info(f"✅ Module {module_path} loaded. {commands_found} commands discovered.")
+                except Exception as e:
+                    logger.error(f"❌ Failed to load sub-module {module_path}: {e}")
+
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to load module {module_name}: {e}")
+            logger.error(f"❌ Failed to load domain {module_name}: {e}")
             return False
+
+    def _register_command(self, handler: Callable):
+        """Helper to register a handler in the master registry."""
+        cmd_name = getattr(handler, "_command_name")
+        self._command_registry[cmd_name] = {
+            "handler": handler,
+            "description": getattr(handler, "_command_description"),
+            "params_schema": getattr(handler, "_command_params_schema"),
+            "registered_at": time.time(),
+            "is_system": getattr(handler, "_command_is_system")
+        }
 
     def reload_all(self):
         """Reloads all currently tracked modules."""
