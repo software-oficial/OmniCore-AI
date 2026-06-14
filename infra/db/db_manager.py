@@ -147,18 +147,4 @@ class DynamicDbManager:
 
 # Singleton for global access
 db_manager = DynamicDbManager()
-           del self._session_factories[app_id]
-            del self._last_accessed[app_id]
-            
-        if to_evict:
-            logger.info(f"Pool Eviction Complete. Removed {len(to_evict)} idle pools.")
 
-    def close_all_pools(self):
-        for engine in self._engines.values():
-            engine.dispose()
-        self._engines.clear()
-        self._session_factories.clear()
-        self._last_accessed.clear()
-
-# Singleton for global access
-db_manager = DynamicDbManager()
