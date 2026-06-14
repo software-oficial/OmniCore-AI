@@ -10,12 +10,12 @@ def test_initialization():
     try:
         # Test 1: Core DB Manager
         logger.info("Testing CoreDbManager...")
-        from infra.db.core_db_manager import core_db_manager
+        from src.infrastructure.db.core_db_manager import core_db_manager
         logger.info("✅ CoreDbManager imported and initialized.")
 
         # Test 2: Redis Manager
         logger.info("Testing RedisManager...")
-        from infra.cache.redis_manager import cache_manager
+        from src.infrastructure.cache.redis_manager import cache_manager
         logger.info("✅ RedisManager imported and initialized.")
 
         # Test 3: API Main

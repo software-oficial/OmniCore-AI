@@ -12,12 +12,12 @@ class WhatsappService:
     """
 
     def get_or_create_conversation(self, session: Session, phone: str) -> Dict[str, Any]:
+        """Retrieves or creates a conversation record without committing."""
         res = session.execute(text("SELECT * FROM whatsapp_conversations WHERE phone_number = :phone"), {"phone": phone}).mappings().first()
         if res:
             return dict(res)
         query = text("INSERT INTO whatsapp_conversations (phone_number) VALUES (:phone) RETURNING *")
         result = session.execute(query, {"phone": phone}).mappings().first()
-        session.commit()
         return dict(result)
 
     @command(
@@ -40,20 +40,22 @@ class WhatsappService:
             option = session.execute(option_query, {"menu": current_menu, "text": f"%{text}%"}).mappings().first()
             if not option:
                 return self._handle_unknown_input(session, phone, current_menu)
+            
             if option['action_type'] == 'NAVIGATE':
                 session.execute(text("UPDATE whatsapp_conversations SET current_menu = :menu, last_interaction = CURRENT_TIMESTAMP WHERE phone_number = :phone"), 
                                 {"menu": option['value'], "phone": phone})
-                session.commit()
                 return self._get_menu_response(session, option['value'])
+            
             if option['action_type'] == 'COMMAND':
                 return ServiceResponse.success_res(
                     data={"action": "EXECUTE_COMMAND", "command": option['command_name']},
                     message=f"Executing action: {option['command_name']}"
                 )
+            
             if option['action_type'] == 'HUMAN':
                 session.execute(text("UPDATE whatsapp_conversations SET is_human_intervening = TRUE WHERE phone_number = :phone"), {"phone": phone})
-                session.commit()
                 return ServiceResponse.success_res(message="Transferring to a human agent...")
+            
             return ServiceResponse.error_res("Action not implemented", "ACTION_NOT_SUPPORTED")
         except Exception as e:
             logger.error(f"Error processing message from {phone}: {e}")

@@ -41,19 +41,27 @@ async def get_my_agent(authorization: str = Header(None)):
 @router.get("/projects", response_model=List[Dict[str, Any]])
 async def list_projects(authorization: str = Header(None)):
     """
-    Lists all projects (apps) associated with the authenticated agent.
+    Lists all projects (apps) associated with the authenticated user's agent.
     """
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
         
-    token = authorization.replace("Bearer ", "")
-    is_valid, agent_id, _ = token_manager.validate_token(token)
+    user_id = authorization.replace("Bearer ", "")
     
-    if not is_valid:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     try:
-        # Find all app_ids mapped to this agent
+        # 1. Find the agent associated with this user
+        agent_res = core_db_manager.execute_raw(
+            "SELECT id FROM agents WHERE owner_user_id = :uid LIMIT 1",
+            {"uid": user_id}
+        ).fetchone()
+        
+        if not agent_res:
+            # If no agent exists, we return an empty list (or could trigger auto-provisioning)
+            return []
+            
+        agent_id = agent_res[0]
+
+        # 2. Find all app_ids mapped to this agent
         mappings = core_db_manager.execute_raw(
             "SELECT app_id FROM agent_app_mapping WHERE agent_id = :aid",
             {"aid": agent_id}
@@ -64,7 +72,7 @@ async def list_projects(authorization: str = Header(None)):
         if not app_ids:
             return []
             
-        # Get app details
+        # 3. Get app details
         apps = core_db_manager.execute_raw(
             "SELECT id, name FROM apps WHERE id IN :ids",
             {"ids": tuple(app_ids)}
@@ -75,7 +83,56 @@ async def list_projects(authorization: str = Header(None)):
         logger.error(f"Error retrieving projects: {e}")
         raise HTTPException(status_code=500, detail="An internal server error occurred while retrieving projects.")
 
+class ProjectCreateRequest(BaseModel):
+    name: str
+
+@router.post("/projects/create")
+async def create_project(request: ProjectCreateRequest, authorization: str = Header(None)):
+    """
+    Creates a new project (app) for the authenticated user's agent.
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
+    user_id = authorization.replace("Bearer ", "")
+    
+    try:
+        # 1. Find or Create the Agent for this user
+        agent_res = core_db_manager.execute_raw(
+            "SELECT id FROM agents WHERE owner_user_id = :uid LIMIT 1",
+            {"uid": user_id}
+        ).fetchone()
+        
+        if agent_res:
+            agent_id = agent_res[0]
+        else:
+            # Auto-provision an agent if one doesn't exist for the new user
+            agent_id = str(uuid.uuid4())
+            core_db_manager.execute_raw(
+                "INSERT INTO agents (id, name, api_key, owner_user_id) VALUES (:id, :name, :key, :uid)",
+                {"id": agent_id, "name": f"Agent_{user_id[:8]}", "key": str(uuid.uuid4()), "uid": user_id}
+            )
+        
+        app_id = str(uuid.uuid4())
+        # 2. Create App
+        core_db_manager.execute_raw(
+            "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner)",
+            {"id": app_id, "name": request.name, "owner": agent_id}
+        )
+        
+        # 3. Map Agent to App
+        core_db_manager.execute_raw(
+            "INSERT INTO agent_app_mapping (agent_id, app_id) VALUES (:agent_id, :app_id)",
+            {"agent_id": agent_id, "app_id": app_id}
+        )
+        
+        return {"success": True, "app_id": app_id, "message": f"Project {request.name} created successfully."}
+    except Exception as e:
+        logger.error(f"Project creation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create project.")
+
 @router.post("/register", response_model=RegisterResponse)
+
 async def register_agent(request: RegisterRequest):
     """
     Registers a new AI Agent and automatically provisions a Sandbox Infrastructure.

@@ -1,7 +1,7 @@
 import uuid
 import os
-from core.registry.infrastructure_registry import infrastructure_registry
-from infra.db.core_db_manager import core_db_manager
+from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.infrastructure.db.core_db_manager import core_db_manager
 
 def setup():
     agent_id = str(uuid.uuid4())

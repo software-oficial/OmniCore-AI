@@ -1,5 +1,5 @@
 import logging
-from infra.db.core_db_manager import core_db_manager
+from src.infrastructure.db.core_db_manager import core_db_manager
 from sqlalchemy import text
 import uuid
 
@@ -9,7 +9,7 @@ logger = logging.getLogger("OmniCoreSeeder")
 def seed_database():
     logger.info("🌱 Starting OmniCore-AI Database Seeding...")
     from config.settings import config
-    from infra.blueprint_manager import blueprint_manager
+    from src.infrastructure.blueprint_manager import blueprint_manager
 
     # 1. Initialize Schema
     core_db_manager.init_schema()

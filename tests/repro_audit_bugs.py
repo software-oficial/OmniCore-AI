@@ -1,9 +1,9 @@
 import asyncio
 import logging
-from core.dispatcher.gateway import ai_gateway
-from core.dispatcher.core_types import ServiceResponse
+from src.core.dispatcher.gateway import ai_gateway
+from src.core.dispatcher.core_types import ServiceResponse
 from unittest.mock import MagicMock
-from modules.stock.commands import register_stock_commands
+from src.domains.stock.commands import register_stock_commands
 
 logging.basicConfig(level=logging.INFO)
 
