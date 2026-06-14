@@ -51,6 +51,15 @@ class RedisManager:
             logger.error(f"⚠️ Redis connection failed: {e}. System entering Degraded Mode.")
             self.client = None
 
+    def is_available(self) -> bool:
+        """Checks if the Redis client is connected and responding."""
+        if self.client is None:
+            return False
+        try:
+            return self.client.ping()
+        except Exception:
+            return False
+
     def set(self, key: str, value: Any, ttl: int = 3600):
         """General purpose set with TTL."""
         if not self.is_available(): return
