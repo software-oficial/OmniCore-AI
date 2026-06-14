@@ -123,8 +123,7 @@ async def register_agent(request: RegisterRequest):
         message="Welcome to OmniCore-AI! Your Sandbox environment is ready."
     )
 
-    @router.get("/manifest")
-
+@router.get("/manifest")
 async def get_manifest():
     """
     Returns the Semantic Business Manifest for AI Agents.
