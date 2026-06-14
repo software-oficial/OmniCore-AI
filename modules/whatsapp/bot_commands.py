@@ -101,7 +101,3 @@ def bot_set_bot_mode(session: Session, context: CoreContext, phone: str) -> Serv
     except Exception as e:
         logger.error(f"Error setting bot mode: {e}")
         return ServiceResponse.error_res("Mode change error", "MODE_ERROR")
-"Error setting bot mode: {e}")
-        return ServiceResponse.error_res("Mode change error", "MODE_ERROR")
-_ERROR")
-_res("Mode change error", "MODE_ERROR")

@@ -42,9 +42,9 @@ async def universal_exception_handler(request: Request, exc: Exception):
     )
 
 # 1. Register Business Modules
-register_stock_commands()
-register_sales_commands()
-register_whatsapp_commands()
+from core.module_loader import module_loader
+for module in ["sales", "stock", "whatsapp"]:
+    module_loader.load_module(module)
 
 from core.system_service import system_service
 from core.dispatcher.gateway import ai_gateway
@@ -113,15 +113,6 @@ async def health():
 @app.get("/api/heartbeat")
 async def heartbeat():
     return {
-        "timestamp": datetime.utcnow().isoformat(),
-        "status": "ALIVE",
-        "load": len(db_manager._engines)
-    }
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host=config.HOST, port=config.PORT)
-{
         "timestamp": datetime.utcnow().isoformat(),
         "status": "ALIVE",
         "load": len(db_manager._engines)
