@@ -20,62 +20,64 @@ class ModuleLoader:
 
     def load_module(self, module_name: str):
         """
-        Dynamically loads modules from a domain directory.
-        Searches for all .py files in the domain folder and registers commands.
+        Dynamically loads all sub-modules within a domain package.
+        Uses pkgutil to discover and import all modules in the domain.
         """
-        # Convert domain name (e.g., 'stock') to a path (e.g., 'src/domains/stock')
-        domain_path = f"src/domains/{module_name}"
+        import pkgutil
+        import importlib
+        
+        domain_package_path = f"{self.modules_dir}.{module_name}"
         try:
-            import os
-            if not os.path.exists(domain_path):
-                logger.error(f"❌ Domain directory not found: {domain_path}")
+            # Import the domain package first
+            domain_pkg = importlib.import_module(domain_package_path)
+            package_path = domain_pkg.__path__ if hasattr(domain_pkg, '__path__') else None
+            
+            if not package_path:
+                logger.error(f"❌ {domain_package_path} is not a package or has no path.")
                 return False
 
-            # Find all .py files in the domain directory (excluding __init__.py)
-            files = [f for f in os.listdir(domain_path) if f.endswith('.py') and f != '__init__.py']
-            
-            for file in files:
-                # Convert filename to module path (e.g., 'stock_service.py' -> 'src.domains.stock.stock_service')
-                module_short_name = file[:-3]
-                module_path = f"{self.modules_dir}.{module_name}.{module_short_name}"
-                
+            commands_found = 0
+            # Walk through all sub-modules in the package
+            for loader, name, is_pkg in pkgutil.walk_packages(package_path, domain_package_path + '.'):
+                module_path = f"{domain_package_path}.{name}"
                 try:
                     if module_path in sys.modules:
-                        logger.info(f"♻️ Hot-Swapping module: {module_path}")
                         module = importlib.reload(sys.modules[module_path])
                     else:
-                        logger.info(f"📦 Loading module: {module_path}")
                         module = importlib.import_module(module_path)
-
+                    
                     self._loaded_modules[module_path] = module
 
-                    # --- ENHANCED AUTO-DISCOVERY LOGIC ---
-                    commands_found = 0
-                    # 1. Scan module attributes for callables (functions or objects)
+                    # Scan the module for commands
                     for attr_name in dir(module):
                         attr = getattr(module, attr_name)
                         
-                        # Handle module-level functions
+                        # 1. Module-level functions
                         if callable(attr) and getattr(attr, "_is_omnicore_command", False):
-                            self._register_command(attr)
-                            commands_found += 1
+                            # Ensure it's not an unbound method of a class
+                            if not hasattr(attr, "__qualname__") or "." not in attr.__qualname__:
+                                self._register_command(attr)
+                                commands_found += 1
                         
-                        # Handle object methods (singletons)
+                        # 2. Instance methods (singletons)
                         elif hasattr(attr, "__dict__") or hasattr(attr, "__slots__"):
-                            # Scan the object's methods
+                            # We only care about objects that are actually instances of a class
+                            # to find bound methods.
                             for member_name in dir(attr):
                                 member = getattr(attr, member_name)
                                 if callable(member) and getattr(member, "_is_omnicore_command", False):
-                                    self._register_command(member)
-                                    commands_found += 1
+                                    # Check if it's a bound method (has __self__)
+                                    if hasattr(member, "__self__"):
+                                        self._register_command(member)
+                                        commands_found += 1
 
-                    logger.info(f"✅ Module {module_path} loaded. {commands_found} commands discovered.")
+                    logger.info(f"✅ Loaded {module_path}. Found {commands_found} commands.")
                 except Exception as e:
                     logger.error(f"❌ Failed to load sub-module {module_path}: {e}")
 
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to load domain {module_name}: {e}")
+            logger.error(f"❌ Failed to load domain package {domain_package_path}: {e}")
             return False
 
     def _register_command(self, handler: Callable):
