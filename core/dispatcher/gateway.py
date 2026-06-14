@@ -54,7 +54,7 @@ class AIGateway:
         }
         logger.info(f"✅ Command Registered: {command_name} | Desc: {description} | System: {is_system}")
 
-    async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None):
+    async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None, requested_mode: Optional[str] = None):
         start_time = time.perf_counter()
         traces = {}
         
@@ -82,7 +82,7 @@ class AIGateway:
         # 1. Token Validation
         t_auth_start = time.perf_counter()
 
-        is_valid, mode, agent_id = token_manager.validate_token(token)
+        is_valid, agent_id = token_manager.validate_token(token)
         traces['auth_ms'] = (time.perf_counter() - t_auth_start) * 1000
         
         if not is_valid:
@@ -108,6 +108,11 @@ class AIGateway:
             telemetry_service.track_request(agent_id, "unknown", "gateway.execute", duration_ms / 1000, False)
             return res
         
+        # Resolve Mode: Header -> Default PRODUCTION
+        mode = requested_mode.upper() if requested_mode else "PRODUCTION"
+        if mode not in ["LEARNING", "PRODUCTION"]:
+            mode = "PRODUCTION"
+
         ctx = CoreContext(
             agent_id=agent_id, 
             app_id=app_context["app_id"], 
@@ -116,7 +121,7 @@ class AIGateway:
             tier=app_context["tier"]
         )
 
-        logger.info(f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}")
+        logger.info(f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}")
 
         # --- BLINDAJE: Type Validation & Parameter Filtering ---
         filtered_params = params
@@ -251,11 +256,21 @@ class AIGateway:
         if not command_name:
             return ServiceResponse.error_res("No command specified", "COMMAND_MISSING")
 
-        # 1. Existence Check
+        # 1. Existence Check with Intelligent Suggestions
         handler = self.loader.get_handler(command_name)
         if not handler:
+            # Try to find the most similar command to help the developer
+            all_commands = list(self.loader._command_registry.keys())
+            closest_matches = difflib.get_close_matches(command_name, all_commands, n=1, cutoff=0.5)
+            
+            suggestion = ""
+            if closest_matches:
+                suggestion = f"\\n\\n👉 Did you mean: `{closest_matches[0]}`?"
+            
             return ServiceResponse.error_res(
-                message=f"💡 LEARNING ERROR: Command '{command_name}' does not exist in the OmniCore Registry. Please check the API guide for available commands.",
+                message=f"💡 LEARNING ERROR: Command '{command_name}' does not exist in the OmniCore Registry."
+                        f"\\n\\n👉 To discover all available commands, call: `GET /api/gateway/help`"
+                        f"{suggestion}",
                 error_code="COMMAND_NOT_FOUND"
             )
 

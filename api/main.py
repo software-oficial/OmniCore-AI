@@ -41,6 +41,24 @@ async def universal_exception_handler(request: Request, exc: Exception):
         }
     )
 
+@app.get("/api")
+async def api_root():
+    """
+    Welcome endpoint for the API. 
+    Provides immediate discovery links for developers.
+    """
+    return {
+        "system": "OmniCore-AI Gateway",
+        "version": config.VERSION,
+        "status": "ONLINE",
+        "discovery": {
+            "help": "/api/gateway/help",
+            "openapi": "/api/gateway/openapi",
+            "heartbeat": "/api/heartbeat"
+        },
+        "message": "Welcome! Use /api/gateway/help to discover all available business commands."
+    }
+
 # 1. Register Business Modules
 from core.module_loader import module_loader
 for module in ["sales", "stock", "whatsapp"]:
@@ -121,3 +139,4 @@ async def heartbeat():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host=config.HOST, port=config.PORT)
+

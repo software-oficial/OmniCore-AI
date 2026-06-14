@@ -184,7 +184,8 @@ async def handle_command(
     command: Optional[str] = Body(None, embed=True),
     params: Optional[Dict[str, Any]] = Body(None, embed=True),
     flow: Optional[List[Dict[str, Any]]] = Body(None, embed=True),
-    authorization: str = Header(None)
+    authorization: str = Header(None),
+    x_omnicore_mode: Optional[str] = Header(None)
 ):
     if not authorization:
         return ServiceResponse.error_res("Missing Authorization Header", "AUTH_HEADER_MISSING").to_dict()
@@ -198,7 +199,8 @@ async def handle_command(
         token=token, 
         params=params, 
         request=None, # In a real app, we'd pass the FastAPI request object
-        flow=flow
+        flow=flow,
+        requested_mode=x_omnicore_mode
     )
     return result.to_dict()
 
