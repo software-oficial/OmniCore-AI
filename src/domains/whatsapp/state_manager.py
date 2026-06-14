@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
+from src.core.dispatcher.decorators import command
 
 logger = logging.getLogger("OmniCore.ConversationStateManager")
 
