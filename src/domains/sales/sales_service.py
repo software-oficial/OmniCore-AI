@@ -209,7 +209,3 @@ class SalesService:
 
 # Singleton
 sales_service = SalesService()
-")
-
-# Singleton
-sales_service = SalesService()

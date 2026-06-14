@@ -2,6 +2,7 @@ import requests
 import logging
 from typing import Dict, Any, Optional
 from src.core.dispatcher.core_types import ServiceResponse, CoreContext
+from src.core.dispatcher.decorators import command
 
 logger = logging.getLogger("OmniCore.MercadoPagoService")
 
@@ -63,11 +64,6 @@ class MercadoPagoService:
         """
         # Implementation of MP refund logic would go here
         return ServiceResponse.error_res("Refund function not yet implemented for MercadoPago.", "NOT_IMPLEMENTED")
-
-# Singleton
-mp_service = MercadoPagoService()
-PagoService()
-MercadoPago.", "NOT_IMPLEMENTED")
 
 # Singleton
 mp_service = MercadoPagoService()

@@ -90,4 +90,3 @@ class ConversationStateManager:
 
 # Singleton
 state_manager = ConversationStateManager()
- ConversationStateManager()

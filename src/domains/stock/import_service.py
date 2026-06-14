@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
+from src.core.dispatcher.decorators import command
 from .stock_service import stock_service
 
 logger = logging.getLogger("OmniCore.ImportService")
