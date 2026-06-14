@@ -1,6 +1,7 @@
 import logging
 import time
 import asyncio
+import difflib
 from typing import Any, Dict, Optional, Callable, List
 from fastapi import HTTPException, Request
 from core.dispatcher.core_types import CoreContext, ServiceResponse
@@ -15,33 +16,20 @@ from infra.validation.type_checker import type_checker
 logger = logging.getLogger("OmniCore.Gateway")
 error_logger = logging.getLogger("OmniCore.Errors")
 
+from core.dispatcher.core_types import CoreContext, ServiceResponse
+from core.dispatcher.normalizer import CommandNormalizer
+from core.auth.token_manager import token_manager
+from core.registry.infrastructure_registry import infrastructure_registry
+...
 class AIGateway:
     """
     The Entry Point for all AI Agent requests.
     Implements the 3-layer security check and dynamic DB injection.
     """
-    COMMAND_ALIASES = {
-        "ventas": "sales",
-        "caja": "cash",
-        "infraestructura": "infrastructure",
-        "infra": "infrastructure",
-        "bot": "bot",
-        "whatsapp": "whatsapp"
-    }
 
     def __init__(self):
         from core.module_loader import module_loader
         self.loader = module_loader
-
-    def _normalize_command(self, command_name: str) -> tuple[str, bool]:
-        """Translates aliases to official command names. Returns (normalized_name, was_aliased)."""
-        if not command_name or '.' not in command_name:
-            return command_name, False
-        
-        prefix, suffix = command_name.split('.', 1)
-        if prefix in self.COMMAND_ALIASES:
-            return f"{self.COMMAND_ALIASES[prefix]}.{suffix}", True
-        return command_name, False
 
     def register_command(self, command_name: str, handler: Callable, description: str = "No description provided", params_schema: Optional[Dict[str, Any]] = None, is_system: bool = False):
         """Registers a command handler with semantic metadata for AI discovery."""
@@ -54,91 +42,33 @@ class AIGateway:
         }
         logger.info(f"✅ Command Registered: {command_name} | Desc: {description} | System: {is_system}")
 
-    async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None, requested_mode: Optional[str] = None):
-        start_time = time.perf_counter()
-        traces = {}
-        
-        # 0. Command Normalization
-        normalized_name, was_aliased = self._normalize_command(command_name)
-        effective_command = normalized_name
+    from core.dispatcher.core_types import CoreContext, ServiceResponse
+    from core.dispatcher.normalizer import CommandNormalizer
+    from core.dispatcher.validator import RequestValidator
+    from core.auth.token_manager import token_manager
+    from core.registry.infrastructure_registry import infrastructure_registry
+    ...
+        async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None, requested_mode: Optional[str] = None):
+            start_time = time.perf_counter()
+            traces = {}
 
-        # Immediate Sanity Filter (Anti-Absurd Data)
-        if params:
-            sanity_keywords = {'price', 'quantity', 'amount', 'total', 'stock', 'cost'}
-            for key, value in params.items():
-                if any(kw in key.lower() for kw in sanity_keywords):
-                    try:
-                        if float(value) < 0:
-                            return ServiceResponse.error_res(
-                                message=f"🚫 SANITY ERROR: Field '{key}' cannot have a negative value ({value}).",
-                                error_code="INVALID_DATA_RANGE"
-                            )
-                    except (ValueError, TypeError):
-                        pass
+            # 0. Command Normalization (Delegated)
+            effective_command, was_aliased = CommandNormalizer.normalize(command_name)
 
-            # --- BLINDAJE: Sanitization ---
-            params = sanitizer.sanitize_params(params)
-
-        # 1. Token Validation
-        t_auth_start = time.perf_counter()
-
-        is_valid, agent_id = token_manager.validate_token(token)
-        traces['auth_ms'] = (time.perf_counter() - t_auth_start) * 1000
-        
-        if not is_valid:
-            logger.warning(f"⚠️ Auth Failed: Invalid token used")
-            res = ServiceResponse.error_res("Invalid or expired token", "AUTH_TOKEN_INVALID")
-            duration_ms = (time.perf_counter() - start_time) * 1000
-            res.latency_ms = duration_ms
-            from core.telemetry.telemetry_service import telemetry_service
-            telemetry_service.track_request("unknown", "unknown", "gateway.execute", duration_ms / 1000, False)
-            return res
-
-        # 2. Context Retrieval
-        t_infra_start = time.perf_counter()
-        app_context = infrastructure_registry.get_app_context(agent_id)
-        traces['infra_ms'] = (time.perf_counter() - t_infra_start) * 1000
-        
-        if not app_context:
-            logger.warning(f"⚠️ Infrastructure not found for agent: {agent_id}")
-            res = ServiceResponse.error_res("No associated business infrastructure found.", "INFRA_NOT_FOUND")
-            duration_ms = (time.perf_counter() - start_time) * 1000
-            res.latency_ms = duration_ms
-            from core.telemetry.telemetry_service import telemetry_service
-            telemetry_service.track_request(agent_id, "unknown", "gateway.execute", duration_ms / 1000, False)
-            return res
-        
-        # Resolve Mode: Header -> Default PRODUCTION
-        mode = requested_mode.upper() if requested_mode else "PRODUCTION"
-        if mode not in ["LEARNING", "PRODUCTION"]:
-            mode = "PRODUCTION"
-
-        ctx = CoreContext(
-            agent_id=agent_id, 
-            app_id=app_context["app_id"], 
-            mode=mode, 
-            db_config=app_context["db_config"], 
-            tier=app_context["tier"]
-        )
-
-        logger.info(f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}")
-
-        # --- BLINDAJE: Type Validation & Parameter Filtering ---
-        filtered_params = params
-        if effective_command and params:
+            # 1. Validation (Delegated)
             cmd_metadata = self.loader.get_metadata(effective_command)
             schema = cmd_metadata.get('params_schema', {})
-            
-            if isinstance(schema, dict):
-                # 1. Strict Type Validation
-                is_valid_type, type_err = type_checker.validate_types(params, schema)
-                if not is_valid_type:
-                    return type_err
-                
-                # 2. Strict Parameter Filtering (Anti-Mass Assignment)
-                filtered_params = {k: v for k, v in params.items() if k in schema}
-                if len(filtered_params) != len(params):
-                    logger.warning(f"⚠️ Mass Assignment Attempt blocked for {effective_command}. Dropped keys: {set(params.keys()) - set(schema.keys())}")
+
+            is_valid, error_res, filtered_params = RequestValidator.validate(effective_command, params, schema)
+            if not is_valid:
+                return error_res
+
+            # 2. Token Validation
+            t_auth_start = time.perf_counter()
+
+            is_valid, agent_id, jwt_tier = token_manager.validate_token(token)
+            traces['auth_ms'] = (time.perf_counter() - t_auth_start) * 1000
+
 
         # 3. Execution Path
         t_exec_start = time.perf_counter()

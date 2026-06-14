@@ -72,7 +72,9 @@ class TypeChecker:
         """Internal helper to validate basic types."""
         target_type = cls.TYPE_MAP.get(type_str.lower())
         if not target_type:
-            return True # If type is unknown, we allow it (fail-open for extensibility)
+            # FAIL-CLOSED: Reject if type is unknown
+            logger.error(f"Schema validation failed: Unknown type requested '{type_str}'")
+            return False 
             
         return isinstance(value, target_type)
 
