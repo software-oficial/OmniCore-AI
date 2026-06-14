@@ -20,9 +20,28 @@ class AIGateway:
     The Entry Point for all AI Agent requests.
     Implements the 3-layer security check and dynamic DB injection.
     """
+    COMMAND_ALIASES = {
+        "ventas": "sales",
+        "caja": "cash",
+        "infraestructura": "infrastructure",
+        "infra": "infrastructure",
+        "bot": "bot",
+        "whatsapp": "whatsapp"
+    }
+
     def __init__(self):
         from core.module_loader import module_loader
         self.loader = module_loader
+
+    def _normalize_command(self, command_name: str) -> tuple[str, bool]:
+        """Translates aliases to official command names. Returns (normalized_name, was_aliased)."""
+        if not command_name or '.' not in command_name:
+            return command_name, False
+        
+        prefix, suffix = command_name.split('.', 1)
+        if prefix in self.COMMAND_ALIASES:
+            return f"{self.COMMAND_ALIASES[prefix]}.{suffix}", True
+        return command_name, False
 
     def register_command(self, command_name: str, handler: Callable, description: str = "No description provided", params_schema: Optional[Dict[str, Any]] = None, is_system: bool = False):
         """Registers a command handler with semantic metadata for AI discovery."""
@@ -39,8 +58,11 @@ class AIGateway:
         start_time = time.perf_counter()
         traces = {}
         
-        # 0. Immediate Sanity Filter (Anti-Absurd Data)
-        # Rejects negative values for critical business fields regardless of mode
+        # 0. Command Normalization
+        normalized_name, was_aliased = self._normalize_command(command_name)
+        effective_command = normalized_name
+
+        # Immediate Sanity Filter (Anti-Absurd Data)
         if params:
             sanity_keywords = {'price', 'quantity', 'amount', 'total', 'stock', 'cost'}
             for key, value in params.items():
@@ -55,7 +77,6 @@ class AIGateway:
                         pass
 
             # --- BLINDAJE: Sanitization ---
-            # Clean all string inputs to prevent XSS/Injection
             params = sanitizer.sanitize_params(params)
 
         # 1. Token Validation
@@ -99,8 +120,8 @@ class AIGateway:
 
         # --- BLINDAJE: Type Validation & Parameter Filtering ---
         filtered_params = params
-        if command_name and params:
-            cmd_metadata = self.loader.get_metadata(command_name)
+        if effective_command and params:
+            cmd_metadata = self.loader.get_metadata(effective_command)
             schema = cmd_metadata.get('params_schema', {})
             
             if isinstance(schema, dict):
@@ -110,10 +131,9 @@ class AIGateway:
                     return type_err
                 
                 # 2. Strict Parameter Filtering (Anti-Mass Assignment)
-                # Only allow keys that are explicitly defined in the schema
                 filtered_params = {k: v for k, v in params.items() if k in schema}
                 if len(filtered_params) != len(params):
-                    logger.warning(f"⚠️ Mass Assignment Attempt blocked for {command_name}. Dropped keys: {set(params.keys()) - set(schema.keys())}")
+                    logger.warning(f"⚠️ Mass Assignment Attempt blocked for {effective_command}. Dropped keys: {set(params.keys()) - set(schema.keys())}")
 
         # 3. Execution Path
         t_exec_start = time.perf_counter()
@@ -124,12 +144,12 @@ class AIGateway:
             cmd_for_telemetry = "gateway.batch"
         elif mode == "LEARNING":
             # SINGLE COMMAND - LEARNING
-            result = await self._handle_learning_mode(command_name, ctx, filtered_params)
-            cmd_for_telemetry = command_name
+            result = await self._handle_learning_mode(effective_command, ctx, filtered_params)
+            cmd_for_telemetry = effective_command
         else:
             # SINGLE COMMAND - PRODUCTION
-            result = await self._handle_production_mode(command_name, ctx, filtered_params)
-            cmd_for_telemetry = command_name
+            result = await self._handle_production_mode(effective_command, ctx, filtered_params)
+            cmd_for_telemetry = effective_command
         traces['exec_ms'] = (time.perf_counter() - t_exec_start) * 1000
         
         duration_ms = (time.perf_counter() - start_time) * 1000
@@ -137,6 +157,10 @@ class AIGateway:
         
         from core.telemetry.telemetry_service import telemetry_service
         telemetry_service.track_request(agent_id, ctx.app_id, cmd_for_telemetry, duration_ms / 1000, result.success)
+
+        # Pedagogical Hint for Aliases
+        if was_aliased and result.success:
+            result.message = f"💡 TIP: Command executed successfully, but you used an alias. The official name is `{effective_command}`. Use it for better compatibility.\n\n{result.message}"
 
         # 4. System Audit Log
         t_audit_start = time.perf_counter()
