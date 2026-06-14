@@ -59,7 +59,7 @@ class CoreDbManager:
         Initializes the core registry schema by loading the base SQL migration file.
         This ensures consistency across environments.
         """
-        schema_path = "infra/db/migrations/001_initial_schema.sql"
+        schema_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "infra/db/migrations/001_initial_schema.sql")
         try:
             with open(schema_path, "r") as f:
                 schema_sql = f.read()
