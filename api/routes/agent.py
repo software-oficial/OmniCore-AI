@@ -110,9 +110,10 @@ async def register_agent(request: RegisterRequest):
         )
         
         # Generate initial Learning token
-        token = token_manager.generate_token(agent_id, mode="LEARNING")
+        token = token_manager.generate_token(agent_id, tier="FREE")
 
     except Exception as e:
+        logger.error(f"Registration error: {e}")
         raise HTTPException(status_code=500, detail="Registration failed due to an internal server error.")
 
     return RegisterResponse(
@@ -122,14 +123,8 @@ async def register_agent(request: RegisterRequest):
         message="Welcome to OmniCore-AI! Your Sandbox environment is ready."
     )
 
-    return RegisterResponse(
-        agent_id=agent_id,
-        app_id=app_id,
-        token=token,
-        message="Welcome to OmniCore-AI! Your Sandbox environment is ready."
-    )
+    @router.get("/manifest")
 
-@router.get("/manifest")
 async def get_manifest():
     """
     Returns the Semantic Business Manifest for AI Agents.
