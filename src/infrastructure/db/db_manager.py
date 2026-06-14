@@ -22,14 +22,29 @@ class DynamicDbManager:
         self._session_factories: Dict[str, Any] = {}
         self._last_accessed: Dict[str, float] = {}
         
-        # Circuit Breaker State
-        self._circuit_breakers: Dict[str, Dict[str, Any]] = {}
+        # Configuration Constants
+        self.MAX_ENGINES = 100  # Maximum number of active DB pools in memory
         self.FAILURE_THRESHOLD = 3
         self.RECOVERY_TIMEOUT = 60 
 
         # Global Concurrency Control (SRE Layer)
         self.GLOBAL_MAX_CONCURRENCY = 100 
         self._semaphore = asyncio.Semaphore(self.GLOBAL_MAX_CONCURRENCY)
+
+    def _evict_oldest_engine(self):
+        """LRU Eviction: Removes the least recently used DB pool to free memory."""
+        if not self._last_accessed:
+            return
+        
+        oldest_app_id = min(self._last_accessed, key=self._last_accessed.get)
+        logger.info(f"♻️ LRU Eviction: Removing oldest engine for App {oldest_app_id}")
+        
+        if oldest_app_id in self._engines:
+            self._engines[oldest_app_id].dispose()
+            del self._engines[oldest_app_id]
+        if oldest_app_id in self._session_factories:
+            del self._session_factories[oldest_app_id]
+        del self._last_accessed[oldest_app_id]
 
     def _create_engine(self, db_config: Dict[str, Any], pool_size: int = 5, max_overflow: int = 10):
         url = f"postgresql://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['dbname']}"
