@@ -1,1 +1,719 @@
-<html><body><h1>OmniCore-AI Frontend</h1><p>Frontend is now available. Please check the production build.</p></body></html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniCore-AI | Onboarding Center</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #22d3ee;
+            --success: #10b981;
+            --error: #ef4444;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        nav {
+            width: 280px;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 2rem 1rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 2.5rem;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-link {
+            padding: 0.8rem 1rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 10px;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .nav-link.hidden {
+            display: none;
+        }
+
+        main {
+            flex: 1;
+            padding: 3rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .section {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 { font-size: 2.8rem; margin-bottom: 1rem; color: white; }
+        h2 { font-size: 1.8rem; margin: 2rem 0 1rem; color: var(--accent); }
+        p { color: var(--text-muted); line-height: 1.7; font-size: 1.1rem; }
+
+        .card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+        }
+
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-weight: 500; }
+        input {
+            width: 100%;
+            padding: 0.8rem;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover { background: var(--primary-hover); transform: translateY(-2px); }
+
+        .result-box {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            border-radius: 12px;
+            display: none;
+            font-family: 'JetBrains Mono', monospace;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+        .result-success { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid var(--success); }
+        .result-error { background: rgba(239, 68, 68, 0.1); color: var(--error); border: 1px solid var(--error); }
+
+        .blueprint-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .step-card {
+            background: #1e293b;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .method-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 10px;
+            background: var(--primary);
+            color: white;
+        }
+
+        code {
+            background: #0f172a;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            color: #e2e8f0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .example-block {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border: 1px solid var(--border);
+            white-space: pre-wrap;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .token-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #0f172a;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-top: 10px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .copy-btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            background: white;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <nav id="main-nav">
+        <div class="logo"><span>🤖</span> OmniCore-AI</div>
+        <div class="nav-links">
+            <div class="nav-link active" onclick="showSection('welcome')"><i class="fas fa-home"></i> Inicio</div>
+            <div class="nav-link protected" onclick="showSection('docs')"><i class="fas fa-book"></i> Documentación</div>
+            <div class="nav-link protected" onclick="showSection('blueprint')"><i class="fas fa-map"></i> Frontend Plan</div>
+            <div class="nav-link protected" onclick="showSection('tokens')"><i class="fas fa-key"></i> Mis Tokens</div>
+            <div class="nav-link protected" onclick="showSection('console')"><i class="fas fa-terminal"></i> Consola</div>
+            <div class="nav-link" onclick="showSection('register')"><i class="fas fa-user-plus"></i> Sandbox</div>
+            <div class="nav-link hidden" id="nav-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Salir</div>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <!-- Welcome Section -->
+        <div id="welcome" class="section active">
+            <h1>El Sistema Operativo de tu Negocio</h1>
+            <p>OmniCore-AI es un Meta-Orquestador diseñado para que Agentes de IA desplieguen y gestionen infraestructuras de negocio con cero fricción.</p>
+            <div class="card">
+                <h2>🌟 ¿Qué puedes hacer aquí?</h2>
+                <div class="blueprint-grid">
+                    <div class="step-card"><strong>📦 Gestión de Stock</strong><br>Añade productos y consulta existencias.</div>
+                    <div class="step-card"><strong>💰 Ventas y Caja</strong><br>Procesa transacciones y rastrea ingresos.</div>
+                    <div class="step-card"><strong>💬 WhatsApp</strong><br>Crea flujos de conversación automatizados.</div>
+                    <div class="step-card"><strong>🛠️ Infraestructura</strong><br>Despliega bases de datos dinámicas.</div>
+                </div>
+            </div>
+            <button onclick="showSection('register')" style="font-size: 1.2rem; padding: 1rem 2.5rem;">Empezar Ahora <i class="fas fa-arrow-right"></i></button>
+        </div>
+
+        <!-- Login Section -->
+        <div id="login" class="section">
+            <h1>Acceso al Panel</h1>
+            <p>Ingresa tus credenciales para gestionar tu infraestructura de IA.</p>
+            <div class="card">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="email@ejemplo.com">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="loginPass" placeholder="********">
+                </div>
+                <button onclick="handleLogin()">Entrar al Sistema</button>
+                <p style="margin-top: 1rem; font-size: 0.9rem;">¿No tienes cuenta? <a href="#" onclick="showSection('user-register')" style="color: var(--accent);">Regístrate aquí</a></p>
+                <div id="loginResult" class="result-box"></div>
+            </div>
+        </div>
+
+        <!-- User Register Section -->
+        <div id="user-register" class="section">
+            <h1>Crear Cuenta de Usuario</h1>
+            <p>Regístrate para obtener acceso administrativo al Meta-Orquestador.</p>
+            <div class="card">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="regEmail" placeholder="email@ejemplo.com">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="regPass" placeholder="********">
+                </div>
+                <button onclick="handleUserRegister()">Crear Cuenta</button>
+                <p style="margin-top: 1rem; font-size: 0.9rem;">¿Ya tienes cuenta? <a href="#" onclick="showSection('login')" style="color: var(--accent);">Inicia sesión</a></p>
+                <div id="userRegResult" class="result-box"></div>
+            </div>
+        </div>
+
+        <!-- Register Section (Sandbox) -->
+        <div id="register" class="section">
+            <h1>Registro de Identidad</h1>
+            <p>Crea tu cuenta de desarrollador para obtener acceso al Sandbox (modo LEARNING).</p>
+            <div class="card">
+                <div class="form-group">
+                    <label>Nombre del Agente / Desarrollador</label>
+                    <input type="text" id="agentName" placeholder="Ej: AlphaBot_Dev">
+                </div>
+                <div class="form-group">
+                    <label>Nombre de la Plataforma / App</label>
+                    <input type="text" id="platformName" placeholder="Ej: MiTienda_Inteligente">
+                </div>
+                <button onclick="registerAgent()">Crear Identidad y Sandbox</button>
+                <div id="regResult" class="result-box"></div>
+            </div>
+            <div class="card">
+                <h2>🚀 Mis Proyectos Sandbox</h2>
+                <div id="sandboxProjectsList" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                    <p style="color: var(--text-muted);">Cargando proyectos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Docs Section -->
+        <div id="docs" class="section">
+            <h1>Documentación Técnica</h1>
+            <p>La API de OmniCore-AI es <strong>Command-Driven</strong>.</p>
+            <div class="card">
+                <h2><i class="fas fa-bolt"></i> El Gateway Principal</h2>
+                <div class="doc-item">
+                    <span class="method-badge">POST</span> <code>/api/gateway/execute</code>
+                    <div class="example-block">Header: Authorization: Bearer TOKEN
+Body: {"command": "stock.add", "params": {}}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Blueprint Section -->
+        <div id="blueprint" class="section">
+            <h1>Blueprint para Frontend</h1>
+            <div class="card">
+                <h2>1. Gestión de Estado</h2>
+                <code>const token = localStorage.getItem('omnicore_auth_token');</code>
+            </div>
+        </div>
+
+        <!-- Tokens Section -->
+        <div id="tokens" class="section">
+            <h1>Gestión de Tokens de API</h1>
+            <div class="card">
+                <h2>Generar Nuevo Token</h2>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <label>Seleccionar Proyecto / App</label>
+                    <select id="projectSelector" style="width: 100%; padding: 0.8rem; background: #0f172a; border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 1rem;">
+                        <option value="">Cargando proyectos...</option>
+                    </select>
+                    <p id="projectHint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">Selecciona un proyecto para vincular el token.</p>
+                </div>
+
+                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                    <div style="flex: 1;">
+                        <label>Tipo de Token</label>
+                        <select id="tokenMode" style="width: 100%; padding: 0.8rem; background: #0f172a; border: 1px solid var(--border); border-radius: 10px; color: white; font-size: 1rem;">
+                            <option value="PRODUCTION">🚀 Producción (Persistente)</option>
+                            <option value="LEARNING">🧪 Learning (Efímero - 24h)</option>
+                        </select>
+                    </div>
+                    <div style="margin-top: 1.8rem;">
+                        <button onclick="createToken()" style="height: 45px;">Generar Token</button>
+                    </div>
+                </div>
+                
+                <div id="tokenResult" class="result-box"></div>
+            </div>
+            <div class="card">
+                <h2>Tokens Activos</h2>
+                <div id="tokensList" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 1rem;"></div>
+            </div>
+        </div>
+
+        <!-- Console Section -->
+        <div id="console" class="section">
+            <h1>Consola de Pruebas</h1>
+            <div class="card">
+                <div class="form-group">
+                    <label>Token de Acceso</label>
+                    <input type="text" id="testToken" placeholder="LEARNING_xxxxxx">
+                </div>
+                <div class="form-group">
+                    <label>Comando</label>
+                    <input type="text" id="testCommand" value="stock.list">
+                </div>
+                <div class="form-group">
+                    <label>Parámetros (JSON)</label>
+                    <input type="text" id="testParams" value="{}">
+                </div>
+                <button onclick="testApi()">Ejecutar</button>
+                <div id="consoleResult" class="result-box"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let authToken = localStorage.getItem('omnicore_auth_token');
+
+        function updateAuthUI() {
+            const nav = document.getElementById('main-nav');
+            const main = document.getElementById('main-content');
+            const logoutBtn = document.getElementById('nav-logout');
+            const protectedLinks = document.querySelectorAll('.nav-link.protected');
+
+            if (authToken) {
+                nav.style.display = 'flex';
+                main.style.display = 'block';
+                logoutBtn.classList.remove('hidden');
+                protectedLinks.forEach(l => l.classList.remove('hidden'));
+                showSection('welcome');
+            } else {
+                nav.style.display = 'none';
+                main.style.display = 'block';
+                logoutBtn.classList.add('hidden');
+                protectedLinks.forEach(l => l.classList.add('hidden'));
+                showSection('login');
+            }
+        }
+
+        function showSection(id) {
+            const publicSections = ['welcome', 'register', 'login', 'user-register'];
+            if (!publicSections.includes(id) && !authToken) {
+                showSection('login');
+                return;
+            }
+
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+
+            const section = document.getElementById(id);
+            if (section) section.classList.add('active');
+
+            const links = document.querySelectorAll('.nav-link');
+            links.forEach(l => {
+                if (l.getAttribute('onclick')?.includes(`'${id}'`)) {
+                    l.classList.add('active');
+                }
+            });
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPass').value;
+            const resultDiv = document.getElementById('loginResult');
+            if(!email || !password) return alert('Complete todos los campos');
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result-box';
+            resultDiv.innerText = 'Autenticando...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                if(response.ok) {
+                    authToken = data.data.user_id; 
+                    localStorage.setItem('omnicore_auth_token', authToken);
+                    resultDiv.className = 'result-box result-success';
+                    resultDiv.innerText = '✅ Login exitoso. Redirigiendo...';
+                    updateAuthUI();
+                } else {
+                    throw new Error(data.detail || 'Credenciales incorrectas');
+                }
+            } catch (e) {
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerText = 'Error: ' + e.message;
+            }
+        }
+
+        async function handleUserRegister() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPass').value;
+            const resultDiv = document.getElementById('userRegResult');
+            if(!email || !password) return alert('Complete todos los campos');
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result-box';
+            resultDiv.innerText = 'Creando cuenta...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                if(response.ok) {
+                    resultDiv.className = 'result-box result-success';
+                    resultDiv.innerHTML = '✅ Cuenta creada. Inicie sesión ahora.';
+                    setTimeout(() => showSection('login'), 2000);
+                } else {
+                    throw new Error(data.detail || 'Error al registrar');
+                }
+            } catch (e) {
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerText = 'Error: ' + e.message;
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Copiado al portapapeles');
+            }).catch(err => {
+                console.error('Error al copiar: ', err);
+            });
+        }
+
+        async function createToken() {
+            const agentId = localStorage.getItem('omnicore_last_agent_id');
+            const projectId = document.getElementById('projectSelector').value;
+            const mode = document.getElementById('tokenMode').value;
+            const resultDiv = document.getElementById('tokenResult');
+            
+            if(!agentId || !projectId) return alert('Selecciona un proyecto válido');
+
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[-T:.Z]/g, '').slice(0, 12);
+            const autoName = `TOKEN_${timestamp}_${mode}`;
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result-box';
+            resultDiv.innerText = 'Generando token para el proyecto...';
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/tokens/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                    body: JSON.stringify({ agent_id: agentId, token_name: autoName, mode: mode })
+                });
+                const data = await response.json();
+                if(response.ok) {
+                    const token = data.data.api_token;
+                    resultDiv.className = 'result-box result-success';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Token Generado (${mode}):</strong>
+                        <div class="token-display">
+                            <code>${token}</code>
+                            <button class="copy-btn" onclick="copyToClipboard('${token}')">Copiar</button>
+                        </div>
+                        <p style="font-size:0.8rem; margin-top:5px">Vinculado a Proyecto: <code>${projectId}</code></p>
+                        <p style="font-size:0.8rem">Nombre asignado: <code>${autoName}</code></p>
+                    `;
+                    loadTokens();
+                } else {
+                    throw new Error(data.detail || 'Error al generar');
+                }
+            } catch (e) {
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerText = 'Error: ' + e.message;
+            }
+        }
+
+        async function loadTokens() {
+            const listDiv = document.getElementById('tokensList');
+            try {
+                const response = await fetch(`${API_BASE}/auth/tokens`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                if(response.ok) {
+                    const tokens = data.data;
+                    listDiv.innerHTML = tokens.length ? tokens.map(t => `
+                        <div class="step-card" style="display: flex; justify-content: space-between; align-items: center; border-left-color: var(--accent);">
+                            <div><strong>${t.token_name}</strong><br><small>${t.agent_id}</small></div>
+                            <button onclick="revokeToken('${t.token_hash || 'UNKNOWN'}')" style="background: var(--error); padding: 0.5rem 1rem; font-size: 0.8rem;">Revocar</button>
+                        </div>
+                    `).join('') : '<p style="color: var(--text-muted);">Sin tokens activos.</p>';
+                } else {
+                    throw new Error(data.detail || 'Error al cargar');
+                }
+            } catch (e) {
+                listDiv.innerHTML = `<p class="result-error" style="display: block;">Error: ${e.message}</p>`;
+            }
+        }
+
+        async function revokeToken(hash) {
+            if(!confirm('¿Revocar este token?')) return;
+            try {
+                const response = await fetch(`${API_BASE}/auth/tokens/${hash}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if(response.ok) { alert('Revocado'); loadTokens(); }
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        const originalShowSection = showSection;
+        showSection = function(id) {
+            originalShowSection(id);
+            if(id === 'tokens') {
+                loadTokens();
+                loadProjects();
+            }
+            if(id === 'register') {
+                loadProjects();
+            }
+        };
+
+        async function loadProjects() {
+            const agentId = localStorage.getItem('omnicore_last_agent_id');
+            const selector = document.getElementById('projectSelector');
+            const sandboxList = document.getElementById('sandboxProjectsList');
+            
+            if(!agentId) {
+                if(selector) selector.innerHTML = '<option value="">No hay agente registrado</option>';
+                if(sandboxList) sandboxList.innerHTML = '<p style="color: var(--text-muted);">Crea un agente primero para ver tus proyectos.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/agent/projects?agent_id=${agentId}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const data = await response.json();
+                if(response.ok) {
+                    const projects = data;
+                    if(projects.length === 0) {
+                        if(selector) selector.innerHTML = '<option value="">Ningún proyecto encontrado</option>';
+                        if(sandboxList) sandboxList.innerHTML = '<p style="color: var(--text-muted);">Aún no has creado proyectos.</p>';
+                    } else {
+                        if(selector) selector.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                        if(sandboxList) {
+                            sandboxList.innerHTML = projects.map(p => `
+                                <div class="step-card" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div><strong>${p.name}</strong><br><small>ID: ${p.id}</small></div>
+                                    <button class="copy-btn" onclick="copyToClipboard('${p.id}')">Copiar ID</button>
+                                </div>
+                            `).join('');
+                        }
+                    }
+                } else {
+                    throw new Error(data.detail || 'Error al cargar proyectos');
+                }
+            } catch (e) {
+                if(selector) selector.innerHTML = `<option value="">Error al cargar proyectos</option>`;
+                if(sandboxList) sandboxList.innerHTML = `<p class="result-error" style="display: block;">Error: ${e.message}</p>`;
+                console.error('Error projects:', e);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('omnicore_auth_token');
+            authToken = null;
+            updateAuthUI();
+        }
+
+        async function registerAgent() {
+            const name = document.getElementById('agentName').value;
+            const platform = document.getElementById('platformName').value;
+            const resultDiv = document.getElementById('regResult');
+            if(!name || !platform) return alert('Complete los campos');
+            resultDiv.style.display = 'block';
+            resultDiv.innerText = 'Configurando...';
+            try {
+                const response = await fetch(`${API_BASE}/agent/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, platform_name: platform })
+                });
+                const data = await response.json();
+                if(response.ok) {
+                    localStorage.setItem('omnicore_last_agent_id', data.agent_id);
+                    resultDiv.className = 'result-box result-success';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Identidad Creada</strong>
+                        <div style="margin-top:10px">
+                            <label style="font-size:0.8rem">Agent ID:</label>
+                            <div class="token-display">
+                                <code>${data.agent_id}</code>
+                                <button class="copy-btn" onclick="copyToClipboard('${data.agent_id}')">Copiar</button>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px">
+                            <label style="font-size:0.8rem">Token de Acceso:</label>
+                            <div class="token-display">
+                                <code>${data.token}</code>
+                                <button class="copy-btn" onclick="copyToClipboard('${data.token}')">Copiar</button>
+                            </div>
+                        </div>
+                        <p style="font-size:0.8rem; margin-top:10px; color:var(--accent)">El ID ha sido guardado automáticamente para generar tokens.</p>
+                    `;
+                    loadProjects();
+                } else { throw new Error(data.detail); }
+            } catch (e) {
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerText = 'Error: ' + e.message;
+            }
+        }
+
+        async function testApi() {
+            const token = document.getElementById('testToken').value;
+            const command = document.getElementById('testCommand').value;
+            const paramsRaw = document.getElementById('testParams').value;
+            const resultDiv = document.getElementById('consoleResult');
+            if(!token) return alert('Token requerido');
+            resultDiv.style.display = 'block';
+            resultDiv.innerText = 'Ejecutando...';
+            try {
+                const response = await fetch(`${API_BASE}/gateway/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ command, params: JSON.parse(paramsRaw) })
+                });
+                const data = await response.json();
+                resultDiv.className = 'result-box result-success';
+                resultDiv.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerText = 'Error: ' + e.message;
+            }
+        }
+
+        updateAuthUI();
+    </script>
+</body>
+</html>
