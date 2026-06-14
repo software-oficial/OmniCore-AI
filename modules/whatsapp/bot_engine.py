@@ -17,6 +17,11 @@ class BotEngine:
     def __init__(self):
         self.logger = logging.getLogger("BotEngine")
 
+    @command(
+        name="whatsapp.bot.process_message",
+        description="Main entry point for bot interactions. Processes a message and returns a response.",
+        params_schema={"user_id": "string", "message": "string", "context": "string"}
+    )
     def process_message(self, session: Session, context: CoreContext, message_data: Dict[str, Any]) -> ServiceResponse:
         """
         Main entry point for every message received.

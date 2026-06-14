@@ -3,6 +3,7 @@ from typing import Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from core.dispatcher.core_types import CoreContext, ServiceResponse
+from core.dispatcher.decorators import command
 from .state_manager import state_manager
 from .menu_manager import menu_manager
 
@@ -100,3 +101,7 @@ def bot_set_bot_mode(session: Session, context: CoreContext, phone: str) -> Serv
     except Exception as e:
         logger.error(f"Error setting bot mode: {e}")
         return ServiceResponse.error_res("Mode change error", "MODE_ERROR")
+"Error setting bot mode: {e}")
+        return ServiceResponse.error_res("Mode change error", "MODE_ERROR")
+_ERROR")
+_res("Mode change error", "MODE_ERROR")

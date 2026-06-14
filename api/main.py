@@ -5,9 +5,6 @@ from api.routes import gateway, infra, agent, admin, auth, dev, business
 from infra.db.db_manager import db_manager
 from infra.logging.omni_logger import get_logger
 from config.settings import config
-from modules.stock.commands import register_stock_commands
-from modules.sales.commands import register_sales_commands
-from modules.whatsapp.commands import register_whatsapp_commands
 from core.dispatcher.exceptions import handle_omnicore_exception
 import asyncio
 from datetime import datetime
@@ -116,6 +113,15 @@ async def health():
 @app.get("/api/heartbeat")
 async def heartbeat():
     return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "status": "ALIVE",
+        "load": len(db_manager._engines)
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host=config.HOST, port=config.PORT)
+{
         "timestamp": datetime.utcnow().isoformat(),
         "status": "ALIVE",
         "load": len(db_manager._engines)

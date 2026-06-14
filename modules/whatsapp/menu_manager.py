@@ -33,8 +33,14 @@ class MenuManager:
             self.logger.error(f"Error cargando menús: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "MENU_LOAD_ERROR")
 
+    @command(
+        name="whatsapp.bot.menu.get",
+        description="Retrieves the structure of a specific menu by name.",
+        params_schema={"menu_name": "string"}
+    )
     def get_menu_by_name(self, session: Session, context: CoreContext, name: str) -> Optional[Dict[str, Any]]:
         """Busca un menú específico por su nombre."""
+
         try:
             menu = session.execute(
                 text("SELECT * FROM bot_menus WHERE name ILIKE :name"), 

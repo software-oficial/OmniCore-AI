@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from core.dispatcher.core_types import CoreContext, ServiceResponse
+from core.dispatcher.decorators import command
 
 logger = logging.getLogger("OmniCore.StockService")
 
@@ -12,6 +13,11 @@ class StockService:
     Agnostic to the database source; relies on the injected session.
     """
 
+    @command(
+        name="stock.add", 
+        description="Adds a new product and records the initial movement in the ledger.",
+        params_schema={"code": "string", "name": "string", "price": "float", "quantity": "int", "category": "string", "is_weight": "boolean"}
+    )
     def add_product(self, session: Session, context: CoreContext, code: str, name: str, price: float, quantity: int, category: Optional[str] = None, is_weight: bool = False) -> ServiceResponse:
         """Adds a new product and records the initial movement in the ledger."""
         try:
@@ -49,6 +55,11 @@ class StockService:
             logger.error(f"Error adding product {code}: {e}")
             return ServiceResponse.error_res(f"Failed to process product: {str(e)}", "STOCK_ADD_ERROR")
 
+    @command(
+        name="stock.get", 
+        description="Retrieves a single product by its unique code.",
+        params_schema={"code": "string"}
+    )
     def get_product(self, session: Session, context: CoreContext, code: str) -> ServiceResponse:
         """Retrieves a single product by its unique code."""
         try:
@@ -63,6 +74,11 @@ class StockService:
             logger.error(f"Error fetching product {code}: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_GET_ERROR")
 
+    @command(
+        name="stock.update", 
+        description="Updates the quantity of a product using atomic transactions. Prevents negative stock.",
+        params_schema={"code": "string", "quantity": "int", "reason": "string"}
+    )
     def update_stock(self, session: Session, context: CoreContext, code: str, quantity: int, reason: str = "MANUAL") -> ServiceResponse:
         """
         Updates the quantity of a product using atomic transactions.
@@ -105,6 +121,11 @@ class StockService:
             logger.error(f"Error updating stock for {code}: {e}")
             return ServiceResponse.error_res(f"Failed to update stock: {str(e)}", "STOCK_UPDATE_ERROR")
 
+    @command(
+        name="stock.list", 
+        description="Lists products, optionally filtered by category or text search.",
+        params_schema={"category": "string", "filter_text": "string"}
+    )
     def list_products(self, session: Session, context: CoreContext, category: Optional[str] = None, filter_text: Optional[str] = None) -> ServiceResponse:
         """Lists products, optionally filtered by category or text search."""
         try:
@@ -125,6 +146,11 @@ class StockService:
             logger.error(f"Error listing products: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_LIST_ERROR")
 
+    @command(
+        name="stock.history", 
+        description="Retrieves the movement history for a specific product.",
+        params_schema={"code": "string"}
+    )
     def get_stock_history(self, session: Session, context: CoreContext, code: str) -> ServiceResponse:
         """Retrieves the movement history for a specific product."""
         try:
@@ -135,6 +161,11 @@ class StockService:
             logger.error(f"Error fetching history for {code}: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_GET_HISTORY_ERROR")
 
+    @command(
+        name="stock.low", 
+        description="Lists products that are below the critical threshold.",
+        params_schema={"threshold": "float"}
+    )
     def get_low_stock(self, session: Session, context: CoreContext, threshold: float = 5.0) -> ServiceResponse:
         """Lists products that are below the critical threshold."""
         try:

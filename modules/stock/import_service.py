@@ -100,10 +100,16 @@ class ImportService:
             mapped[internal_field] = val
         return mapped
 
+    @command(
+        name="stock.import.commit",
+        description="Commits a previously previewed import to the inventory.",
+        params_schema={"import_id": "string"}
+    )
     def commit_import(self, session: Session, context: CoreContext, data_list: List[Dict[str, Any]]) -> ServiceResponse:
         """
         Inserta la lista de productos validados en el inventario del tenant.
         """
+
         success_count = 0
         error_count = 0
 

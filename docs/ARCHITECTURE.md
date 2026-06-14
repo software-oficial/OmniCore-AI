@@ -50,7 +50,9 @@ Para garantizar un uptime de grado empresarial, OmniCore-AI implementa el **Sent
 
 El sistema es modular por diseño. Para añadir una nueva capacidad de negocio:
 1. **Blueprint**: Definir el SQL en `modules/<name>/blueprint.sql`.
-2. **Lógica**: Crear funciones stateless en `modules/<name>/sales_service.py` que reciban `(session, context, **params)`.
-3. **Comandos**: Registrar la función en `modules/<name>/commands.py`.
+2. **Lógica con Auto-Descubrimiento**: Crear funciones stateless en el servicio del módulo (ej. `modules/<name>/sales_service.py`) y marcarlas con el decorador `@command`.
+   - El decorador define el nombre del comando, la descripción y el esquema de parámetros.
+   - El `ModuleLoader` detecta automáticamente estas funciones al cargar el módulo, eliminando la necesidad de archivos de registro manuales.
+3. **Gobernanza**: Definir el Tier mínimo y la llave de permiso requerida en el `GovernanceService`.
 
 Este diseño permite que el sistema sea **Stateless**, ya que el Core no conoce la estructura de los datos de negocio, solo sabe cómo inyectar la sesión y ejecutar la lógica.

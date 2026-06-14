@@ -68,8 +68,14 @@ class ConversationStateManager:
             self.logger.error(f"Error guardando estado para {sender}: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "STATE_SAVE_ERROR")
 
+    @command(
+        name="whatsapp.bot.state.clear",
+        description="Wipes all saved state for a specific user (reset conversation).",
+        params_schema={"user_id": "string"}
+    )
     def clear_state(self, session: Session, context: CoreContext, sender: str) -> ServiceResponse:
         """Limpia el contexto del usuario tanto en Redis como en DB."""
+
         try:
             cache_key = f"bot_state:{context.app_id}:{sender}"
             if self.cache.client:
@@ -84,3 +90,4 @@ class ConversationStateManager:
 
 # Singleton
 state_manager = ConversationStateManager()
+ ConversationStateManager()

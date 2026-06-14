@@ -20,6 +20,11 @@ class WhatsappService:
         session.commit()
         return dict(result)
 
+    @command(
+        name="whatsapp.service.process_message",
+        description="Low-level gateway to process raw incoming WhatsApp messages.",
+        params_schema={"payload": "dict"}
+    )
     def process_incoming_message(self, session: Session, context: CoreContext, phone: str, text: str) -> ServiceResponse:
         try:
             conv = self.get_or_create_conversation(session, phone)

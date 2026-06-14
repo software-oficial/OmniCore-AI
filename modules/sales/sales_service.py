@@ -146,6 +146,11 @@ class SalesService:
             logger.error(f"Error processing sale: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "SALES_PROCESS_ERROR")
 
+    @command(
+        name="sales.pending",
+        description="Creates a pending sale (draft) to be confirmed later.",
+        params_schema={"items": "list[dict {product_code: string, quantity: int}]", "customer_id": "string"}
+    )
     def create_pending_sale(self, session: Session, context: CoreContext, client_name: str, items: List[Dict[str, Any]], payment_method: str) -> ServiceResponse:
         """Creates a sale in 'PENDING' status, without deducting stock yet."""
         try:
@@ -200,6 +205,10 @@ class SalesService:
             session.rollback()
             logger.error(f"Error confirming payment: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "SALES_CONFIRM_ERROR")
+
+# Singleton
+sales_service = SalesService()
+")
 
 # Singleton
 sales_service = SalesService()

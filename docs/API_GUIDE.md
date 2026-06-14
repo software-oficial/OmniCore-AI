@@ -24,7 +24,31 @@ Este endpoint actúa como un proxy inteligente que valida la seguridad, inyecta 
 
 ---
 
-## 📚 Mapa de Comandos Disponibles
+## 🤖 Bootstrapping para Agentes de IA (LLMs)
+
+Si eres un Agente de IA, no intentes adivinar los comandos. El sistema es dinámico y puede evolucionar. Sigue este flujo de arranque para operar con precisión:
+
+### 1. Fase de Descubrimiento (Discovery)
+Antes de realizar cualquier acción de negocio, debes consultar el catálogo actual de capacidades:
+- **Consulta de Ayuda**: `GET /api/gateway/help` $\rightarrow$ Te devuelve la lista de comandos categorizados, sus descripciones y el esquema de parámetros esperado.
+- **Especificación Técnica**: `GET /api/gateway/openapi` $\rightarrow$ Te proporciona el esquema OpenAPI 3.0 completo para una integración técnica perfecta.
+
+### 2. Ciclo de Ejecución Seguro
+Para cada acción, sigue este patrón:
+1. **Validar**: Verifica en el esquema de `help` que el comando existe y que tienes todos los parámetros requeridos.
+2. **Ejecutar**: Envía la petición a `/api/gateway/execute`.
+3. **Analizar**: Lee el `error_code`. Si recibes un error, no inventes parámetros; vuelve a consultar `/api/gateway/help`.
+
+### 3. Gestión de Memoria y Estado
+OmniCore-AI es stateless, pero ofrece herramientas de persistencia para el bot:
+- Usa `whatsapp.bot.state.set` para guardar información del usuario (nombre, preferencias, carrito).
+- Usa `whatsapp.bot.state.get` al inicio de cada turno para recuperar el contexto.
+
+---
+
+## 📚 Mapa de Comandos Disponibles (Ejemplos)
+
+*Nota: La lista completa y actualizada siempre estará disponible en `/api/gateway/help`.*
 
 ### 📦 Módulo de Stock (`stock.*`)
 - `stock.add`: Añade o actualiza un producto.
@@ -37,7 +61,7 @@ Este endpoint actúa como un proxy inteligente que valida la seguridad, inyecta 
 - `stock.import.commit`: Ejecuta la carga masiva en la DB.
 
 ### 💰 Módulo de Ventas y Pagos (`sales.*`)
-- `sales.process`: Venta directa completa (Stock $ightarrow$ Venta $ightarrow$ Caja).
+- `sales.process`: Venta directa completa (Stock $\rightarrow$ Venta $\rightarrow$ Caja).
 - `sales.pending`: Crea una reserva de productos sin pago.
 - `sales.confirm`: Confirma el pago de una venta pendiente.
 - `sales.cash.open`: Abre la jornada de caja.
@@ -86,6 +110,10 @@ Para gestionar menús dinámicos:
 
 *Consulte el archivo `modules/whatsapp/blueprint.sql` para obtener el script completo de creación.*
 
+---
+
+## ⚙️ Flujo Interno de Ejecución
+
 1. **Auth**: El Gateway valida el token y recupera el `agent_id`.
 2. **Infra Lookup**: Se busca la DB asociada a ese agente/app.
 3. **Session Injection**: Se abre una sesión de SQLAlchemy específica para ese cliente.
@@ -120,7 +148,7 @@ Todas las respuestas siguen este formato:
 ## 🤖 Instrucciones para Agentes de IA (LLMs)
 
 Si eres un Agente de IA operando OmniCore-AI:
-1. **Sigue el Manifiesto**: Antes de ejecutar, consulta `bot.menu.list` o la documentación de comandos para asegurar que usas los parámetros correctos.
+1. **Sigue el Manifiesto**: Antes de ejecutar, consulta `/api/gateway/help` para asegurar que usas los parámetros correctos.
 2. **Maneja el Estado**: Usa `bot.state.set` para recordar datos del usuario entre mensajes.
 3. **Valida antes de Actuar**: Si vas a procesar una venta, ejecuta primero `stock.get` para informar al usuario sobre la disponibilidad.
 4. **Learning Mode**: Si recibes un error con el prefijo `💡 MENTORSHIP`, lee la sugerencia; el sistema te está enseñando el patrón correcto de ejecución.

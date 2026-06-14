@@ -35,6 +35,11 @@ class MercadoPagoService:
         except Exception as e:
             return ServiceResponse.error_res(str(e), "MP_API_ERROR")
 
+    @command(
+        name="sales.pay.mp.verify",
+        description="Verifies the status of a Mercado Pago transaction via payment_id.",
+        params_schema={"payment_id": "string"}
+    )
     def verify_payment(self, context: CoreContext, payment_id: str, access_token: str, **kwargs) -> ServiceResponse:
         """
         Verifies the status of a payment via MP API.
@@ -58,6 +63,11 @@ class MercadoPagoService:
         """
         # Implementation of MP refund logic would go here
         return ServiceResponse.error_res("Refund function not yet implemented for MercadoPago.", "NOT_IMPLEMENTED")
+
+# Singleton
+mp_service = MercadoPagoService()
+PagoService()
+MercadoPago.", "NOT_IMPLEMENTED")
 
 # Singleton
 mp_service = MercadoPagoService()
