@@ -32,16 +32,17 @@ class SchemaException(OmniCoreException):
 def handle_omnicore_exception(e: Exception) -> ServiceResponse:
     """
     Universal handler to convert exceptions into standardized ServiceResponse.
-    Includes stack trace for detailed debugging.
+    MASKING: Hides stack traces and system internals from the client.
     """
-    stack_trace = traceback.format_exc()
+    # Log the full trace internally
+    logger.error("SYSTEM_ERROR", exc_info=True)
 
     if isinstance(e, OmniCoreException):
-        return ServiceResponse.error_res(e.message, e.error_code, debug_info=stack_trace)
+        # We allow the specific message for expected business exceptions
+        return ServiceResponse.error_res(e.message, e.error_code)
 
-    logger.exception(f"Unhandled system error: {str(e)}")
+    # Generic response for unexpected errors
     return ServiceResponse.error_res(
-        message=f"An internal system error occurred: {str(e)}", 
-        error_code="INTERNAL_SERVER_ERROR",
-        debug_info=stack_trace
+        message="An internal system error occurred. Please contact technical support.", 
+        error_code="INTERNAL_SERVER_ERROR"
     )

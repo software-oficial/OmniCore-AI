@@ -2,6 +2,7 @@ import logging
 import time
 import asyncio
 import difflib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Optional, Callable, List
 from fastapi import Request
 from core.dispatcher.core_types import CoreContext, ServiceResponse
@@ -27,6 +28,8 @@ class AIGateway:
     def __init__(self):
         from core.module_loader import module_loader
         self.loader = module_loader
+        # Dedicated pool for blocking I/O bound business logic
+        self.executor = ThreadPoolExecutor(max_workers=20, thread_name_prefix="GatewayWorker")
 
     def register_command(self, command_name: str, handler: Callable, description: str = "No description provided", params_schema: Optional[Dict[str, Any]] = None, is_system: bool = False):
         """Registers a command handler with semantic metadata for AI discovery."""
@@ -149,55 +152,6 @@ class AIGateway:
             
         return result
 
-
-        # 3. Execution Path
-        t_exec_start = time.perf_counter()
-
-        if flow:
-            # BATCH EXECUTION MODE
-            result = await self._handle_batch_execution(flow, ctx)
-            cmd_for_telemetry = "gateway.batch"
-        elif mode == "LEARNING":
-            # SINGLE COMMAND - LEARNING
-            result = await self._handle_learning_mode(effective_command, ctx, filtered_params)
-            cmd_for_telemetry = effective_command
-        else:
-            # SINGLE COMMAND - PRODUCTION
-            result = await self._handle_production_mode(effective_command, ctx, filtered_params)
-            cmd_for_telemetry = effective_command
-        traces['exec_ms'] = (time.perf_counter() - t_exec_start) * 1000
-        
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        result.latency_ms = duration_ms
-        
-        from core.telemetry.telemetry_service import telemetry_service
-        telemetry_service.track_request(agent_id, ctx.app_id, cmd_for_telemetry, duration_ms / 1000, result.success)
-
-        # Pedagogical Hint for Aliases
-        if was_aliased and result.success:
-            result.message = f"💡 TIP: Command executed successfully, but you used an alias. The official name is `{effective_command}`. Use it for better compatibility.\n\n{result.message}"
-
-        # 4. System Audit Log
-        t_audit_start = time.perf_counter()
-        try:
-            from infra.db.core_db_manager import core_db_manager
-            audit_query = "INSERT INTO system_audit_log (agent_id, app_id, command, status, message) VALUES (:agent_id, :app_id, :command, :status, :message)"
-            core_db_manager.execute_raw(audit_query, {
-                "agent_id": agent_id, "app_id": ctx.app_id, "command": cmd_for_telemetry,
-                "status": "SUCCESS" if result.success else "FAILED", "message": result.message[:255]
-            })
-        except Exception as e:
-            logger.error(f"Audit log failure: {e}")
-        traces['audit_ms'] = (time.perf_counter() - t_audit_start) * 1000
-
-        # Log detailed latency breakdown for debugging
-        logger.info(f"⏱️ Latency Trace [{cmd_for_telemetry}]: Auth={traces['auth_ms']:.2f}ms | Infra={traces['infra_ms']:.2f}ms | Exec={traces['exec_ms']:.2f}ms | Audit={traces['audit_ms']:.2f}ms | Total={duration_ms:.2f}ms")
-
-        if not result.success:
-            error_logger.error(f"❌ Command/Flow Failure: {cmd_for_telemetry} | Agent={agent_id} | Code={result.error_code}")
-            
-        return result
-
     async def _handle_batch_execution(self, flow: List[Dict[str, Any]], ctx: CoreContext) -> ServiceResponse:
 
         """
@@ -234,19 +188,18 @@ class AIGateway:
                         )
                     
                     # Execution of the step
-                    loop = asyncio.get_event_loop()
-                    step_result = await loop.run_in_executor(None, lambda: handler(session=session, context=ctx, **params))
+                    result = await asyncio.get_event_loop().run_in_executor(self.executor, lambda: handler(session=session, context=ctx, **params))
                     
-                    if not isinstance(step_result, ServiceResponse) or not step_result.success:
+                    if not isinstance(result, ServiceResponse) or not result.success:
                         session.rollback()
-                        msg = step_result.message if isinstance(step_result, ServiceResponse) else "Unexpected handler return"
-                        code = step_result.error_code if isinstance(step_result, ServiceResponse) else "HANDLER_ERROR"
+                        msg = result.message if isinstance(result, ServiceResponse) else "Unexpected handler return"
+                        code = result.error_code if isinstance(result, ServiceResponse) else "HANDLER_ERROR"
                         return ServiceResponse.error_res(
                             message=f"Flow failed at step {idx} ({cmd_name}): {msg}",
                             error_code=code
                         )
                     
-                    results.append(step_result)
+                    results.append(result)
 
                 # ALL steps succeeded -> Final Commit
                 session.commit()
@@ -261,7 +214,6 @@ class AIGateway:
 
     async def _handle_learning_mode(self, command_name: str, ctx: CoreContext, params: Dict[str, Any]):
         from core.governance.error_analytics_service import error_analytics_service
-        import inspect
 
         if not command_name:
             return ServiceResponse.error_res("No command specified", "COMMAND_MISSING")
@@ -269,17 +221,12 @@ class AIGateway:
         # 1. Existence Check with Intelligent Suggestions
         handler = self.loader.get_handler(command_name)
         if not handler:
-            # Try to find the most similar command to help the developer
             all_commands = list(self.loader._command_registry.keys())
             closest_matches = difflib.get_close_matches(command_name, all_commands, n=1, cutoff=0.5)
-            
-            suggestion = ""
-            if closest_matches:
-                suggestion = f"\\n\\n👉 Did you mean: `{closest_matches[0]}`?"
+            suggestion = f"\\n\\n👉 Did you mean: `{closest_matches[0]}`?" if closest_matches else ""
             
             return ServiceResponse.error_res(
-                message=f"💡 LEARNING ERROR: Command '{command_name}' does not exist in the OmniCore Registry."
-                        f"\\n\\n👉 To discover all available commands, call: `GET /api/gateway/help`"
+                message=f"💡 LEARNING ERROR: Command '{command_name}' does not exist."
                         f"{suggestion}",
                 error_code="COMMAND_NOT_FOUND"
             )
@@ -292,11 +239,9 @@ class AIGateway:
             from infra.validation.type_checker import type_checker
             is_valid, type_err = type_checker.validate_types(params, schema)
             if not is_valid:
-                # Transform dry error into a lesson (Error -> Why -> Example)
                 return ServiceResponse.error_res(
-                    message=f"💡 LEARNING ERROR: {type_err.message}\n\nWhy: The system requires strict typing for business integrity.\nExample: For this command, use {schema}.",
-                    error_code="LEARNING_TYPE_ERROR",
-                    guide={"expected_schema": schema}
+                    message=f"💡 LEARNING ERROR: {type_err.message}",
+                    error_code="LEARNING_TYPE_ERROR"
                 )
 
         # 3. Mentorship and Learning Corrections
@@ -304,20 +249,10 @@ class AIGateway:
         if guided:
             return ServiceResponse.error_res(message=f"💡 MENTORSHIP: {guided}", error_code="LEARNING_PATTERN_FOUND")
 
-        correction = cache_manager.get_learning_correction(ctx.agent_id, command_name, str(params))
-        if correction:
-            return ServiceResponse.error_res(message=f"Learning Suggestion: {correction}", error_code="LEARNING_PATTERN_FOUND")
-        
-        # 4. Pedagogical Success (Implementation Detail)
-        implementation_note = f"In PRODUCTION, this command would be dispatched to the handler associated with '{command_name}'. It would inject a SQLAlchemy session for the tenant's DB, verify PBAC permissions via the GovernanceService, and commit the transaction atomically."
-        
+        # 4. Pedagogical Success
         return ServiceResponse.success_res(
-            data={
-                "mock": "Simulated", 
-                "processed_params": params,
-                "internal_flow": "Request -> Token Val -> Infra Lookup -> Session Injection -> Governance Check -> Module Execution"
-            }, 
-            message=f"💡 SUCCESS: Simulation of {command_name} successful.\n\n{implementation_note}"
+            data={"mock": "Simulated", "params": params}, 
+            message=f"💡 SUCCESS: Simulation of {command_name} successful."
         )
 
     async def _handle_production_mode(self, command_name: str, ctx: CoreContext, params: Dict[str, Any]):
@@ -330,9 +265,7 @@ class AIGateway:
 
         if is_system:
             try:
-                # System commands operate on the Core DB and do not require a business session
-                loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(None, lambda: handler(session=None, context=ctx, **params))
+                result = await asyncio.get_event_loop().run_in_executor(self.executor, lambda: handler(session=None, context=ctx, **params))
                 return result if isinstance(result, ServiceResponse) else ServiceResponse.success_res(data=result)
             except Exception as e:
                 from core.dispatcher.exceptions import handle_omnicore_exception
@@ -340,33 +273,16 @@ class AIGateway:
 
         try:
             async with db_manager.get_session(ctx.app_id, ctx.db_config, ctx.tier) as session:
-                # Dynamic Schema Validation based on Command Metadata
-                module_name = command_name.split('.')[0]
-                cmd_metadata = self.loader.get_metadata(command_name)
-                required_tables = cmd_metadata.get('required_tables', [])
-                
-                from infra.validation.schema_validator import schema_validator
-                is_valid, schema_err = schema_validator.validate_module_schema(session, module_name, required_tables)
-                if not is_valid:
-                    from core.governance.error_analytics_service import error_analytics_service
-                    error_analytics_service.track_error(ctx.agent_id, command_name, "SCHEMA_OUTDATED", schema_err.message)
-                    return schema_err
-                
+                # Security Check
                 is_allowed, error_res = governance_service.validate_access(command_name, ctx, session)
                 if not is_allowed:
-                    from core.governance.error_analytics_service import error_analytics_service
-                    error_analytics_service.track_error(ctx.agent_id, command_name, error_res.error_code, error_res.message)
                     return error_res
                 
-                # The handler is usually synchronous; we run it in a thread to avoid blocking the loop
-                loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(None, lambda: handler(session=session, context=ctx, **params))
+                # Execute in Worker Pool to not block Event Loop
+                result = await asyncio.get_event_loop().run_in_executor(self.executor, lambda: handler(session=session, context=ctx, **params))
                 return result if isinstance(result, ServiceResponse) else ServiceResponse.success_res(data=result)
         except Exception as e:
             from core.dispatcher.exceptions import handle_omnicore_exception
-            from core.governance.error_analytics_service import error_analytics_service
-            res = handle_omnicore_exception(e)
-            error_analytics_service.track_error(ctx.agent_id, command_name, res.error_code, res.message)
-            return res
+            return handle_omnicore_exception(e)
 
 ai_gateway = AIGateway()
