@@ -2,6 +2,7 @@ import importlib
 import logging
 import os
 import sys
+import time
 from typing import Dict, Any, Callable, Optional
 from config.settings import config
 
@@ -16,45 +17,46 @@ class ModuleLoader:
         self.modules_dir = modules_dir
         self._loaded_modules: Dict[str, Any] = {}
         self._command_registry: Dict[str, Dict[str, Any]] = {}
-def load_module(self, module_name: str):
-    """
-    Dynamically loads or reloads a module from the filesystem.
-    Automatically discovers commands decorated with @command.
-    """
-    module_path = f"modules.{module_name}"
-    try:
-        if module_path in sys.modules:
-            logger.info(f"♻️ Hot-Swapping module: {module_name}")
-            module = importlib.reload(sys.modules[module_path])
-        else:
-            logger.info(f"📦 Loading module: {module_name}")
-            module = importlib.import_module(module_path)
 
-        self._loaded_modules[module_name] = module
+    def load_module(self, module_name: str):
+        """
+        Dynamically loads or reloads a module from the filesystem.
+        Automatically discovers commands decorated with @command.
+        """
+        module_path = f"modules.{module_name}"
+        try:
+            if module_path in sys.modules:
+                logger.info(f"♻️ Hot-Swapping module: {module_name}")
+                module = importlib.reload(sys.modules[module_path])
+            else:
+                logger.info(f"📦 Loading module: {module_name}")
+                module = importlib.import_module(module_path)
 
-        # --- AUTO-DISCOVERY LOGIC ---
-        # Scan the module for functions decorated with @command
-        commands_found = 0
-        for attr_name in dir(module):
-            attr = getattr(module, attr_name)
-            if callable(attr) and getattr(attr, "_is_omnicore_command", False):
-                cmd_name = getattr(attr, "_command_name")
+            self._loaded_modules[module_name] = module
 
-                # Register the function in the master registry
-                self._command_registry[cmd_name] = {
-                    "handler": attr,
-                    "description": getattr(attr, "_command_description"),
-                    "params_schema": getattr(attr, "_command_params_schema"),
-                    "registered_at": time.time(),
-                    "is_system": getattr(attr, "_command_is_system")
-                }
-                commands_found += 1
+            # --- AUTO-DISCOVERY LOGIC ---
+            # Scan the module for functions decorated with @command
+            commands_found = 0
+            for attr_name in dir(module):
+                attr = getattr(module, attr_name)
+                if callable(attr) and getattr(attr, "_is_omnicore_command", False):
+                    cmd_name = getattr(attr, "_command_name")
 
-        logger.info(f"✅ Module {module_name} loaded. {commands_found} commands auto-discovered.")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Failed to load module {module_name}: {e}")
-        return False
+                    # Register the function in the master registry
+                    self._command_registry[cmd_name] = {
+                        "handler": attr,
+                        "description": getattr(attr, "_command_description"),
+                        "params_schema": getattr(attr, "_command_params_schema"),
+                        "registered_at": time.time(),
+                        "is_system": getattr(attr, "_command_is_system")
+                    }
+                    commands_found += 1
+
+            logger.info(f"✅ Module {module_name} loaded. {commands_found} commands auto-discovered.")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to load module {module_name}: {e}")
+            return False
 
     def reload_all(self):
         """Reloads all currently tracked modules."""
