@@ -51,17 +51,24 @@ class RedisManager:
             logger.error(f"⚠️ Redis connection failed: {e}. System entering Degraded Mode.")
             self.client = None
 
-    def is_available(self) -> bool:
-
-        """Strictly returns True ONLY if Redis is responding to a ping."""
-        if self.client is None:
-            return False
+    def set(self, key: str, value: Any, ttl: int = 3600):
+        """General purpose set with TTL."""
+        if not self.is_available(): return
         try:
-            return bool(self.client.ping())
+            self.client.setex(key, ttl, json.dumps(value))
         except Exception as e:
-            logger.warning(f"Redis connection lost: {e}")
-            self.client = None # Invalidate client on failure
-            return False
+            logger.warning(f"Failed to set cache key {key}: {e}")
+
+    def get(self, key: str) -> Optional[Any]:
+        """General purpose get."""
+        if not self.is_available():
+            return None
+        try:
+            data = self.client.get(key)
+            return json.loads(data) if data else None
+        except Exception as e:
+            logger.warning(f"Failed to get cache key {key}: {e}")
+            return None
 
     def set_session_context(self, session_id: str, context: dict, ttl: int = 1800):
         """Caches the developer's profile and DB config to avoid Core DB hits."""

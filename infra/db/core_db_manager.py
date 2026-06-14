@@ -55,105 +55,24 @@ class CoreDbManager:
             return result
 
     def init_schema(self):
-        """Initializes the core registry schema with PostgreSQL compatibility."""
-        schema_sql = """
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS agents (
-            id TEXT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            api_key VARCHAR(255) UNIQUE NOT NULL,
-            owner_user_id TEXT REFERENCES users(id),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS api_tokens (
-            token_hash TEXT PRIMARY KEY,
-            user_id TEXT REFERENCES users(id),
-            agent_id TEXT,
-            token_name VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_used TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS apps (
-            id TEXT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            owner_id TEXT REFERENCES agents(id),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS app_infrastructure (
-            app_id TEXT PRIMARY KEY REFERENCES apps(id),
-            db_host VARCHAR(255) NOT NULL,
-            db_port INTEGER NOT NULL,
-            db_user VARCHAR(255) NOT NULL,
-            db_password TEXT NOT NULL,
-            db_name VARCHAR(255) NOT NULL,
-            tier VARCHAR(50) DEFAULT 'FREE'
-        );
-
-        CREATE TABLE IF NOT EXISTS agent_app_mapping (
-            agent_id TEXT REFERENCES agents(id),
-            app_id TEXT REFERENCES apps(id),
-            PRIMARY KEY (agent_id, app_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS governance_tiers (
-            tier_name TEXT PRIMARY KEY,
-            level INTEGER NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS governance_commands (
-            command_name TEXT PRIMARY KEY,
-            permission_key TEXT,
-            min_tier TEXT REFERENCES governance_tiers(tier_name)
-        );
-
-        CREATE TABLE IF NOT EXISTS system_audit_log (
-            id SERIAL PRIMARY KEY,
-            agent_id TEXT,
-            app_id TEXT,
-            command TEXT,
-            status TEXT,
-            message TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS common_errors_kb (
-            id SERIAL PRIMARY KEY,
-            error_pattern TEXT UNIQUE,
-            solution_guide TEXT,
-            occurrence_count INTEGER DEFAULT 1,
-            impact_level TEXT DEFAULT 'LOW',
-            status TEXT DEFAULT 'OPEN',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS system_logs (
-            id SERIAL PRIMARY KEY,
-            level TEXT,
-            category TEXT,
-            message TEXT,
-            app_id TEXT,
-            agent_id TEXT,
-            payload TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
         """
+        Initializes the core registry schema by loading the base SQL migration file.
+        This ensures consistency across environments.
+        """
+        schema_path = "infra/db/migrations/001_initial_schema.sql"
         try:
-            # PostgreSQL allows executing multiple statements in one call via some drivers, 
-            # but we keep the split for safety and SQLite compatibility.
+            with open(schema_path, "r") as f:
+                schema_sql = f.read()
+            
+            # Execute statements sequentially for compatibility
             for statement in schema_sql.strip().split(';'):
                 if statement.strip():
                     self.execute_raw(statement)
-            logger.info("Internal Core DB schema initialized successfully (PostgreSQL).")
+            
+            logger.info(f"Internal Core DB schema initialized from {schema_path}.")
+        except FileNotFoundError:
+            logger.critical(f"SCHEMA ERROR: Migration file not found at {schema_path}. Core DB cannot initialize.")
+            raise RuntimeError(f"Missing critical migration file: {schema_path}")
         except Exception as e:
             logger.error(f"Error initializing Core DB schema: {e}")
             raise e

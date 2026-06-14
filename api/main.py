@@ -107,7 +107,15 @@ async def pool_cleanup_worker():
 
 @app.on_event("startup")
 async def startup_event():
+    # Start background workers
     asyncio.create_task(pool_cleanup_worker())
+    
+    # Start Async Log Worker
+    from infra.logging.omni_logger import get_logger
+    main_logger = get_logger("OmniCore.Main")
+    asyncio.create_task(main_logger.process_logs())
+    logger.info("LOG_SYSTEM", "Async Log Worker has been initialized and is running in background.")
+
 
 @app.get("/health")
 async def health():

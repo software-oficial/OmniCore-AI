@@ -35,5 +35,9 @@ class Config:
     # System Limits
     POOL_CLEANUP_INTERVAL = 900 # 15 minutes
     ERROR_PROMOTION_THRESHOLD = 5
+    
+    # Security
+    JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-prod")
+
 
 config = Config()

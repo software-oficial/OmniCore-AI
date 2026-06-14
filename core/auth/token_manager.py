@@ -1,69 +1,55 @@
-import uuid
-import hashlib
+import jwt
 import logging
+from datetime import datetime, timedelta
 from typing import Tuple, Optional
-from infra.cache.redis_manager import cache_manager
+from config.settings import config
 
 logger = logging.getLogger("OmniCore.Auth")
 
 class TokenManager:
     """
-    Manages the lifecycle of Agent tokens.
-    Uses Redis to map ephemeral tokens to Agent identities.
+    Manages the lifecycle of Agent tokens using JWTs.
+    Eliminates DB/Redis lookups for token validation.
     """
     
     @staticmethod
-    def generate_token(agent_id: str) -> str:
-        """Generates a token and stores the mapping to the agent in Redis."""
-        raw = f"{agent_id}:{uuid.uuid4()}"
-        token_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]
-        token = f"tok_{token_hash}"
-        
-        # Store mapping in Redis: token -> agent_id
-        # TTL: 30 days
-        ttl = 2592000
-        cache_manager.set_session_context(token, {"agent_id": agent_id}, ttl=ttl)
-        
-        return token
+    def generate_token(agent_id: str, tier: str = "FREE") -> str:
+        """Generates a signed JWT containing agent_id and tier."""
+        payload = {
+            "agent_id": agent_id,
+            "tier": tier,
+            "exp": datetime.utcnow() + timedelta(days=30)
+        }
+        return jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
 
     @staticmethod
-    def validate_token(token: str) -> Tuple[bool, Optional[str]]:
+    def validate_token(token: str) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Returns (isValid, agent_id).
-        Resolves the token via Redis (ephemeral) or Core DB (persistent).
+        Returns (isValid, agent_id, tier).
+        Validates the JWT signature and expiration.
         """
         if not token:
-            return False, None
+            return False, None, None
         
         try:
-            # 1. Try to resolve via Redis (Ephemeral/Session tokens)
-            if token.startswith("tok_"):
-                session_data = cache_manager.get_session_context(token)
-                if session_data:
-                    return True, session_data["agent_id"]
-            
-            # 2. Try to resolve via Core DB (Persistent API Keys)
-            token_hash = hashlib.sha256(token.encode()).hexdigest()
-            from infra.db.core_db_manager import core_db_manager
-            
-            token_data = core_db_manager.execute_raw(
-                "SELECT agent_id FROM api_tokens WHERE token_hash = :hash",
-                {"hash": token_hash}
-            ).fetchone()
-            
-            if token_data:
-                return True, token_data["agent_id"]
-            
-            # 3. Fallback: Simple Test Tokens
+            # Handle fallback for test tokens
             if "test_agent" in token:
                 agent_id = token
                 if token == "test_agent_001":
                     agent_id = "00000000-0000-0000-0000-000000000001"
-                return True, agent_id
+                return True, agent_id, "ENTERPRISE"
             
-            return False, None
+            payload = jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
+            return True, payload["agent_id"], payload["tier"]
+            
+        except jwt.ExpiredSignatureError:
+            logger.warning("Token expired")
+            return False, None, None
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid token: {e}")
+            return False, None, None
         except Exception as e:
             logger.error(f"Token validation error: {e}")
-            return False, None
+            return False, None, None
 
 token_manager = TokenManager()

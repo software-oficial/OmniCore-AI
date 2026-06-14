@@ -46,7 +46,7 @@ class GovernanceService:
     def _get_command_metadata(self, command_name: str) -> Optional[Dict[str, Any]]:
         """Retrieves command requirements from Core DB with Redis caching."""
         cache_key = f"gov:cmd:{command_name}"
-        cached = cache_manager.get_session_context(cache_key) # Reuse session_context helper or add generic get
+        cached = cache_manager.get(cache_key) 
         if cached:
             return cached
 
@@ -60,7 +60,7 @@ class GovernanceService:
                 return None
             
             meta = {"permission": result.permission_key, "tier": result.min_tier}
-            cache_manager.set_session_context(cache_key, meta, ttl=3600)
+            cache_manager.set(cache_key, meta, ttl=3600)
             return meta
         except Exception as e:
             logger.error(f"Error fetching command metadata for {command_name}: {e}")
@@ -84,7 +84,7 @@ class GovernanceService:
         perm_ok, perm_res = self._check_permission(context, meta["permission"], session)
         if not perm_ok: return False, perm_res
 
-        # 3. Entity Restriction (Still hardcoded for critical system commands)
+        # 3. Entity Restriction
         entity_ok, entity_res = self._check_entity(command_name, context.entity)
         if not entity_ok: return False, entity_res
 
@@ -106,29 +106,52 @@ class GovernanceService:
         if not permission_key:
             return True, None
 
-        # MASTER role bypasses all checks
-        user_query = text("SELECT role FROM users WHERE id = :user_id")
-        user = session.execute(user_query, {"user_id": context.user_id}).mappings().first()
+        # 1. Try Cache first: gov:user:{user_id}:perms
+        cache_key = f"gov:user:{context.user_id}:perms"
+        cached_perms = cache_manager.get(cache_key)
         
-        if user and user['role'] and user['role'].upper() == 'MASTER':
-            return True, None
+        if cached_perms is not None:
+            if "MASTER" in cached_perms or permission_key in cached_perms:
+                return True, None
+            return False, ServiceResponse.error_res(
+                f"Insufficient permissions for: {permission_key}", 
+                "USER_PERMISSION_DENIED"
+            )
 
-        # Check roles mapping in external DB
-        perm_query = text("""
-            SELECT 1 FROM user_roles ur
-            JOIN role_permissions rp ON ur.role_id = rp.role_id
-            WHERE ur.user_id = :user_id AND rp.permission_key = :perm
-        """)
-        if session.execute(perm_query, {"user_id": context.user_id, "perm": permission_key}).scalar():
-            return True, None
+        # 2. Cache Miss: Resolve from DB
+        permissions = set()
+        try:
+            # Check for MASTER role
+            user_query = text("SELECT role FROM users WHERE id = :user_id")
+            user = session.execute(user_query, {"user_id": context.user_id}).mappings().first()
+            if user and user['role'] and user['role'].upper() == 'MASTER':
+                permissions.add("MASTER")
+            
+            # Check role-based permissions
+            perm_query = text("""
+                SELECT rp.permission_key FROM user_roles ur
+                JOIN role_permissions rp ON ur.role_id = rp.role_id
+                WHERE ur.user_id = :user_id
+            """)
+            roles_perms = session.execute(perm_query, {"user_id": context.user_id}).scalars().all()
+            permissions.update(roles_perms)
 
-        # Check direct permissions
-        direct_query = text("""
-            SELECT granted FROM permissions 
-            WHERE tenant_id = :tid AND user_id = :uid AND permission_key = :perm
-        """)
-        res = session.execute(direct_query, {"tid": context.app_id, "uid": context.user_id, "perm": permission_key}).mappings().first()
-        if res and res['granted']:
+            # Check direct permissions
+            direct_query = text("""
+                SELECT permission_key FROM permissions 
+                WHERE tenant_id = :tid AND user_id = :uid AND granted = true
+            """)
+            direct_perms = session.execute(direct_query, {"tid": context.app_id, "uid": context.user_id}).scalars().all()
+            permissions.update(direct_perms)
+            
+            # Cache the result for 15 minutes
+            cache_manager.set(cache_key, list(permissions), ttl=900)
+            
+        except Exception as e:
+            logger.error(f"Error resolving permissions for {context.user_id}: {e}")
+            return False, ServiceResponse.error_res("Governance error resolving permissions", "GOV_INTERNAL_ERROR")
+
+        if "MASTER" in permissions or permission_key in permissions:
             return True, None
 
         return False, ServiceResponse.error_res(

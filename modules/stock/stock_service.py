@@ -45,13 +45,11 @@ class StockService:
                 "code": code, "amount": quantity, "reason": "INITIAL_LOAD" if quantity > 0 else "UPDATE", "user_id": context.user_id
             })
             
-            session.commit()
             return ServiceResponse.success_res(
                 data={"product_id": product_id, "code": code},
                 message=f"Product {name} processed successfully."
             )
         except Exception as e:
-            session.rollback()
             logger.error(f"Error adding product {code}: {e}")
             return ServiceResponse.error_res(f"Failed to process product: {str(e)}", "STOCK_ADD_ERROR")
 
@@ -80,10 +78,7 @@ class StockService:
         params_schema={"code": "string", "quantity": "int", "reason": "string"}
     )
     def update_stock(self, session: Session, context: CoreContext, code: str, quantity: int, reason: str = "MANUAL") -> ServiceResponse:
-        """
-        Updates the quantity of a product using atomic transactions.
-        Prevents negative stock.
-        """
+        """Updates the quantity of a product. Prevents negative stock."""
         try:
             # 1. Lock row and check current quantity
             lock_query = text("SELECT quantity FROM products WHERE code = :code FOR UPDATE")
@@ -111,13 +106,11 @@ class StockService:
             """)
             session.execute(movement_query, {"code": code, "amount": quantity, "reason": reason, "user_id": context.user_id})
             
-            session.commit()
             return ServiceResponse.success_res(
                 data={"new_quantity": new_qty},
                 message=f"Stock updated for {code}. New total: {new_qty}. Reason: {reason}."
             )
         except Exception as e:
-            session.rollback()
             logger.error(f"Error updating stock for {code}: {e}")
             return ServiceResponse.error_res(f"Failed to update stock: {str(e)}", "STOCK_UPDATE_ERROR")
 

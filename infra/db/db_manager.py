@@ -76,19 +76,23 @@ class DynamicDbManager:
     @asynccontextmanager
     async def get_session(self, app_id: str, db_config: Dict[str, Any], tier: str = "FREE") -> AsyncGenerator[Session, None]:
         """
-        Injects a database session with Global Concurrency Control and Circuit Breaker protection.
+        Injects a database session with Global Concurrency Control, LRU Engine Cache, and Circuit Breaker protection.
         """
         async with self._semaphore:
             self._check_circuit(app_id)
 
             # Dynamic Pool Sizing based on Tier
             pool_settings = {
-                "FREE": {"size": 5, "overflow": 10},
+                "FREE": {"size": 2, "overflow": 5}, # More conservative for FREE tier
                 "PRO": {"size": 15, "overflow": 20},
                 "ENTERPRISE": {"size": 30, "overflow": 50}
-            }.get(tier.upper(), {"size": 5, "overflow": 10})
+            }.get(tier.upper(), {"size": 2, "overflow": 5})
 
             if app_id not in self._engines:
+                # LRU Eviction: Ensure we don't exceed MAX_ENGINES
+                if len(self._engines) >= self.MAX_ENGINES:
+                    self._evict_oldest_engine()
+                
                 try:
                     logger.info(f"Initializing new DB pool for App {app_id} [Tier: {tier}]")
                     self._engines[app_id] = self._create_engine(
@@ -129,6 +133,21 @@ class DynamicDbManager:
                 del self._engines[app_id]
             if app_id in self._session_factories:
                 del self._session_factories[app_id]
+            del self._last_accessed[app_id]
+            
+        if to_evict:
+            logger.info(f"Pool Eviction Complete. Removed {len(to_evict)} idle pools.")
+
+    def close_all_pools(self):
+        for engine in self._engines.values():
+            engine.dispose()
+        self._engines.clear()
+        self._session_factories.clear()
+        self._last_accessed.clear()
+
+# Singleton for global access
+db_manager = DynamicDbManager()
+           del self._session_factories[app_id]
             del self._last_accessed[app_id]
             
         if to_evict:
