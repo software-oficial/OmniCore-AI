@@ -39,7 +39,7 @@ class ModuleLoader:
             commands_found = 0
             # Walk through all sub-modules in the package
             for loader, name, is_pkg in pkgutil.walk_packages(package_path, domain_package_path + '.'):
-                module_path = f"{domain_package_path}.{name}"
+                module_path = name
                 try:
                     if module_path in sys.modules:
                         module = importlib.reload(sys.modules[module_path])
