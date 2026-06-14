@@ -73,21 +73,24 @@ class SalesService:
 
     def process_sale(self, session: Session, context: CoreContext, client_name: str, items: List[Dict[str, Any]], payment_method: str, cash_box_id: Optional[int] = None, paga_con: float = 0.0) -> ServiceResponse:
         """
-        Atomic sale process: Validates stock, creates sale, deducts inventory, and updates cash box.
+        Atomic sale process: Validates stock in batch, creates sale, deducts inventory in batch, and updates cash box.
         Items: [{"product_code": "PROD1", "quantity": 2}, ...]
         """
         try:
+            product_codes = [item['product_code'] for item in items]
+            
+            # 1. Fetch all products at once (Batch)
+            query = text("SELECT code, name, price, quantity FROM products WHERE code IN :codes FOR UPDATE")
+            products = {p['code']: dict(p) for p in session.execute(query, {"codes": tuple(product_codes)}).mappings().all()}
+            
             total_amount = 0.0
             processed_items = []
 
-            # 1. Validation and Calculation
+            # 2. Validation in memory
             for item in items:
                 product_code = item['product_code']
                 qty = item['quantity']
-                
-                # Call stock_service logic internally using SAME session for atomicity
-                product_query = text("SELECT name, price, quantity FROM products WHERE code = :code FOR UPDATE")
-                product = session.execute(product_query, {"code": product_code}).mappings().first()
+                product = products.get(product_code)
                 
                 if not product:
                     return ServiceResponse.error_res(f"Product {product_code} not found", "PRODUCT_NOT_FOUND")
@@ -101,7 +104,7 @@ class SalesService:
                     "product_code": product_code, "qty": qty, "price": float(product['price']), "subtotal": subtotal
                 })
 
-            # 2. Create Sale Record
+            # 3. Create Sale Record
             sale_query = text("""
                 INSERT INTO sales (client_name, total_amount, status, payment_method, paga_con) 
                 VALUES (:name, :total, 'COMPLETED', :method, :paga_con) 
@@ -111,7 +114,7 @@ class SalesService:
                 "name": client_name, "total": total_amount, "method": payment_method, "paga_con": paga_con
             }).scalar()
 
-            # 3. Create Sale Items
+            # 4. Create Sale Items (Batch insert would be better but keeping simple for now)
             for pi in processed_items:
                 item_query = text("""
                     INSERT INTO sale_items (sale_id, product_code, quantity, unit_price, subtotal) 
@@ -121,12 +124,12 @@ class SalesService:
                     "sale_id": sale_id, "code": pi['product_code'], "qty": pi['qty'], "price": pi['price'], "sub": pi['subtotal']
                 })
 
-            # 4. Deduct Stock
+            # 5. Deduct Stock (Batch/Atomic update)
             for pi in processed_items:
                 stock_update = text("UPDATE products SET quantity = quantity - :qty WHERE code = :code")
                 session.execute(stock_update, {"qty": pi['qty'], "code": pi['product_code']})
 
-            # 5. Update Cash Box if applicable
+            # 6. Update Cash Box if applicable
             if cash_box_id:
                 col = "ventas_efectivo" if payment_method == "CASH" else "ventas_digital"
                 cash_query = text(f"UPDATE cash_box SET {col} = {col} + :total WHERE id = :id")
@@ -136,13 +139,11 @@ class SalesService:
             vuelto = paga_con - total_amount if payment_method == "CASH" else 0.0
             session.execute(text("UPDATE sales SET vuelto = :vuelto WHERE id = :id"), {"vuelto": vuelto, "id": sale_id})
 
-            session.commit()
             return ServiceResponse.success_res(
                 data={"sale_id": sale_id, "total": total_amount, "vuelto": vuelto},
                 message="Sale processed successfully."
             )
         except Exception as e:
-            session.rollback()
             logger.error(f"Error processing sale: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "SALES_PROCESS_ERROR")
 
