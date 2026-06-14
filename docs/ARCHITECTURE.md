@@ -6,10 +6,10 @@ OmniCore-AI no es una aplicación monolítica, sino un **Meta-Orquestador** basa
 
 Toda petición sigue un camino estrictamente gobernado para garantizar la seguridad y el aislamiento:
 
-`Request` $ightarrow$ `Token Validation` $ightarrow$ `Infra Lookup` $ightarrow$ `Session Injection` $ightarrow$ `Governance Check` $ightarrow$ `Module Execution` $ightarrow$ `Standardized Response`
+`Request` $ightarrow$ `Sanitization` $ightarrow$ `Token Validation` $ightarrow$ `Infra Lookup` $ightarrow$ `Type & Param Filter` $ightarrow$ `Session Injection` $ightarrow$ `Governance Check` $ightarrow$ `Module Execution` $ightarrow$ `Standardized Response`
 
 ### Componentes Clave:
-1. **AIGateway (`core/dispatcher/gateway.py`)**: El punto de entrada. Valida el token, recupera la configuración de la DB del cliente y coordina la ejecución.
+1. **AIGateway (`core/dispatcher/gateway.py`)**: El punto de entrada. Coordina la sanitización, valida el token, filtra parámetros según el esquema y gestiona el ciclo de vida de la petición.
 2. **GovernanceService (`core/governance/governance_service.py`)**: El "filtro" de seguridad.
    - **SaaS Tiers**: Verifica si el plan del cliente permite el comando.
    - **PBAC**: Valida permisos granulares en la DB externa del cliente.
@@ -18,6 +18,21 @@ Toda petición sigue un camino estrictamente gobernado para garantizar la seguri
    - **Multi-tenancy**: Crea pools de conexión dinámicos por aplicación.
    - **Circuit Breaker**: Si una DB externa falla repetidamente, el manager "abre el circuito" y rechaza peticiones inmediatamente para no saturar el Core.
    - **Concurrency Control**: Semáforos globales para evitar que un solo cliente agote los recursos del sistema.
+
+---
+
+## 🛡️ Estrategia de Seguridad (Defense-in-Depth)
+
+OmniCore-AI implementa un modelo de seguridad multicapa para neutralizar los vectores de ataque más comunes en APIs modernas:
+
+1. **Neutralización de XSS (HTML Encoding)**: 
+   En lugar de intentar filtrar etiquetas peligrosas (blacklisting), el sistema aplica un **Escapado de HTML** sistemático a todos los inputs de texto. Los caracteres `<` `>` `&` `"` `'` se convierten en sus entidades HTML correspondientes. Esto garantiza que cualquier código inyectado sea tratado como texto plano y nunca ejecutado por el navegador.
+
+2. **Prevención de Mass Assignment (Schema Filtering)**: 
+   El Gateway implementa un filtro de "lista blanca" basado en el esquema de cada comando. Si un atacante envía campos adicionales (ej. `price` en un comando de `update_stock`), el sistema los descarta automáticamente antes de que lleguen al servicio de negocio.
+
+3. **Integridad de Datos (Strict Type Checking)**: 
+   Cada comando tiene un esquema de tipos definido. El sistema valida que los datos recibidos coincidan exactamente con el tipo esperado (`int`, `float`, `string`, etc.), rechazando la petición inmediatamente si hay una discrepancia.
 
 ---
 

@@ -6,8 +6,11 @@ OmniCore-AI es un Meta-Orquestador diseñado para que Agentes de IA desplieguen 
 
 1. **Soberanía de Datos (Statelessness)**: El Core NUNCA almacena datos de clientes finales. Toda la persistencia de negocio ocurre en la DB externa del desarrollador.
 2. **Inyección Dinámica**: Toda función de módulo DEBE recibir la `session` de SQLAlchemy y el `CoreContext` como argumentos. No usar gestores de DB globales dentro de los módulos.
-3. **Gobernanza Estricta**: Ningún comando se ejecuta sin pasar por el `GovernanceService` (Tier $ightarrow$ PBAC $ightarrow$ Entity).
-4. **Respuestas Pedagógicas**: En `LEARNING_MODE`, los errores deben seguir el patrón: `Error` $ightarrow$ `Por qué ocurrió` $ightarrow$ `Ejemplo de corrección`.
+3. **Gobernanza Estricta**: Ningún comando se ejecuta sin pasar por el `GovernanceService` (Tier $ightarrow$ PBAC $ightarrow$ Entity).
+4. **Blindaje de Seguridad (Zero Trust)**: 
+   - **Anti-XSS**: Todo input de texto es procesado mediante HTML Encoding profesional. No se permite la inyección de etiquetas; todo se trata como texto literal.
+   - **Anti-Mass Assignment**: El Gateway filtra estrictamente los parámetros basándose en el esquema del comando. Solo los campos definidos explícitamente son procesados.
+5. **Respuestas Pedagógicas**: En `LEARNING_MODE`, los errores deben seguir el patrón: `Error` $ightarrow$ `Por qué ocurrió` $ightarrow$ `Ejemplo de corrección`.
 
 ## 📐 Reglas de Enrutamiento de Datos
 
@@ -16,7 +19,7 @@ OmniCore-AI es un Meta-Orquestador diseñado para que Agentes de IA desplieguen 
 
 ## 🔄 Flujo de Ejecución del Agente
 
-`Request` $ightarrow$ `Token Validation` $ightarrow$ `Infrastructure Lookup` $ightarrow$ `Session Injection` $ightarrow$ `Governance Check` $ightarrow$ `Module Execution` $ightarrow$ `Standardized ServiceResponse`.
+`Request` $ightarrow$ `Token Validation` $ightarrow$ `Infrastructure Lookup` $ightarrow$ `Session Injection` $ightarrow$ `Governance Check` $ightarrow$ `Module Execution` $ightarrow$ `Standardized ServiceResponse`.
 
 ## 📈 Guía de Extensibilidad para el Agente
 

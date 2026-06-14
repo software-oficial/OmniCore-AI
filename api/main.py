@@ -25,6 +25,7 @@ async def universal_exception_handler(request: Request, exc: Exception):
     Global Safety Net: Ensures the system NEVER returns HTML.
     Internal technical details are masked to prevent leaking system architecture.
     """
+    from fastapi import HTTPException
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
@@ -41,34 +42,34 @@ async def universal_exception_handler(request: Request, exc: Exception):
             "success": False, 
             "message": "An unexpected internal server error occurred. Please contact technical support."
         }
-    from api.routes import gateway, infra, agent, admin, auth, dev, business, discovery
+    )
 
-    # 1. Register Business Modules
-    register_stock_commands()
-    register_sales_commands()
-    register_whatsapp_commands()
+# 1. Register Business Modules
+register_stock_commands()
+register_sales_commands()
+register_whatsapp_commands()
 
-    from core.system_service import system_service
-    from core.dispatcher.gateway import ai_gateway
-    from core.admin_service import admin_service
+from core.system_service import system_service
+from core.dispatcher.gateway import ai_gateway
+from core.admin_service import admin_service
 
-    ai_gateway.register_command("system.deploy_schema", system_service.deploy_schema, description="Deploys the database schema blueprints to the client's external DB.")
+ai_gateway.register_command("system.deploy_schema", system_service.deploy_schema, description="Deploys the database schema blueprints to the client's external DB.")
 
-    # Developer Control Plane: Commands for the developer to manage their own SaaS clients and plans
-    ai_gateway.register_command("dev.admin.update_client_tier", admin_service.update_client_tier, is_system=True, description="Upgrade or downgrade a client's subscription tier (e.g., FREE -> PRO).")
-    ai_gateway.register_command("dev.admin.list_clients", admin_service.list_apps, is_system=True, description="List all clients/apps onboarded by the developer.")
-    ai_gateway.register_command("dev.admin.create_plan", admin_service.create_custom_plan, is_system=True, description="Create a new subscription plan level for the SaaS.")
-    ai_gateway.register_command("dev.admin.map_command", admin_service.map_command_to_plan, is_system=True, description="Assign a minimum required plan to a specific business command.")
+# Developer Control Plane: Commands for the developer to manage their own SaaS clients and plans
+ai_gateway.register_command("dev.admin.update_client_tier", admin_service.update_client_tier, is_system=True, description="Upgrade or downgrade a client's subscription tier (e.g., FREE -> PRO).")
+ai_gateway.register_command("dev.admin.list_clients", admin_service.list_apps, is_system=True, description="List all clients/apps onboarded by the developer.")
+ai_gateway.register_command("dev.admin.create_plan", admin_service.create_custom_plan, is_system=True, description="Create a new subscription plan level for the SaaS.")
+ai_gateway.register_command("dev.admin.map_command", admin_service.map_command_to_plan, is_system=True, description="Assign a minimum required plan to a specific business command.")
 
-    # 2. Include Modular Routes
-    app.include_router(gateway.router)
-    app.include_router(business.router)
-    app.include_router(infra.router)
-    app.include_router(agent.router)
-    app.include_router(admin.router)
-    app.include_router(auth.router)
-    app.include_router(dev.router)
-    app.include_router(discovery.router)
+# 2. Include Modular Routes
+app.include_router(gateway.router)
+app.include_router(business.router)
+app.include_router(infra.router)
+app.include_router(agent.router)
+app.include_router(admin.router)
+app.include_router(auth.router)
+app.include_router(dev.router)
+
 
 # 3. Serve Frontend Panel
 app.mount("/static", StaticFiles(directory="static"), name="static")

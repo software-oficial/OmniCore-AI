@@ -36,31 +36,31 @@ Este endpoint actúa como un proxy inteligente que valida la seguridad, inyecta 
 - `stock.import.preview`: Previsualiza una carga masiva de datos.
 - `stock.import.commit`: Ejecuta la carga masiva en la DB.
 
-### 💰 Módulo de Ventas y Pagos (`sales.*`, `pay.*`)
-- `sales.process`: Venta directa completa (Stock $ightarrow$ Venta $ightarrow$ Caja).
+### 💰 Módulo de Ventas y Pagos (`sales.*`)
+- `sales.process`: Venta directa completa (Stock $ightarrow$ Venta $ightarrow$ Caja).
 - `sales.pending`: Crea una reserva de productos sin pago.
 - `sales.confirm`: Confirma el pago de una venta pendiente.
-- `cash.open`: Abre la jornada de caja.
-- `cash.close`: Cierra caja y genera arqueo.
-- `pay.mp.create`: Genera link de pago de MercadoPago.
-- `pay.mp.verify`: Verifica estado de transacción externa.
-- `pay.mp.refund`: Procesa devolución de dinero.
+- `sales.cash.open`: Abre la jornada de caja.
+- `sales.cash.close`: Cierra caja y genera arqueo.
+- `sales.pay.mp.create`: Genera link de pago de MercadoPago.
+- `sales.pay.mp.verify`: Verifica estado de transacción externa.
+- `sales.pay.mp.refund`: Procesa devolución de dinero.
 
-### 💬 Módulo de WhatsApp (`bot.*`, `wa.*`)
+### 💬 Módulo de WhatsApp (`whatsapp.*`)
 
 Este módulo implementa un motor de conversación con **Persistencia de Estado Híbrida** (Redis + DB Tenant).
 
 **Comandos de Orquestación (El Cerebro):**
-- `bot.process_message`: Entrada principal. Analiza el texto, verifica el estado actual y delega la acción.
-- `bot.navigate`: Mueve al usuario a un menú específico y persiste el cambio de estado.
-- `bot.welcome`: Inicializa la conversación y posiciona al usuario en el menú principal.
-- `bot.show_menu`: Muestra el contenido de un menú sin alterar el estado actual.
-- `bot.set_human_mode` / `bot.set_bot_mode`: Activa o desactiva la intervención humana.
+- `whatsapp.bot.process_message`: Entrada principal. Analiza el texto, verifica el estado actual y delega la acción.
+- `whatsapp.bot.navigate`: Mueve al usuario a un menú específico y persiste el cambio de estado.
+- `whatsapp.bot.welcome`: Inicializa la conversación y posiciona al usuario en el menú principal.
+- `whatsapp.bot.show_menu`: Muestra el contenido de un menú sin alterar el estado actual.
+- `whatsapp.bot.set_human_mode` / `whatsapp.bot.set_bot_mode`: Activa o desactiva la intervención humana.
 
 **Gestión de Estado y Menús:**
-- `bot.state.get` / `set` / `clear`: Manipulación directa del contexto efímero del usuario.
-- `bot.menu.list` / `get`: Consultas sobre la estructura de navegación configurada.
-- `wa.process_message`: Gateway de bajo nivel para el procesamiento de payloads raw.
+- `whatsapp.bot.state.get` / `set` / `clear`: Manipulación directa del contexto efímero del usuario.
+- `whatsapp.bot.menu.list` / `get`: Consultas sobre la estructura de navegación configurada.
+- `whatsapp.service.process_message`: Gateway de bajo nivel para el procesamiento de payloads raw.
 
 ---
 
