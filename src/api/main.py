@@ -92,22 +92,43 @@ from fastapi import HTTPException
 
 def find_static_dir():
     """
-    Attempts to find the 'static' directory in likely locations.
+    Robustly attempts to find the 'static' directory by locating the project root.
     """
-    # Current file: /app/src/api/main.py
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_path = os.path.abspath(__file__)
     
-    # Potential paths to check
+    # 1. Try to find project root by looking for known markers
+    root_path = None
+    check_path = os.path.dirname(current_path)
+    
+    while check_path != os.path.dirname(check_path): # Stop at system root
+        if os.path.exists(os.path.join(check_path, "GEMINI.md")) or os.path.exists(os.path.join(check_path, ".git")):
+            root_path = check_path
+            break
+        check_path = os.path.dirname(check_path)
+    
+    if root_path:
+        logger.info("LOG_SYSTEM", f"Project root identified at: {root_path}")
+        static_candidate = os.path.join(root_path, "static")
+        logger.info("LOG_SYSTEM", f"Checking static candidate: {static_candidate}")
+        if os.path.isdir(static_candidate):
+            return static_candidate
+
+    # 2. Fallback: Exhaustive search in immediate parents
+    logger.info("LOG_SYSTEM", "Root markers not found, attempting fallback search...")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
     paths_to_check = [
-        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))), "static"), # Root: /app/static
-        os.path.join(os.path.dirname(os.path.dirname(current_dir)), "static"),                  # Inside src: /app/src/static
-        "static",                                                                              # CWD: ./static
+        os.path.join(os.path.dirname(os.path.dirname(current_dir)), "static"), # /app/static
+        os.path.join(os.path.dirname(current_dir), "static"),                  # /app/src/static
+        "static",                                                              # CWD/static
+        "/app/static",                                                         # Absolute common
+        "/static",                                                             # Absolute system
     ]
     
     for path in paths_to_check:
-        if os.path.isdir(path):
-            logger.info("LOG_SYSTEM", f"Static directory found at: {os.path.abspath(path)}")
-            return path
+        abs_path = os.path.abspath(path)
+        logger.info("LOG_SYSTEM", f"Checking fallback path: {abs_path}")
+        if os.path.isdir(abs_path):
+            return abs_path
             
     logger.error("LOG_SYSTEM", "Static directory NOT found in any expected location. Frontend will be unavailable.")
     return None
@@ -116,8 +137,6 @@ static_path = find_static_dir()
 if static_path:
     app.mount("/static", StaticFiles(directory=static_path), name="static")
 else:
-    # Fallback: mount a dummy route to avoid 404s on the mount point itself if needed, 
-    # or just let it be. We use a custom handler to explain the missing assets.
     @app.get("/static/{file_path:path}")
     async def static_fallback(file_path: str):
         raise HTTPException(status_code=404, detail="Static assets directory is missing on the server.")
@@ -126,7 +145,6 @@ else:
 async def root():
     """Redirects the root URL to the Developer Panel."""
     from fastapi.responses import RedirectResponse
-    # Only redirect if static assets are available, otherwise show error
     if static_path:
         return RedirectResponse(url="/static/index.html")
     return JSONResponse(
