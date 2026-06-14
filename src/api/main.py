@@ -86,15 +86,17 @@ app.include_router(auth.router)
 app.include_router(dev.router)
 
 
-# 3. Serve Frontend Panel (Disabled - Frontend is now standalone)
-# app.mount("/static", StaticFiles(directory="static"), name="static")
+# 3. Serve Frontend Panel
+import os
+# Subir 3 niveles: src/api/main.py -> src/api/ -> src/ -> root/
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 @app.get("/")
 async def root():
     """Redirects the root URL to the Developer Panel."""
     from fastapi.responses import RedirectResponse
-    # Redirecting to the React dev server or production build
-    return RedirectResponse(url="http://localhost:5173")
+    return RedirectResponse(url="/static/index.html")
 
 async def pool_cleanup_worker():
     """Background worker for DB pool cleanup."""
