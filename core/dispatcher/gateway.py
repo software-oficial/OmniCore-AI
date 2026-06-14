@@ -3,8 +3,10 @@ import time
 import asyncio
 import difflib
 from typing import Any, Dict, Optional, Callable, List
-from fastapi import HTTPException, Request
+from fastapi import Request
 from core.dispatcher.core_types import CoreContext, ServiceResponse
+from core.dispatcher.normalizer import CommandNormalizer
+from core.dispatcher.validator import RequestValidator
 from core.auth.token_manager import token_manager
 from core.registry.infrastructure_registry import infrastructure_registry
 from core.governance.governance_service import governance_service
@@ -16,11 +18,6 @@ from infra.validation.type_checker import type_checker
 logger = logging.getLogger("OmniCore.Gateway")
 error_logger = logging.getLogger("OmniCore.Errors")
 
-from core.dispatcher.core_types import CoreContext, ServiceResponse
-from core.dispatcher.normalizer import CommandNormalizer
-from core.auth.token_manager import token_manager
-from core.registry.infrastructure_registry import infrastructure_registry
-...
 class AIGateway:
     """
     The Entry Point for all AI Agent requests.
@@ -42,32 +39,115 @@ class AIGateway:
         }
         logger.info(f"✅ Command Registered: {command_name} | Desc: {description} | System: {is_system}")
 
-    from core.dispatcher.core_types import CoreContext, ServiceResponse
-    from core.dispatcher.normalizer import CommandNormalizer
-    from core.dispatcher.validator import RequestValidator
-    from core.auth.token_manager import token_manager
-    from core.registry.infrastructure_registry import infrastructure_registry
-    ...
-        async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None, requested_mode: Optional[str] = None):
-            start_time = time.perf_counter()
-            traces = {}
+    async def execute(self, command_name: Optional[str], token: str, params: Optional[Dict[str, Any]], request: Request, flow: Optional[List[Dict[str, Any]]] = None, requested_mode: Optional[str] = None):
+        start_time = time.perf_counter()
+        traces = {}
+        
+        # 0. Command Normalization (Delegated)
+        effective_command, was_aliased = CommandNormalizer.normalize(command_name)
 
-            # 0. Command Normalization (Delegated)
-            effective_command, was_aliased = CommandNormalizer.normalize(command_name)
+        # 1. Validation (Delegated)
+        cmd_metadata = self.loader.get_metadata(effective_command)
+        schema = cmd_metadata.get('params_schema', {})
+        
+        is_valid, error_res, filtered_params = RequestValidator.validate(effective_command, params, schema)
+        if not is_valid:
+            return error_res
 
-            # 1. Validation (Delegated)
-            cmd_metadata = self.loader.get_metadata(effective_command)
-            schema = cmd_metadata.get('params_schema', {})
+        # 2. Token Validation
+        t_auth_start = time.perf_counter()
 
-            is_valid, error_res, filtered_params = RequestValidator.validate(effective_command, params, schema)
-            if not is_valid:
-                return error_res
+        is_valid, agent_id, jwt_tier = token_manager.validate_token(token)
+        traces['auth_ms'] = (time.perf_counter() - t_auth_start) * 1000
+        
+        if not is_valid:
+            logger.warning(f"⚠️ Auth Failed: Invalid token used")
+            res = ServiceResponse.error_res("Invalid or expired token", "AUTH_TOKEN_INVALID")
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            res.latency_ms = duration_ms
+            from core.telemetry.telemetry_service import telemetry_service
+            telemetry_service.track_request("unknown", "unknown", "gateway.execute", duration_ms / 1000, False)
+            return res
 
-            # 2. Token Validation
-            t_auth_start = time.perf_counter()
+        # 3. Context Retrieval
+        t_infra_start = time.perf_counter()
+        app_context = infrastructure_registry.get_app_context(agent_id)
+        traces['infra_ms'] = (time.perf_counter() - t_infra_start) * 1000
+        
+        if not app_context:
+            logger.warning(f"⚠️ Infrastructure not found for agent: {agent_id}")
+            res = ServiceResponse.error_res("No associated business infrastructure found.", "INFRA_NOT_FOUND")
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            res.latency_ms = duration_ms
+            from core.telemetry.telemetry_service import telemetry_service
+            telemetry_service.track_request(agent_id, "unknown", "gateway.execute", duration_ms / 1000, False)
+            return res
+        
+        # Resolve Mode: Header -> Default PRODUCTION
+        mode = requested_mode.upper() if requested_mode else "PRODUCTION"
+        if mode not in ["LEARNING", "PRODUCTION"]:
+            mode = "PRODUCTION"
 
-            is_valid, agent_id, jwt_tier = token_manager.validate_token(token)
-            traces['auth_ms'] = (time.perf_counter() - t_auth_start) * 1000
+        # Use JWT tier if available, otherwise fallback to registry
+        effective_tier = jwt_tier or app_context.get("tier", "FREE")
+        
+        ctx = CoreContext(
+            agent_id=agent_id, 
+            app_id=app_context["app_id"], 
+            mode=mode, 
+            db_config=app_context["db_config"], 
+            tier=effective_tier
+        )
+
+        logger.info(f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Tier={ctx.tier} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}")
+
+        # 4. Execution Path
+        t_exec_start = time.perf_counter()
+
+        if flow:
+            # BATCH EXECUTION MODE
+            result = await self._handle_batch_execution(flow, ctx)
+            cmd_for_telemetry = "gateway.batch"
+        elif mode == "LEARNING":
+            # SINGLE COMMAND - LEARNING
+            result = await self._handle_learning_mode(effective_command, ctx, filtered_params)
+            cmd_for_telemetry = effective_command
+        else:
+            # SINGLE COMMAND - PRODUCTION
+            result = await self._handle_production_mode(effective_command, ctx, filtered_params)
+            cmd_for_telemetry = effective_command
+        traces['exec_ms'] = (time.perf_counter() - t_exec_start) * 1000
+        
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        result.latency_ms = duration_ms
+        
+        from core.telemetry.telemetry_service import telemetry_service
+        telemetry_service.track_request(agent_id, ctx.app_id, cmd_for_telemetry, duration_ms / 1000, result.success)
+
+        # Pedagogical Hint for Aliases
+        if was_aliased and result.success:
+            result.message = f"💡 TIP: Command executed successfully, but you used an alias. The official name is `{effective_command}`. Use it for better compatibility.\n\n{result.message}"
+
+        # 5. System Audit Log
+        t_audit_start = time.perf_counter()
+        try:
+            from infra.db.core_db_manager import core_db_manager
+            audit_query = "INSERT INTO system_audit_log (agent_id, app_id, command, status, message) VALUES (:agent_id, :app_id, :command, :status, :message)"
+            core_db_manager.execute_raw(audit_query, {
+                "agent_id": agent_id, "app_id": ctx.app_id, "command": cmd_for_telemetry,
+                "status": "SUCCESS" if result.success else "FAILED", "message": result.message[:255]
+            })
+        except Exception as e:
+            logger.error(f"Audit log failure: {e}")
+        traces['audit_ms'] = (time.perf_counter() - t_audit_start) * 1000
+
+        # Log detailed latency breakdown for debugging
+        logger.info(f"⏱️ Latency Trace [{cmd_for_telemetry}]: Auth={traces['auth_ms']:.2f}ms | Infra={traces['infra_ms']:.2f}ms | Exec={traces['exec_ms']:.2f}ms | Audit={traces['audit_ms']:.2f}ms | Total={duration_ms:.2f}ms")
+
+        if not result.success:
+            error_logger.error(f"❌ Command/Flow Failure: {cmd_for_telemetry} | Agent={agent_id} | Code={result.error_code}")
+            
+        return result
 
 
         # 3. Execution Path
