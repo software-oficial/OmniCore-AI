@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import jwt
 
@@ -24,6 +24,17 @@ class TokenManager:
             "exp": datetime.utcnow() + timedelta(days=30),
         }
         return jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
+
+    @staticmethod
+    def decode_token(token: str) -> Optional[Dict[str, Any]]:
+        """
+        Decodes a JWT token and returns its payload.
+        Returns None if the token is invalid.
+        """
+        try:
+            return jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
+        except Exception:
+            return None
 
     @staticmethod
     def validate_token(token: str) -> Tuple[bool, Optional[str], Optional[str]]:

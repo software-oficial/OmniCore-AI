@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
@@ -31,8 +31,17 @@ async def get_my_agent(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    user_id = authorization.replace("Bearer ", "")
+    # Extract user_id from token
+    token = authorization.replace("Bearer ", "")
     try:
+        payload = token_manager.decode_token(token)
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+        user_id = payload.get("user_id")
+        if not user_id:
+            user_id = token
+
         result = core_db_manager.execute_raw(
             "SELECT id, name FROM agents WHERE owner_user_id = :uid LIMIT 1",
             {"uid": user_id},
@@ -41,7 +50,8 @@ async def get_my_agent(authorization: str = Header(None)):
         if not agent:
             raise HTTPException(status_code=404, detail="No agent found for this user")
         return {"agent_id": agent[0], "name": agent[1]}
-    except Exception:
+    except Exception as e:
+        engine_logger.error(f"Error in get_my_agent: {e}")
         raise HTTPException(
             status_code=500,
             detail="An internal server error occurred. Please contact support.",
@@ -56,7 +66,13 @@ async def list_projects(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    user_id = authorization.replace("Bearer ", "")
+    # Extract user_id from token
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = token_manager.decode_token(token)
+        user_id = payload.get("user_id") if payload else token
+    except Exception:
+        user_id = token
 
     try:
         # 1. Find the agent associated with this user
@@ -109,7 +125,13 @@ async def create_project(
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    user_id = authorization.replace("Bearer ", "")
+    # Extract user_id from token
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = token_manager.decode_token(token)
+        user_id = payload.get("user_id") if payload else token
+    except Exception:
+        user_id = token
 
     try:
         # 1. Find or Create the Agent for this user
@@ -122,13 +144,14 @@ async def create_project(
         else:
             # Auto-provision an agent if one doesn't exist for the new user
             agent_id = str(uuid.uuid4())
+            uid_str = cast(str, user_id)
             core_db_manager.execute_raw(
                 "INSERT INTO agents (id, name, api_key, owner_user_id) VALUES (:id, :name, :key, :uid)",
                 {
                     "id": agent_id,
-                    "name": f"Agent_{user_id[:8]}",
+                    "name": f"Agent_{uid_str[:8]}",
                     "key": str(uuid.uuid4()),
-                    "uid": user_id,
+                    "uid": uid_str,
                 },
             )
 

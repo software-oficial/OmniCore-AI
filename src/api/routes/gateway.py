@@ -216,7 +216,7 @@ async def handle_command(
         command_name=command,
         token=token,
         params=params,
-        request=cast(Any, Request({})),
+        request=cast(Any, Request({"type": "http"})),
         flow=flow,
         requested_mode=x_omnicore_mode,
     )
