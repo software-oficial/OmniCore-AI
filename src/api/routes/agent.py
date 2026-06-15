@@ -40,11 +40,8 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
     Automates: Agent Registration -> Project Creation -> Infra Linking -> Schema Deployment.
     """
     # 1. Handle Identity
-    user_id: str
-    if not authorization:
-        # If no token, we treat this as a first-time registration
-        user_id = str(uuid.uuid4())
-    else:
+    user_id = None
+    if authorization:
         token = authorization.replace("Bearer ", "")
         try:
             payload = token_manager.decode_token(token)

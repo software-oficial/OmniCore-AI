@@ -53,7 +53,39 @@ Ahora puedes ejecutar comandos. El SDK se encargará de pedir permiso a la nube 
 2. **El SDK es Obligatorio**: No intentes hacer peticiones HTTP directas al Gateway para acciones de negocio; usa el SDK para que la delegación funcione.
 3. **Modo LEARNING**: Si recibes un error con el prefijo `💡 MENTORSHIP`, lee la sugerencia; el sistema te está enseñando el patrón correcto.
 
-## 📋 4. Resumen de Herramientas
+## 🛠️ 4. Gestión Administrativa vía CLI (curl)
+
+Si prefieres gestionar tu infraestructura directamente desde la terminal, puedes utilizar `curl`. Este es el flujo recomendado para un despliegue rápido:
+
+### Paso A: Registro y Acceso
+1. **Crear Usuario**:
+   ```bash
+   curl -X POST http://localhost:8000/api/auth/register -H "Content-Type: application/json" -d '{"email": "dev@example.com", "password": "password123"}'
+   ```
+2. **Obtener ID de Sesión (Login)**:
+   ```bash
+   curl -X POST http://localhost:8000/api/auth/login -H "Content-Type: application/json" -d '{"email": "dev@example.com", "password": "password123"}'
+   ```
+   *(Copia el `user_id` de la respuesta)*.
+
+### Paso B: Despliegue "Zero-to-Hero"
+Crea tu agente y vincula tu base de datos en un solo paso:
+```bash
+curl -X POST http://localhost:8000/api/agent/onboard \
+     -H "Authorization: Bearer <TU_USER_ID>" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "name": "MiAgente",
+           "platform_name": "MiPlataforma",
+           "db_host": "localhost",
+           "db_port": 5432,
+           "db_user": "omni_admin",
+           "db_password": "secure_password",
+           "db_name": "omnicore_biz"
+         }'
+```
+
+## 📋 5. Resumen de Herramientas
 
 | Herramienta | Propósito | Ubicación |
 | :--- | :--- | :--- |
