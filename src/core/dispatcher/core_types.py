@@ -87,6 +87,7 @@ class CoreContext:
         db_config: Optional[Dict[str, Any]] = None,
         tier: str = "FREE",
         entity: str = "API",
+        execution_strategy: str = "DIRECT",
     ):
         self.agent_id = agent_id
         self.user_id = (
@@ -97,3 +98,4 @@ class CoreContext:
         self.db_config = db_config  # Host, User, Pass, etc.
         self.tier = tier
         self.entity = entity
+        self.execution_strategy = execution_strategy

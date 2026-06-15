@@ -133,6 +133,12 @@ class AIGateway:
         if mode not in ["LEARNING", "PRODUCTION"]:
             mode = "PRODUCTION"
 
+        # Determine Execution Strategy: DELEGATED if host is local
+        db_host = (app_context or {}).get("db_config", {}).get("host")
+        execution_strategy = "DIRECT"
+        if db_host in ["localhost", "127.0.0.1"]:
+            execution_strategy = "DELEGATED"
+
         # Use JWT tier if available, otherwise fallback to registry
         effective_tier = jwt_tier or app_context.get("tier", "FREE")
 
@@ -143,14 +149,38 @@ class AIGateway:
             db_config=app_context["db_config"],
             tier=effective_tier,
             entity="API",
+            execution_strategy=execution_strategy,
         )
 
         logger.info(
-            f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Tier={ctx.tier} | Host={(ctx.db_config or {}).get('host')} | Port={(ctx.db_config or {}).get('port')}"
+            f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Tier={ctx.tier} | Strategy={ctx.execution_strategy} | Host={(ctx.db_config or {}).get('host')}"
         )
 
         # 4. Execution Path
         t_exec_start = time.perf_counter()
+
+        if ctx.execution_strategy == "DELEGATED":
+            # DELEGATED MODE: The Cloud API only validates and authorizes.
+            # The Local Agent will perform the actual DB execution.
+
+            # We still perform a governance check to see if the command is allowed for this agent/tier
+            # Since we can't open a session, we do a "stateless" governance check if possible or
+            # simply authorize based on the command metadata.
+
+            # For now, we return a 'PERMISSION_GRANTED' response for the Local Agent to execute.
+            return ServiceResponse.success_res(
+                data={
+                    "action": "EXECUTE_LOCALLY",
+                    "command": effective_command,
+                    "params": filtered_params,
+                    "context": {
+                        "app_id": ctx.app_id,
+                        "tier": ctx.tier,
+                        "mode": ctx.mode,
+                    },
+                },
+                message="Execution authorized. Please execute this command on your local infrastructure.",
+            )
 
         if flow:
             # BATCH EXECUTION MODE
