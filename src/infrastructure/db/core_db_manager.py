@@ -1,19 +1,22 @@
-import os
 import logging
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
-from typing import Generator
-from dotenv import load_dotenv
+import os
 from contextlib import contextmanager
+from typing import Generator
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session, sessionmaker
 
 load_dotenv()
 logger = logging.getLogger("OmniCore.CoreDbManager")
+
 
 class CoreDbManager:
     """
     Manages the internal database for OmniCore-AI.
     Uses SQLite by default for the registry to ensure zero-config setup.
     """
+
     def __init__(self):
         self.engine = None
         self.session_factory = None
@@ -26,7 +29,7 @@ class CoreDbManager:
         if not db_url:
             logger.info("Using local SQLite for internal registry.")
             db_url = "sqlite:///omnicore_registry.db"
-        
+
         try:
             self.engine = create_engine(db_url, pool_pre_ping=True)
             self.session_factory = sessionmaker(bind=self.engine)
@@ -153,14 +156,15 @@ class CoreDbManager:
         """
         try:
             # Execute statements sequentially for compatibility
-            for statement in self.SCHEMA_SQL.strip().split(';'):
+            for statement in self.SCHEMA_SQL.strip().split(";"):
                 if statement.strip():
                     self.execute_raw(statement)
-            
+
             logger.info("Internal Core DB schema initialized successfully.")
         except Exception as e:
             logger.error(f"Error initializing Core DB schema: {e}")
             raise e
+
 
 # Singleton for global access
 core_db_manager = CoreDbManager()

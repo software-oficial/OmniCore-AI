@@ -1,8 +1,10 @@
 import logging
-from typing import Any, Dict, Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
+
 from src.core.dispatcher.core_types import ServiceResponse
 
 logger = logging.getLogger("OmniCore.TypeChecker")
+
 
 class TypeChecker:
     """
@@ -18,11 +20,13 @@ class TypeChecker:
         "boolean": bool,
         "list": list,
         "dict": dict,
-        "optional": object # Handled separately
+        "optional": object,  # Handled separately
     }
 
     @classmethod
-    def validate_types(cls, params: Dict[str, Any], schema: Dict[str, str]) -> Tuple[bool, Optional[ServiceResponse]]:
+    def validate_types(
+        cls, params: Dict[str, Any], schema: Dict[str, str]
+    ) -> Tuple[bool, Optional[ServiceResponse]]:
         """
         Validates parameters against the provided schema.
         Collects all errors to avoid sequential debugging.
@@ -38,31 +42,36 @@ class TypeChecker:
             if expected_type_str == "optional" or "optional" in expected_type_str:
                 if param_name not in params:
                     continue
-            
+
             if param_name not in params:
                 errors.append(f"Missing required parameter: {param_name}")
                 continue
 
             value = params[param_name]
-            
+
             # Handle complex types (e.g., 'list[dict]')
             if "[" in expected_type_str:
                 base_type = expected_type_str.split("[")[0]
                 if not cls._check_base_type(value, base_type):
                     actual_type = type(value).__name__
-                    errors.append(f"Invalid type for '{param_name}'. Expected {expected_type_str}, got {actual_type}")
+                    errors.append(
+                        f"Invalid type for '{param_name}'. Expected {expected_type_str}, got {actual_type}"
+                    )
                 continue
 
             if not cls._check_base_type(value, expected_type_str):
                 actual_type = type(value).__name__
-                errors.append(f"Invalid type for '{param_name}'. Expected {expected_type_str}, got {actual_type}")
+                errors.append(
+                    f"Invalid type for '{param_name}'. Expected {expected_type_str}, got {actual_type}"
+                )
 
         if errors:
             # Combine all errors into a single pedagogical message
-            full_error_message = "Validation failed with multiple errors:\n- " + "\n- ".join(errors)
+            full_error_message = (
+                "Validation failed with multiple errors:\n- " + "\n- ".join(errors)
+            )
             return False, ServiceResponse.error_res(
-                message=full_error_message,
-                error_code="VALIDATION_FAILED"
+                message=full_error_message, error_code="VALIDATION_FAILED"
             )
 
         return True, None
@@ -73,9 +82,11 @@ class TypeChecker:
         target_type = cls.TYPE_MAP.get(type_str.lower())
         if not target_type:
             # FAIL-CLOSED: Reject if type is unknown
-            logger.error(f"Schema validation failed: Unknown type requested '{type_str}'")
-            return False 
-            
+            logger.error(
+                f"Schema validation failed: Unknown type requested '{type_str}'"
+            )
+            return False
+
         return isinstance(value, target_type)
 
     @classmethod
@@ -84,7 +95,8 @@ class TypeChecker:
         actual_type = type(actual).__name__
         return ServiceResponse.error_res(
             message=f"Invalid type for parameter '{param}'. Expected {expected}, got {actual_type} ('{actual}').",
-            error_code="INVALID_TYPE"
+            error_code="INVALID_TYPE",
         )
+
 
 type_checker = TypeChecker()

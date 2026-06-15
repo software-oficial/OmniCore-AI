@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Query
-from src.infrastructure.blueprint_manager import blueprint_manager
 from typing import List, Optional
 
+from fastapi import APIRouter, Query
+
+from src.infrastructure.blueprint_manager import blueprint_manager
+
 router = APIRouter(prefix="/api/infra", tags=["Infrastructure"])
+
 
 @router.get("/setup")
 async def get_setup_blueprints(modules: Optional[List[str]] = Query(None)):
@@ -13,5 +16,5 @@ async def get_setup_blueprints(modules: Optional[List[str]] = Query(None)):
     return {
         "success": True,
         "message": "Database blueprints retrieved successfully.",
-        "blueprints": blueprints
+        "blueprints": blueprints,
     }

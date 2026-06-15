@@ -1,24 +1,26 @@
-import logging
-import json
 import asyncio
+import json
+import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
+
 from src.infrastructure.db.core_db_manager import core_db_manager
 
 logger = logging.getLogger("OmniCore.LoggerSystem")
+
 
 class OmniLogger:
     """
     Asynchronous Structured Logging System for OmniCore-AI.
     Buffers logs in an internal queue to prevent database latency from blocking the API.
     """
-    
+
     CATEGORIES = {
         "SECURITY": "LOG_SECURITY",
         "INFRA": "LOG_INFRA",
         "BUSINESS": "LOG_BUSINESS",
         "LEARNING": "LOG_AI_LEARNING",
-        "SYSTEM": "LOG_SYSTEM"
+        "SYSTEM": "LOG_SYSTEM",
     }
 
     def __init__(self, name: str):
@@ -27,9 +29,16 @@ class OmniLogger:
         # Internal buffer for asynchronous processing
         self.queue = asyncio.Queue()
 
-    def _format_log(self, level: str, category: str, message: str, 
-                    app_id: Optional[str] = None, agent_id: Optional[str] = None, 
-                    trace_id: Optional[str] = None, payload: Optional[Dict] = None) -> Dict:
+    def _format_log(
+        self,
+        level: str,
+        category: str,
+        message: str,
+        app_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        payload: Optional[Dict] = None,
+    ) -> Dict:
         """Formats the log entry as a dictionary."""
         return {
             "timestamp": datetime.utcnow().isoformat(),
@@ -37,25 +46,26 @@ class OmniLogger:
             "category": category,
             "logger": self.name,
             "message": message,
-            "context": {
-                "app_id": app_id,
-                "agent_id": agent_id,
-                "trace_id": trace_id
-            },
-            "payload": payload or {}
+            "context": {"app_id": app_id, "agent_id": agent_id, "trace_id": trace_id},
+            "payload": payload or {},
         }
 
     def _emit(self, level: str, category: str, message: str, **kwargs):
         """Pushes the log to the async queue instead of writing to DB synchronously."""
         log_entry = self._format_log(level, category, message, **kwargs)
-        
+
         # 1. Immediate Standard Output (for container logs)
         formatted_msg = json.dumps(log_entry)
-        if level == "INFO": self.logger.info(formatted_msg)
-        elif level == "WARNING": self.logger.warning(formatted_msg)
-        elif level == "ERROR": self.logger.error(formatted_msg)
-        elif level == "CRITICAL": self.logger.critical(formatted_msg)
-        else: self.logger.debug(formatted_msg)
+        if level == "INFO":
+            self.logger.info(formatted_msg)
+        elif level == "WARNING":
+            self.logger.warning(formatted_msg)
+        elif level == "ERROR":
+            self.logger.error(formatted_msg)
+        elif level == "CRITICAL":
+            self.logger.critical(formatted_msg)
+        else:
+            self.logger.debug(formatted_msg)
 
         # 2. Buffer for DB persistence
         try:
@@ -72,7 +82,7 @@ class OmniLogger:
         while True:
             try:
                 log_entry = await self.queue.get()
-                
+
                 # Persist to Hot Store (Core DB)
                 core_db_manager.execute_raw(
                     "INSERT INTO system_logs (level, category, message, app_id, agent_id, payload) VALUES (:level, :cat, :msg, :app, :agent, :pay)",
@@ -82,13 +92,13 @@ class OmniLogger:
                         "msg": log_entry["message"],
                         "app": log_entry["context"].get("app_id"),
                         "agent": log_entry["context"].get("agent_id"),
-                        "pay": json.dumps(log_entry["payload"])
-                    }
+                        "pay": json.dumps(log_entry["payload"]),
+                    },
                 )
                 self.queue.task_done()
             except Exception as e:
                 print(f"CRITICAL: Async log persistence failed: {e}")
-                await asyncio.sleep(1) # Avoid tight loop on DB failure
+                await asyncio.sleep(1)  # Avoid tight loop on DB failure
 
     def info(self, category: str, message: str, **kwargs):
         self._emit("INFO", category, message, **kwargs)
@@ -104,6 +114,7 @@ class OmniLogger:
 
     def debug(self, category: str, message: str, **kwargs):
         self._emit("DEBUG", category, message, **kwargs)
+
 
 # Helper to create loggers easily
 def get_logger(name: str) -> OmniLogger:

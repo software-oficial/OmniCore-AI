@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Any, Dict
+
+from fastapi import APIRouter, HTTPException
+
+from src.core.registry.infrastructure_registry import infrastructure_registry
 from src.core.telemetry.telemetry_service import telemetry_service
 from src.infrastructure.db.db_manager import db_manager
-from src.core.registry.infrastructure_registry import infrastructure_registry
-from typing import Dict, Any, List
 
 router = APIRouter(prefix="/api/admin", tags=["System Administration"])
+
 
 @router.get("/metrics")
 async def get_system_metrics():
@@ -15,12 +18,10 @@ async def get_system_metrics():
     metrics = telemetry_service.get_realtime_metrics()
     infra_status = {
         "active_db_pools": len(db_manager._engines),
-        "system_status": "HEALTHY" if len(db_manager._engines) < 100 else "HIGH_LOAD"
+        "system_status": "HEALTHY" if len(db_manager._engines) < 100 else "HIGH_LOAD",
     }
-    return {
-        "telemetry": metrics,
-        "infrastructure": infra_status
-    }
+    return {"telemetry": metrics, "infrastructure": infra_status}
+
 
 @router.post("/apps/onboard")
 async def onboard_app(payload: Dict[str, Any]):
@@ -30,14 +31,19 @@ async def onboard_app(payload: Dict[str, Any]):
     """
     try:
         app_id = infrastructure_registry.register_app(
-            agent_id=payload['agent_id'],
-            app_name=payload['app_name'],
-            db_config=payload['db_config'],
-            tier=payload.get('tier', 'FREE')
+            agent_id=payload["agent_id"],
+            app_name=payload["app_name"],
+            db_config=payload["db_config"],
+            tier=payload.get("tier", "FREE"),
         )
-        return {"success": True, "app_id": app_id, "message": f"App {payload['app_name']} onboarded successfully."}
+        return {
+            "success": True,
+            "app_id": app_id,
+            "message": f"App {payload['app_name']} onboarded successfully.",
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.patch("/apps/{app_id}/tier")
 async def update_tier(app_id: str, tier: str):
@@ -47,8 +53,11 @@ async def update_tier(app_id: str, tier: str):
     """
     success = infrastructure_registry.update_app_tier(app_id, tier)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to update application tier.")
+        raise HTTPException(
+            status_code=500, detail="Failed to update application tier."
+        )
     return {"success": True, "message": f"Application {app_id} updated to tier {tier}."}
+
 
 @router.get("/apps/{app_id}")
 async def get_app_details(app_id: str):
@@ -60,6 +69,7 @@ async def get_app_details(app_id: str):
         raise HTTPException(status_code=404, detail="Application not found.")
     return {"success": True, "data": app}
 
+
 @router.get("/apps")
 async def list_apps():
     """
@@ -67,7 +77,12 @@ async def list_apps():
     """
     try:
         from src.infrastructure.db.core_db_manager import core_db_manager
-        apps = core_db_manager.execute_raw("SELECT id, name, owner_id FROM apps").mappings().all()
+
+        apps = (
+            core_db_manager.execute_raw("SELECT id, name, owner_id FROM apps")
+            .mappings()
+            .all()
+        )
         return {"success": True, "data": [dict(a) for a in apps]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
