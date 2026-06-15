@@ -45,10 +45,23 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
         token = authorization.replace("Bearer ", "")
         try:
             payload = token_manager.decode_token(token)
-            uid = payload.get("user_id") if payload else token
-            user_id = cast(str, uid if uid is not None else token)
+            if payload:
+                user_id = payload.get("user_id")
+            else:
+                user_id = token
         except Exception:
             user_id = token
+
+    # Validate user existence to prevent ForeignKeyViolation
+    if user_id:
+        user_exists = core_db_manager.execute_raw(
+            "SELECT 1 FROM users WHERE id = :uid", {"uid": user_id}
+        ).fetchone()
+        if not user_exists:
+            engine_logger.warning(
+                f"Provided user_id {user_id} not found. Onboarding as guest."
+            )
+            user_id = None
 
     agent_id = str(uuid.uuid4())
     app_id = str(uuid.uuid4())
