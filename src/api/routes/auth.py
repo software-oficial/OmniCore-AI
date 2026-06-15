@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from src.core.auth.auth_service import auth_service
 
@@ -8,19 +8,25 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 # --- Request Models ---
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., description="User's primary email address")
+    password: str = Field(..., description="Secure password for the account")
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., description="Registered email address")
+    password: str = Field(..., description="Account password")
 
 
 class TokenCreateRequest(BaseModel):
-    agent_id: str
-    token_name: str
-    mode: str = "PRODUCTION"
+    agent_id: str = Field(
+        ..., description="ID of the agent for which the token is created"
+    )
+    token_name: str = Field(
+        ..., description="Human-readable name for this token (e.g. 'Dev-Laptop')"
+    )
+    mode: str = Field(
+        "PRODUCTION", description="Execution mode: 'PRODUCTION' or 'LEARNING'"
+    )
 
 
 class TokenResponse(BaseModel):

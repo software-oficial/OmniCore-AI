@@ -27,12 +27,24 @@ logger = get_logger("OmniCore.Main")
 async def universal_exception_handler(request: Request, exc: Exception):
     """
     Global Safety Net: Ensures the system NEVER returns HTML.
-    Internal technical details are masked to prevent leaking system architecture.
+    Handles standard HTTPExceptions, Pydantic validation errors, and critical system failures.
     """
+    from fastapi.exceptions import RequestValidationError
+
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
             content={"success": False, "message": exc.detail},
+        )
+
+    if isinstance(exc, RequestValidationError):
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "message": "Validation error in request payload",
+                "details": exc.errors(),
+            },
         )
 
     # Log the real error internally for the admin

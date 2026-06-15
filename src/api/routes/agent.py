@@ -2,7 +2,7 @@ import uuid
 from typing import Any, Dict, List, cast
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.core.auth.auth_service import auth_service
 from src.core.auth.token_manager import token_manager
@@ -13,8 +13,12 @@ router = APIRouter(prefix="/api/agent", tags=["Agent"])
 
 
 class RegisterRequest(BaseModel):
-    name: str
-    platform_name: str
+    name: str = Field(
+        ..., description="Friendly name for the AI Agent (e.g. 'SalesBot_v1')"
+    )
+    platform_name: str = Field(
+        ..., description="Name of the business platform the agent will serve"
+    )
 
 
 class RegisterResponse(BaseModel):
@@ -25,13 +29,20 @@ class RegisterResponse(BaseModel):
 
 
 class OnboardRequest(BaseModel):
-    name: str
-    platform_name: str
-    db_host: str
-    db_port: int = 5432
-    db_user: str
-    db_password: str
-    db_name: str
+    name: str = Field(..., description="Friendly name for the AI Agent")
+    platform_name: str = Field(..., description="Name of the business platform")
+    db_host: str = Field(
+        ...,
+        description="Host address of the PostgreSQL database (e.g. 'localhost' or 'db.example.com')",
+    )
+    db_port: int = Field(5432, description="PostgreSQL port")
+    db_user: str = Field(
+        ..., description="Database user with superuser or schema-owner privileges"
+    )
+    db_password: str = Field(..., description="Password for the database user")
+    db_name: str = Field(
+        ..., description="Name of the database where blueprints will be deployed"
+    )
 
 
 @router.post("/onboard", response_model=RegisterResponse)
