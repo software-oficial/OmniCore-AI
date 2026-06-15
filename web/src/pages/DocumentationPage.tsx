@@ -57,6 +57,25 @@ const DocumentationPage = () => {
           OmniCore-AI es un orquestador stateless. Para operar, debes instalar <span className="text-white font-mono">PostgreSQL</span> en tu servidor Linux. 
           Tú tienes el control total de tus datos; OmniCore-AI se conecta a tu servidor local para ejecutar la lógica de negocio.
         </p>
+        
+        <div className="bg-indigo-950/60 p-5 rounded-xl border border-indigo-400/30 space-y-4 mt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-600 p-2 rounded-lg text-white"><Download size={20}/></div>
+              <div>
+                <h4 className="text-white font-bold">OmniCore SDK (Python)</h4>
+                <p className="text-xs text-gray-400">Puente obligatorio para la ejecución local de comandos.</p>
+              </div>
+            </div>
+            <a 
+              href="/api/sdk/download" 
+              className="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+            >
+              <Download size={16}/> Descargar SDK
+            </a>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
           <div className="bg-indigo-950/50 p-4 rounded-xl border border-indigo-500/30 flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-lg text-white"><Server size={16}/></div>

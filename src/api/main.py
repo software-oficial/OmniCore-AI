@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config.settings import config
-from src.api.routes import admin, agent, auth, business, dev, gateway, infra
+from src.api.routes import admin, agent, auth, business, dev, gateway, infra, sdk
 from src.core.admin_service import admin_service
 from src.core.dispatcher.gateway import ai_gateway
 from src.core.module_loader import module_loader
@@ -112,6 +112,7 @@ app.include_router(agent.router)
 app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(dev.router)
+app.include_router(sdk.router)
 
 
 # 3. Serve Frontend Panel

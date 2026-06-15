@@ -7,7 +7,7 @@ Esta guía detalla cómo configurar tu entorno local para operar con OmniCore-AI
 ## 🚀 Paso 1: Instalación del SDK (Obligatorio)
 El SDK es el agente que ejecuta los comandos en tu máquina. Sin él, el sistema no es operable.
 
-1. **Descarga el SDK**: Copia el archivo `src/sdk/omnicore_sdk.py` a tu proyecto.
+1. **Descarga el SDK**: Descarga el archivo oficial desde la API: `GET /api/sdk/download` o a través del botón de descarga en el Panel de Documentación.
 2. **Instala dependencias**:
    ```bash
    pip install requests sqlalchemy psycopg2-binary

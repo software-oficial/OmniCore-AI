@@ -10,7 +10,7 @@ Sigue este orden estrictamente para evitar errores de configuración:
 
 ### Paso 1: El SDK (Tu Punto de Entrada)
 El SDK es la llave que conecta tu entorno local con el cerebro de OmniCore.
-1. **Descarga** `src/sdk/omnicore_sdk.py`.
+1. **Descarga el SDK**: Utiliza el enlace de descarga oficial en `/api/sdk/download` o el botón en la Documentación.
 2. **Instala** `requests sqlalchemy psycopg2-binary`.
 3. **Configura** tus credenciales:
    ```python
