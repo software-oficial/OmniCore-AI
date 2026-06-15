@@ -8,10 +8,10 @@ router = APIRouter(prefix="/api/discovery", tags=["Discovery"])
 
 @router.get("/commands")
 async def list_all_commands(authorization: str = Header(None)):
-    \"\"\"
+    """
     Discovery Endpoint: Returns the official list of all available commands, 
     their descriptions, and their required parameter schemas.
-    \"\"\"
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
     
@@ -42,7 +42,7 @@ async def list_all_commands(authorization: str = Header(None)):
 
 @router.get("/aliases")
 async def list_aliases():
-    \"\"\"Returns the list of supported command aliases for normalization.\"\"\"
+    """Returns the list of supported command aliases for normalization."""
     return {
         "aliases": ai_gateway.COMMAND_ALIASES
     }
