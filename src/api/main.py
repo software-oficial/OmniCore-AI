@@ -177,31 +177,8 @@ async def pool_cleanup_worker():
             logger.error("LOG_SYSTEM", f"Error during DB pool cleanup: {e}")
         await asyncio.sleep(config.POOL_CLEANUP_INTERVAL)
 
-async def repair_database_schema():
-    """
-    Ensures critical database columns exist. This is a safety net for production 
-    environments where automatic migrations might fail.
-    """
-    try:
-        from src.infrastructure.db.core_db_manager import core_db_manager
-        # Check if owner_user_id exists in agents table
-        query = "SELECT column_name FROM information_schema.columns WHERE table_name='agents' AND column_name='owner_user_id'"
-        result = core_db_manager.execute_raw(query).fetchone()
-        
-        if not result:
-            print("DATABASE_REPAIR: Column 'owner_user_id' missing. Applying fix...")
-            core_db_manager.execute_raw("ALTER TABLE agents ADD COLUMN owner_user_id TEXT REFERENCES users(id)")
-            print("DATABASE_REPAIR: Column 'owner_user_id' added successfully.")
-        else:
-            print("DATABASE_REPAIR: Schema is up to date.")
-    except Exception as e:
-        print(f"DATABASE_REPAIR_ERROR: Failed to repair schema: {e}")
-
 @app.on_event("startup")
 async def startup_event():
-    # Start database self-repair
-    await repair_database_schema()
-    
     # Start background workers
     asyncio.create_task(pool_cleanup_worker())
     

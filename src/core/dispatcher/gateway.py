@@ -57,6 +57,9 @@ class AIGateway:
         if not is_valid:
             return error_res
 
+        # Anti-XSS: Sanitize filtered parameters before execution
+        filtered_params = sanitizer.sanitize_params(filtered_params)
+
         # 2. Token Validation
         t_auth_start = time.perf_counter()
 
