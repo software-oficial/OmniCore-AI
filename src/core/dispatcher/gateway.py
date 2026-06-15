@@ -3,7 +3,7 @@ import difflib
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
 from fastapi import Request
 
@@ -68,14 +68,14 @@ class AIGateway:
         traces = {}
 
         # 0. Command Normalization (Delegated)
-        effective_command, was_aliased = CommandNormalizer.normalize(command_name)
+        effective_command, was_aliased = CommandNormalizer.normalize(command_name or "")
 
         # 1. Validation (Delegated)
         cmd_metadata = self.loader.get_metadata(effective_command)
         schema = cmd_metadata.get("params_schema", {})
 
         is_valid, error_res, filtered_params = RequestValidator.validate(
-            effective_command, params, schema
+            effective_command, params or {}, schema
         )
         if not is_valid:
             return error_res
@@ -103,6 +103,9 @@ class AIGateway:
             )
             return res
 
+        # Mypy: agent_id is now str
+        assert agent_id is not None
+
         # 3. Context Retrieval
         t_infra_start = time.perf_counter()
         app_context = infrastructure_registry.get_app_context(agent_id)
@@ -122,6 +125,9 @@ class AIGateway:
             )
             return res
 
+        # Mypy: app_context is now dict
+        assert app_context is not None
+
         # Resolve Mode: Header -> Default PRODUCTION
         mode = requested_mode.upper() if requested_mode else "PRODUCTION"
         if mode not in ["LEARNING", "PRODUCTION"]:
@@ -140,7 +146,7 @@ class AIGateway:
         )
 
         logger.info(
-            f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Tier={ctx.tier} | Host={ctx.db_config.get('host')} | Port={ctx.db_config.get('port')}"
+            f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Tier={ctx.tier} | Host={(ctx.db_config or {}).get('host')} | Port={(ctx.db_config or {}).get('port')}"
         )
 
         # 4. Execution Path
@@ -165,7 +171,10 @@ class AIGateway:
         traces["exec_ms"] = (time.perf_counter() - t_exec_start) * 1000
 
         duration_ms = (time.perf_counter() - start_time) * 1000
-        result.latency_ms = duration_ms
+        if isinstance(result, ServiceResponse):
+            result.latency_ms = duration_ms
+        else:
+            result = ServiceResponse.success_res(data=result, latency_ms=duration_ms)
 
         from src.core.telemetry.telemetry_service import telemetry_service
 
@@ -225,7 +234,7 @@ class AIGateway:
 
         try:
             async with db_manager.get_session(
-                ctx.app_id, ctx.db_config, ctx.tier
+                ctx.app_id, ctx.db_config or {}, ctx.tier
             ) as session:
                 results = []
 
@@ -251,32 +260,41 @@ class AIGateway:
                     )
                     if not is_allowed:
                         session.rollback()
+                        err = cast(ServiceResponse, error_res)
+                        msg = err.message if err else "Access denied"
+                        code = err.error_code if err else "GOVERNANCE_ERROR"
                         return ServiceResponse.error_res(
-                            message=f"Governance failure at step {idx} ({cmd_name}): {error_res.message}",
-                            error_code=error_res.error_code,
+                            message=f"Governance failure at step {idx} ({cmd_name}): {msg}",
+                            error_code=code if code else "GOVERNANCE_ERROR",
                         )
 
                     # Execution of the step
-                    result = await asyncio.get_event_loop().run_in_executor(
-                        self.executor,
-                        lambda: handler(session=session, context=ctx, **params),
-                    )
+                    if asyncio.iscoroutinefunction(handler):
+                        result = await handler(session=session, context=ctx, **params)
+                    else:
+                        result = await asyncio.get_event_loop().run_in_executor(
+                            self.executor,
+                            lambda: handler(session=session, context=ctx, **params),
+                        )
 
-                    if not isinstance(result, ServiceResponse) or not result.success:
+                    if (
+                        result is None
+                        or not isinstance(result, ServiceResponse)
+                        or not result.success
+                    ):
                         session.rollback()
+                        res_obj = (
+                            cast(ServiceResponse, result)
+                            if isinstance(result, ServiceResponse)
+                            else None
+                        )
                         msg = (
-                            result.message
-                            if isinstance(result, ServiceResponse)
-                            else "Unexpected handler return"
+                            res_obj.message if res_obj else "Unexpected handler return"
                         )
-                        code = (
-                            result.error_code
-                            if isinstance(result, ServiceResponse)
-                            else "HANDLER_ERROR"
-                        )
+                        code = res_obj.error_code if res_obj else "HANDLER_ERROR"
                         return ServiceResponse.error_res(
                             message=f"Flow failed at step {idx} ({cmd_name}): {msg}",
-                            error_code=code,
+                            error_code=code if code else "HANDLER_ERROR",
                         )
 
                     results.append(result)
@@ -335,8 +353,9 @@ class AIGateway:
 
             is_valid, type_err = type_checker.validate_types(params, schema)
             if not is_valid:
+                err = cast(ServiceResponse, type_err)
                 return ServiceResponse.error_res(
-                    message=f"💡 LEARNING ERROR: {type_err.message}",
+                    message=f"💡 LEARNING ERROR: {err.message if err else 'Invalid type'}",
                     error_code="LEARNING_TYPE_ERROR",
                 )
 
@@ -384,14 +403,21 @@ class AIGateway:
 
         try:
             async with db_manager.get_session(
-                ctx.app_id, ctx.db_config, ctx.tier
+                ctx.app_id, ctx.db_config or {}, ctx.tier
             ) as session:
                 # Security Check
                 is_allowed, error_res = governance_service.validate_access(
                     command_name, ctx, session
                 )
                 if not is_allowed:
-                    return error_res
+                    err = cast(ServiceResponse, error_res)
+                    return (
+                        err
+                        if err
+                        else ServiceResponse.error_res(
+                            "Access denied", "GOVERNANCE_ERROR"
+                        )
+                    )
 
                 # Execute in Worker Pool to not block Event Loop
                 result = await asyncio.get_event_loop().run_in_executor(

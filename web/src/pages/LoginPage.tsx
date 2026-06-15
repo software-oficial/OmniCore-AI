@@ -18,8 +18,11 @@ const LoginPage = () => {
       const response = await api.post('/auth/login', { email, password });
       localStorage.setItem('omnicore_token', response.data.data.user_id);
       navigate('/projects');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Error de autenticación');
+    } catch (err: unknown) {
+      const errorData = err as Record<string, unknown>;
+      const response = errorData.response as Record<string, unknown>;
+      const data = response?.data as Record<string, unknown>;
+      setError((data?.detail as string) || 'Error de autenticación');
     } finally {
       setLoading(false);
     }

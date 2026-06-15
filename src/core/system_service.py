@@ -19,6 +19,37 @@ class SystemService:
     """
 
     @command(
+        name="system.get_setting",
+        description="Retrieves a specific system configuration value.",
+        params_schema={"key": "string"},
+    )
+    def get_setting(
+        self, session: Session, context: CoreContext, key: str
+    ) -> ServiceResponse:
+        """Retrieves a system setting from the internal Core DB."""
+        try:
+            # Settings are stored in the internal Core DB (SQLite)
+            result = core_db_manager.execute_raw(
+                "SELECT setting_value FROM system_settings WHERE setting_key = :key",
+                {"key": key},
+            ).scalar()
+
+            if result is None:
+                return ServiceResponse.error_res(
+                    f"Setting {key} not found in system configuration.",
+                    "SETTING_NOT_FOUND",
+                )
+
+            return ServiceResponse.success_res(
+                data={"value": result}, message="Setting retrieved."
+            )
+        except Exception as e:
+            logger.error(f"Error retrieving system setting {key}: {e}")
+            return ServiceResponse.error_res(
+                f"Internal error: {str(e)}", "SYS_SETTING_ERROR"
+            )
+
+    @command(
         name="system.deploy_schema",
         description="Deploys the database schema blueprints to the client's external DB.",
         params_schema={"domains": "list[string]"},
@@ -136,11 +167,18 @@ class SystemService:
                     f"Unknown domain: {domain}", "DOMAIN_UNKNOWN"
                 )
 
-            missing = []
+            missing: List[str] = []
             for table in required_tables[domain]:
                 # Check if table exists in the current session's DB
                 check = session.execute(text(f"SELECT 1 FROM {table} LIMIT 1")).scalar()
-                # Note: This is a simplification; a real check would query information_schema
+                if not check:
+                    missing.append(table)
+
+            if missing:
+                return ServiceResponse.error_res(
+                    message=f"Blueprint for {domain} is incomplete. Missing tables: {', '.join(missing)}",
+                    error_code="BLUEPRINT_INCOMPLETE",
+                )
 
             return ServiceResponse.success_res(
                 message=f"Blueprint for {domain} validated successfully."

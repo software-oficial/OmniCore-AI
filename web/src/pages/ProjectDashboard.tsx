@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import { Plus, Key, BarChart2, X } from 'lucide-react';
 
@@ -14,7 +14,7 @@ const ProjectDashboard = () => {
   const [projectName, setProjectName] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       const response = await api.get('/agent/projects');
       setProjects(response.data);
@@ -23,11 +23,14 @@ const ProjectDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    const init = async () => {
+      await fetchProjects();
+    };
+    init();
+  }, [fetchProjects]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();

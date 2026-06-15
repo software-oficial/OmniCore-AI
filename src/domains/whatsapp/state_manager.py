@@ -65,11 +65,13 @@ class ConversationStateManager:
 
             # 2. Persistence to Tenant DB
             state_json = json.dumps(state)
-            query = text("""
+            query = text(
+                """
                 INSERT INTO bot_states (sender, state_data, updated_at) 
                 VALUES (:sender, :data, CURRENT_TIMESTAMP)
                 ON CONFLICT (sender) DO UPDATE SET state_data = excluded.state_data, updated_at = CURRENT_TIMESTAMP
-            """)
+            """
+            )
             session.execute(query, {"sender": sender, "data": state_json})
             session.commit()
 

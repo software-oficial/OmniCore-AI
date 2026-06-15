@@ -27,7 +27,7 @@ class OmniLogger:
         self.logger = logging.getLogger(name)
         self.name = name
         # Internal buffer for asynchronous processing
-        self.queue = asyncio.Queue()
+        self.queue: asyncio.Queue = asyncio.Queue()
 
     def _format_log(
         self,

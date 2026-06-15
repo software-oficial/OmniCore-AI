@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from src.core.auth.auth_service import auth_service
 from src.core.dispatcher.core_types import ServiceResponse
@@ -118,7 +118,10 @@ class AdminService:
 
         agent_id = res[0]
         return auth_service.create_api_token(
-            user_id=user_id, agent_id=agent_id, token_name=token_name
+            session=session,
+            user_id=cast(str, user_id),
+            agent_id=agent_id,
+            token_name=cast(str, token_name),
         )
 
     def create_custom_plan(self, params: Dict[str, Any]) -> ServiceResponse:

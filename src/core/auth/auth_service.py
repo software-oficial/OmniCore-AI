@@ -3,6 +3,7 @@ import logging
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from src.core.auth.token_manager import token_manager
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
 from src.core.dispatcher.decorators import command
 
@@ -19,27 +20,45 @@ class AuthService:
         """Authenticates a user and returns their user_id."""
         try:
             import hashlib
+
             password_hash = hashlib.sha256(password.encode()).hexdigest()
-            user = session.execute(
-                text("SELECT id FROM users WHERE email = :email AND password_hash = :hash"),
-                {"email": email, "hash": password_hash},
-            ).mappings().first()
+            user = (
+                session.execute(
+                    text(
+                        "SELECT id FROM users WHERE email = :email AND password_hash = :hash"
+                    ),
+                    {"email": email, "hash": password_hash},
+                )
+                .mappings()
+                .first()
+            )
 
             if not user:
-                return ServiceResponse.error_res("Invalid email or password", "AUTH_INVALID_CREDENTIALS")
+                return ServiceResponse.error_res(
+                    "Invalid email or password", "AUTH_INVALID_CREDENTIALS"
+                )
 
-            return ServiceResponse.success_res(data={"user_id": user["id"]}, message="Login successful.")
+            return ServiceResponse.success_res(
+                data={"user_id": user["id"]}, message="Login successful."
+            )
         except Exception as e:
             logger.error(f"Login error: {e}")
-            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_LOGIN_ERROR")
+            return ServiceResponse.error_res(
+                f"Internal error: {str(e)}", "AUTH_LOGIN_ERROR"
+            )
 
-    def register_user(self, session: Session, email: str, password: str, role: str = "user") -> ServiceResponse:
+    def register_user(
+        self, session: Session, email: str, password: str, role: str = "user"
+    ) -> ServiceResponse:
         """Registers a new system user."""
         try:
             import hashlib
+
             password_hash = hashlib.sha256(password.encode()).hexdigest()
             session.execute(
-                text("INSERT INTO users (id, email, password_hash, role) VALUES (gen_random_uuid(), :email, :hash, :role)"),
+                text(
+                    "INSERT INTO users (id, email, password_hash, role) VALUES (gen_random_uuid(), :email, :hash, :role)"
+                ),
                 {"email": email, "hash": password_hash, "role": role},
             )
             session.commit()
@@ -47,46 +66,82 @@ class AuthService:
         except Exception as e:
             session.rollback()
             logger.error(f"Registration error: {e}")
-            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_REG_ERROR")
+            return ServiceResponse.error_res(
+                f"Internal error: {str(e)}", "AUTH_REG_ERROR"
+            )
 
-    def create_api_token(self, session: Session, user_id: str, agent_id: str, token_name: str, mode: str = "PRODUCTION") -> ServiceResponse:
+    def create_api_token(
+        self,
+        session: Session,
+        user_id: str,
+        agent_id: str,
+        token_name: str,
+        mode: str = "PRODUCTION",
+    ) -> ServiceResponse:
         """Creates a new API token for an agent."""
         try:
-            import secrets
-            token = secrets.token_urlsafe(32)
+            # Generate a JWT token instead of an opaque string to match TokenManager.validate_token
+            token = token_manager.generate_token(agent_id)
+
             session.execute(
-                text("INSERT INTO user_tokens (id, user_id, agent_id, token, token_name, mode) VALUES (gen_random_uuid(), :uid, :aid, :token, :name, :mode)"),
-                {"uid": user_id, "aid": agent_id, "token": token, "name": token_name, "mode": mode},
+                text(
+                    "INSERT INTO user_tokens (id, user_id, agent_id, token, token_name, mode) VALUES (gen_random_uuid(), :uid, :aid, :token, :name, :mode)"
+                ),
+                {
+                    "uid": user_id,
+                    "aid": agent_id,
+                    "token": token,
+                    "name": token_name,
+                    "mode": mode,
+                },
             )
             session.commit()
-            return ServiceResponse.success_res(data={"api_token": token}, message="API token created.")
+            return ServiceResponse.success_res(
+                data={"api_token": token}, message="API token created."
+            )
         except Exception as e:
             session.rollback()
             logger.error(f"Token creation error: {e}")
-            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_TOKEN_ERROR")
+            return ServiceResponse.error_res(
+                f"Internal error: {str(e)}", "AUTH_TOKEN_ERROR"
+            )
 
     def list_user_tokens(self, session: Session, user_id: str) -> ServiceResponse:
         """Lists all tokens for a user."""
         try:
-            tokens = session.execute(
-                text("SELECT token_name, agent_id, mode FROM user_tokens WHERE user_id = :uid"),
-                {"uid": user_id},
-            ).mappings().all()
-            return ServiceResponse.success_res(data=[dict(t) for t in tokens], message="Tokens listed.")
+            tokens = (
+                session.execute(
+                    text(
+                        "SELECT token_name, agent_id, mode FROM user_tokens WHERE user_id = :uid"
+                    ),
+                    {"uid": user_id},
+                )
+                .mappings()
+                .all()
+            )
+            return ServiceResponse.success_res(
+                data=[dict(t) for t in tokens], message="Tokens listed."
+            )
         except Exception as e:
             logger.error(f"Error listing tokens: {e}")
-            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_TOKEN_LIST_ERROR")
+            return ServiceResponse.error_res(
+                f"Internal error: {str(e)}", "AUTH_TOKEN_LIST_ERROR"
+            )
 
     def revoke_token(self, session: Session, token_id: str) -> ServiceResponse:
         """Revokes an API token."""
         try:
-            session.execute(text("DELETE FROM user_tokens WHERE id = :tid"), {"tid": token_id})
+            session.execute(
+                text("DELETE FROM user_tokens WHERE id = :tid"), {"tid": token_id}
+            )
             session.commit()
             return ServiceResponse.success_res(message="Token revoked.")
         except Exception as e:
             session.rollback()
             logger.error(f"Error revoking token: {e}")
-            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_TOKEN_REVOKE_ERROR")
+            return ServiceResponse.error_res(
+                f"Internal error: {str(e)}", "AUTH_TOKEN_REVOKE_ERROR"
+            )
 
     @command(
         name="user.invite_employee",
@@ -108,10 +163,12 @@ class AuthService:
 
             password_hash = hashlib.sha256(password.encode()).hexdigest()
 
-            query = text("""
+            query = text(
+                """
                 INSERT INTO users (id, email, password_hash, role) 
                 VALUES (gen_random_uuid(), :username, :hash, :role)
-            """)
+            """
+            )
             session.execute(
                 query, {"username": username, "hash": password_hash, "role": role}
             )
@@ -146,10 +203,12 @@ class AuthService:
         """Sets a user permission."""
         try:
             if granted:
-                query = text("""
+                query = text(
+                    """
                     INSERT INTO user_permissions (user_id, permission_key) 
                     VALUES (:uid, :pk) ON CONFLICT DO NOTHING
-                """)
+                """
+                )
             else:
                 query = text(
                     "DELETE FROM user_permissions WHERE user_id = :uid AND permission_key = :pk"

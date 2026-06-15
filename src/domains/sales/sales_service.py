@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
@@ -280,12 +281,16 @@ class SalesService:
     ) -> ServiceResponse:
         """Opens a physical cash box for the day."""
         try:
-            query = text("""
+            query = text(
+                """
                 UPDATE cash_box 
                 SET abierta = true, efectivo_inicial = :monto, ventas_efectivo = 0, ventas_digital = 0, hora_apertura = CURRENT_TIMESTAMP 
                 WHERE id = 1
-            """)
-            result = session.execute(query, {"monto": monto_inicial})
+            """
+            )
+            result = cast(
+                CursorResult, session.execute(query, {"monto": monto_inicial})
+            )
 
             if result.rowcount == 0:
                 return ServiceResponse.error_res(
@@ -321,11 +326,13 @@ class SalesService:
                 )
 
             # 2. Close and record real amount
-            update_query = text("""
+            update_query = text(
+                """
                 UPDATE cash_box 
                 SET abierta = false, hora_cierre = CURRENT_TIMESTAMP, monto_cierre_real = :real 
                 WHERE id = 1
-            """)
+            """
+            )
             session.execute(update_query, {"real": monto_real})
 
             # 3. Calculate Balance
@@ -489,11 +496,13 @@ class SalesService:
                 vuelto = paga_con - total_amount
 
             # 4. Atomic Persistence
-            sale_query = text("""
+            sale_query = text(
+                """
                 INSERT INTO sales (client_name, total_amount, status, payment_method, paga_con, vuelto) 
                 VALUES (:name, :total, 'COMPLETED', :method, :paga_con, :vuelto) 
                 RETURNING id
-            """)
+            """
+            )
             sale_id = session.execute(
                 sale_query,
                 {
@@ -506,10 +515,12 @@ class SalesService:
             ).scalar()
 
             for pi in processed_items:
-                item_query = text("""
+                item_query = text(
+                    """
                     INSERT INTO sale_items (sale_id, product_code, quantity, unit_price, subtotal) 
                     VALUES (:sale_id, :code, :qty, :price, :sub)
-                """)
+                """
+                )
                 session.execute(
                     item_query,
                     {
@@ -608,7 +619,6 @@ class SalesService:
 
         try:
             # 1. Create pending sale
-            items = [{"product_code": codigo, "quantity": cantidad}]
 
             product_res = stock_service.get_product(session, context, code=codigo)
             if not product_res.success:
@@ -640,26 +650,32 @@ class SalesService:
             from src.core.system_service import system_service
 
             token_res = system_service.get_setting(
-                "mp_access_token", session=session, context=context
+                session=session, context=context, key="mp_access_token"
             )
-            mp_token = token_res.get("value")
+            if not token_res.success:
+                return token_res
+
+            mp_token = token_res.data.get("value")
 
             if not mp_token:
                 return ServiceResponse.error_res(
                     "MP Token not configured in system settings.", "CONFIG_MISSING"
                 )
 
+            from typing import cast
+
             mp_res = mp_service.create_payment(
                 context=context,
                 amount=total,
-                description=f"Pago de producto {product_res.data['name']}",
+                description=f"Pago de producto {cast(dict, product_res.data)['name']}",
                 external_reference=str(sale_id),
                 access_token=mp_token,
             )
 
             if mp_res.success:
+                data_mp = cast(dict, mp_res.data)
                 return ServiceResponse.success_res(
-                    data={"payment_url": mp_res.data["init_point"], "sale_id": sale_id},
+                    data={"payment_url": data_mp["init_point"], "sale_id": sale_id},
                     message="Payment link generated successfully.",
                 )
             return mp_res

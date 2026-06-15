@@ -1,6 +1,6 @@
 import html
 import logging
-from typing import Any
+from typing import Any, Dict
 
 logger = logging.getLogger("OmniCore.Sanitizer")
 
@@ -38,7 +38,7 @@ class InputSanitizer:
         if not params:
             return params
 
-        sanitized = {}
+        sanitized: Dict[Any, Any] = {}
         for k, v in params.items():
             if isinstance(v, dict):
                 sanitized[k] = cls.sanitize_params(v)

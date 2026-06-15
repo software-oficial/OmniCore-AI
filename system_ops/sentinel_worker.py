@@ -1,28 +1,31 @@
-import time
-import requests
 import logging
-import subprocess
 import os
-from datetime import datetime
+import subprocess
+import time
+
+import requests
 
 # Configuration
-HEARTBEAT_URL = os.getenv("OMNICORE_HEARTBEAT_URL", "http://localhost:8000/api/heartbeat")
-RESTART_COMMAND = "/home/adrian/Escritorio/railway/OmniCore-AI/restart_backend.sh" 
+HEARTBEAT_URL = os.getenv(
+    "OMNICORE_HEARTBEAT_URL", "http://localhost:8000/api/heartbeat"
+)
+RESTART_COMMAND = "/home/adrian/Escritorio/railway/OmniCore-AI/restart_backend.sh"
 # In production, this would be a systemctl restart or a Kubernetes pod deletion
-CHECK_INTERVAL = 2 # Seconds
+CHECK_INTERVAL = 2  # Seconds
 FAILURE_THRESHOLD = 2
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] SENTINEL: %(message)s'
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] SENTINEL: %(message)s"
 )
 logger = logging.getLogger("OmniCore.Sentinel")
+
 
 class OmniSentinel:
     """
     External Watchdog for OmniCore-AI.
     Ensures the motor stays alive by monitoring the heartbeat and triggering auto-restarts.
     """
+
     def __init__(self):
         self.failures = 0
         logger.info(f"Sentinel initialized. Monitoring {HEARTBEAT_URL}")
@@ -40,11 +43,17 @@ class OmniSentinel:
 
     def restart_motor(self):
         """Triggers the system restart command."""
-        logger.critical("🚨 Heartbeat lost! Triggering emergency restart of OmniCore-AI...")
+        logger.critical(
+            "🚨 Heartbeat lost! Triggering emergency restart of OmniCore-AI..."
+        )
         try:
             # Execute the restart command
-            result = subprocess.run(RESTART_COMMAND, shell=True, check=True, capture_output=True)
-            logger.info(f"Restart command executed successfully: {result.stdout.decode()}")
+            result = subprocess.run(
+                RESTART_COMMAND, shell=True, check=True, capture_output=True
+            )
+            logger.info(
+                f"Restart command executed successfully: {result.stdout.decode()}"
+            )
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to restart motor: {e.stderr.decode()}")
 
@@ -53,17 +62,20 @@ class OmniSentinel:
         while True:
             if self.check_health():
                 if self.failures > 0:
-                    logger.info(f"✅ Motor recovered. Resetting failure counter.")
+                    logger.info("✅ Motor recovered. Resetting failure counter.")
                 self.failures = 0
             else:
                 self.failures += 1
-                logger.warning(f"⚠️ Heartbeat failure detected ({self.failures}/{FAILURE_THRESHOLD})")
-                
+                logger.warning(
+                    f"⚠️ Heartbeat failure detected ({self.failures}/{FAILURE_THRESHOLD})"
+                )
+
                 if self.failures >= FAILURE_THRESHOLD:
                     self.restart_motor()
-                    self.failures = 0 # Reset after restart to allow boot time
-            
+                    self.failures = 0  # Reset after restart to allow boot time
+
             time.sleep(CHECK_INTERVAL)
+
 
 if __name__ == "__main__":
     sentinel = OmniSentinel()

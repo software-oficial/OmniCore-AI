@@ -1,7 +1,7 @@
 import logging
 import os
 from contextlib import contextmanager
-from typing import Generator
+from typing import Generator, Optional
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -51,7 +51,7 @@ class CoreDbManager:
         finally:
             session.close()
 
-    def execute_raw(self, query: str, params: dict = None):
+    def execute_raw(self, query: str, params: Optional[dict] = None):
         """Executes a raw SQL query on the internal DB."""
         with self.get_session() as session:
             result = session.execute(text(query), params or {})

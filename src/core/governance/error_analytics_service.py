@@ -49,14 +49,18 @@ class ErrorAnalyticsService:
 
         try:
             # Upsert into the common_errors_kb table
-            query = text("""
+            query = text(
+                """
                 INSERT INTO common_errors_kb (error_pattern, solution_guide, occurrence_count, impact_level)
                 VALUES (:pattern, 'PENDING_REVIEW: Please provide a guided solution for this common error.', :count, 'MEDIUM')
                 ON CONFLICT(error_pattern) DO UPDATE SET 
                     occurrence_count = occurrence_count + 1,
                     updated_at = CURRENT_TIMESTAMP
-            """)
-            core_db_manager.execute_raw(query, {"pattern": error_pattern, "count": 1})
+            """
+            )
+            core_db_manager.execute_raw(
+                str(query), {"pattern": error_pattern, "count": 1}
+            )
             logger.info(
                 f"🚀 Pattern Promoted to KB: {error_pattern} (Triggered by high frequency)"
             )

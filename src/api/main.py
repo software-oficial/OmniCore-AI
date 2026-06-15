@@ -1,12 +1,17 @@
 import asyncio
+import os
 from datetime import datetime
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config.settings import config
 from src.api.routes import admin, agent, auth, business, dev, gateway, infra
+from src.core.admin_service import admin_service
+from src.core.dispatcher.gateway import ai_gateway
+from src.core.module_loader import module_loader
+from src.core.system_service import system_service
 from src.infrastructure.db.db_manager import db_manager
 from src.infrastructure.logging.omni_logger import get_logger
 
@@ -24,8 +29,6 @@ async def universal_exception_handler(request: Request, exc: Exception):
     Global Safety Net: Ensures the system NEVER returns HTML.
     Internal technical details are masked to prevent leaking system architecture.
     """
-    from fastapi import HTTPException
-
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
@@ -65,14 +68,9 @@ async def api_root():
 
 
 # 1. Register Business Modules
-from src.core.module_loader import module_loader
 
 for module in ["sales", "stock", "whatsapp"]:
     module_loader.load_module(module)
-
-from src.core.admin_service import admin_service
-from src.core.dispatcher.gateway import ai_gateway
-from src.core.system_service import system_service
 
 ai_gateway.register_command(
     "system.deploy_schema",
@@ -117,9 +115,6 @@ app.include_router(dev.router)
 
 
 # 3. Serve Frontend Panel
-import os
-
-from fastapi import HTTPException
 
 
 @app.get("/debug/filesystem")

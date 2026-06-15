@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, cast
 
 from src.core.dispatcher.core_types import ServiceResponse
 
@@ -87,7 +87,7 @@ class TypeChecker:
             )
             return False
 
-        return isinstance(value, target_type)
+        return isinstance(value, cast(type, target_type))
 
     @classmethod
     def _type_error_res(cls, param: str, expected: str, actual: Any) -> ServiceResponse:

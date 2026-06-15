@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import Any, Dict
 
 logger = logging.getLogger("OmniCore.PaymentGateway")
@@ -42,6 +43,5 @@ class MercadoPagoGateway(PaymentGateway):
         return {"status": "approved", "amount": 100.0}
 
 
-import uuid
-
+# Singleton
 payment_gateway = MercadoPagoGateway()

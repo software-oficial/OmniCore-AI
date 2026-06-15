@@ -89,9 +89,11 @@ def bot_show_menu(
         options_list = [f"{i+1}. {opt['label']}" for i, opt in enumerate(options)]
         options_text = " | ".join(options_list)
 
-        return ServiceResponse.success_res(message=f"""{menu['text']}
+        return ServiceResponse.success_res(
+            message=f"""{menu['text']}
 
-Options: {options_text}""")
+Options: {options_text}"""
+        )
 
     except Exception as e:
         logger.error(f"Error in bot_show_menu: {e}")

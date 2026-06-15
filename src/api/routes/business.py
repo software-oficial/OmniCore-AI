@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response, Request
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, Response
 
 from src.core.dispatcher.gateway import ai_gateway
 
@@ -21,7 +21,9 @@ async def get_token(authorization: str = Header(None)):
 
 
 @router.get("/products")
-async def list_products(request: Request, response: Response, token: str = Depends(get_token)):
+async def list_products(
+    request: Request, response: Response, token: str = Depends(get_token)
+):
     """
     GET /api/business/products
     Lists all products. Implements HTTP caching.
@@ -36,7 +38,9 @@ async def list_products(request: Request, response: Response, token: str = Depen
 
 
 @router.get("/products/{code}")
-async def get_product(code: str, request: Request, response: Response, token: str = Depends(get_token)):
+async def get_product(
+    code: str, request: Request, response: Response, token: str = Depends(get_token)
+):
     """
     GET /api/business/products/{code}
     Retrieves a specific product by its business code.
@@ -51,7 +55,9 @@ async def get_product(code: str, request: Request, response: Response, token: st
 
 @router.post("/products")
 async def create_product(
-    request: Request, payload: Dict[str, Any] = Body(...), token: str = Depends(get_token)
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    token: str = Depends(get_token),
 ):
     """
     POST /api/business/products
@@ -65,7 +71,10 @@ async def create_product(
 
 @router.patch("/products/{code}")
 async def update_product(
-    code: str, request: Request, payload: Dict[str, Any] = Body(...), token: str = Depends(get_token)
+    code: str,
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    token: str = Depends(get_token),
 ):
     """
     PATCH /api/business/products/{code}
@@ -83,7 +92,9 @@ async def update_product(
 
 @router.post("/sales")
 async def process_sale(
-    request: Request, payload: Dict[str, Any] = Body(...), token: str = Depends(get_token)
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    token: str = Depends(get_token),
 ):
     """
     POST /api/business/sales
@@ -97,7 +108,9 @@ async def process_sale(
 
 @router.post("/sales/pending")
 async def create_pending_sale(
-    request: Request, payload: Dict[str, Any] = Body(...), token: str = Depends(get_token)
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    token: str = Depends(get_token),
 ):
     """
     POST /api/business/sales/pending

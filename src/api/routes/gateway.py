@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from fastapi import APIRouter, Body, Header
 
@@ -209,12 +209,14 @@ async def handle_command(
         else authorization
     )
 
+    from fastapi import Request
+
     # Pass all possible execution modes to the gateway
     result = await ai_gateway.execute(
         command_name=command,
         token=token,
         params=params,
-        request=None,  # In a real app, we'd pass the FastAPI request object
+        request=cast(Any, Request({})),
         flow=flow,
         requested_mode=x_omnicore_mode,
     )

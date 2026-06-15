@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
@@ -84,12 +85,12 @@ class StockService:
             for row in data:
                 # Translate row based on mapping
                 normalized = {
-                    "code": row.get(mapping.get("code")),
-                    "name": row.get(mapping.get("name")),
-                    "price": row.get(mapping.get("price")),
-                    "quantity": row.get(mapping.get("quantity"), 0),
-                    "category": row.get(mapping.get("category")),
-                    "is_weight": row.get(mapping.get("is_weight"), False),
+                    "code": row.get(cast(str, mapping.get("code"))),
+                    "name": row.get(cast(str, mapping.get("name"))),
+                    "price": row.get(cast(str, mapping.get("price"))),
+                    "quantity": row.get(cast(str, mapping.get("quantity")), 0),
+                    "category": row.get(cast(str, mapping.get("category"))),
+                    "is_weight": row.get(cast(str, mapping.get("is_weight")), False),
                 }
 
                 # Basic validation of translated data
@@ -138,14 +139,16 @@ class StockService:
         """Adds a new product and records the initial movement in the ledger."""
         try:
             # Upsert product
-            query = text("""
+            query = text(
+                """
                 INSERT INTO products (code, name, price, quantity, category, is_weight) 
                 VALUES (:code, :name, :price, :quantity, :category, :is_weight) 
                 ON CONFLICT(code) DO UPDATE SET 
                     name=excluded.name, price=excluded.price, quantity=excluded.quantity, 
                     category=excluded.category, is_weight=excluded.is_weight, updated_at=CURRENT_TIMESTAMP
                 RETURNING id
-            """)
+            """
+            )
             result = session.execute(
                 query,
                 {
@@ -160,10 +163,12 @@ class StockService:
             product_id = result.scalar()
 
             # Record ledger movement
-            movement_query = text("""
+            movement_query = text(
+                """
                 INSERT INTO stock_movements (product_code, amount, reason, user_id) 
                 VALUES (:code, :amount, :reason, :user_id)
-            """)
+            """
+            )
             session.execute(
                 movement_query,
                 {
@@ -244,18 +249,22 @@ class StockService:
                 )
 
             # 2. Update product
-            update_query = text("""
+            update_query = text(
+                """
                 UPDATE products 
                 SET quantity = :new_qty, updated_at = CURRENT_TIMESTAMP 
                 WHERE code = :code
-            """)
+            """
+            )
             session.execute(update_query, {"new_qty": new_qty, "code": code})
 
             # 3. Record movement in ledger
-            movement_query = text("""
+            movement_query = text(
+                """
                 INSERT INTO stock_movements (product_code, amount, reason, user_id) 
                 VALUES (:code, :amount, :reason, :user_id)
-            """)
+            """
+            )
             session.execute(
                 movement_query,
                 {
@@ -368,7 +377,7 @@ class StockService:
         """Deletes a product from the inventory."""
         try:
             query = text("DELETE FROM products WHERE code = :code")
-            result = session.execute(query, {"code": code})
+            result = cast(CursorResult, session.execute(query, {"code": code}))
 
             if result.rowcount == 0:
                 return ServiceResponse.error_res(

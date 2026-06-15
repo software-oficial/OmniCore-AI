@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Dict
+from typing import Any, Dict, cast
 
 import requests
 from sqlalchemy import text
@@ -198,16 +198,18 @@ class WhatsappService:
             else:
                 wapp_type = "document"
 
-            payload = {
+            payload_data: Dict[str, Any] = {
                 "messaging_product": "whatsapp",
                 "to": to,
                 "type": wapp_type,
                 wapp_type: {"id": media_id},
             }
             if caption:
-                payload[wapp_type]["caption"] = caption
+                payload_data[wapp_type]["caption"] = caption
             if wapp_type == "document" and filename:
-                payload[wapp_type]["filename"] = filename
+                payload_data[wapp_type]["filename"] = filename
+
+            payload = payload_data
 
             r = requests.post(url, headers=headers, json=payload)
             r.raise_for_status()
@@ -331,10 +333,14 @@ class WhatsappService:
         params_schema={"phone_number": "string", "text": "string"},
     )
     def handle_bot_flow(
-        self, session: Session, context: CoreContext, phone_number: str, text: str
+        self,
+        session: Session,
+        context: CoreContext,
+        phone_number: str,
+        text_content: str,
     ) -> ServiceResponse:
         try:
-            text_clean = text.strip().lower()
+            text_clean = text_content.strip().lower()
 
             # 1. Resolve Conversation State
             conv_res = (
@@ -355,7 +361,9 @@ class WhatsappService:
                     ),
                     {"phone": phone_number},
                 )
-                conv_res = {"current_menu": "main", "is_human_intervening": False}
+                conv_res = cast(
+                    Any, {"current_menu": "main", "is_human_intervening": False}
+                )
 
             if conv_res["is_human_intervening"]:
                 return ServiceResponse.success_res(

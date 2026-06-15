@@ -22,7 +22,7 @@ const ApiExplorer = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCommand, setSelectedCommand] = useState<Command | null>(null);
   const [params, setParams] = useState<Record<string, string>>({});
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<Record<string, unknown> | null>(null);
   const [executing, setExecuting] = useState(false);
 
   useEffect(() => {
@@ -51,9 +51,12 @@ const ApiExplorer = () => {
         command: selectedCommand?.command,
         params: params
       });
-      setResponse(res.data);
-    } catch (err: any) {
-      setResponse({ success: false, message: err.response?.data?.message || 'Execution error' });
+      setResponse(res.data as Record<string, unknown>);
+    } catch (err: unknown) {
+      const errorData = err as Record<string, unknown>;
+      const response = errorData.response as Record<string, unknown>;
+      const data = response?.data as Record<string, unknown>;
+      setResponse({ success: false, message: (data?.message as string) || 'Execution error' });
     } finally {
       setExecuting(false);
     }

@@ -18,8 +18,11 @@ const RegisterPage = () => {
       if (response.data.success) {
         navigate('/login');
       }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Error al crear la cuenta');
+    } catch (err: unknown) {
+      const errorData = err as Record<string, unknown>;
+      const response = errorData.response as Record<string, unknown>;
+      const data = response?.data as Record<string, unknown>;
+      setError((data?.detail as string) || 'Error al crear la cuenta');
     } finally {
       setLoading(false);
     }

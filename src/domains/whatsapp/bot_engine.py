@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -28,7 +28,7 @@ class BotEngine:
         description="Main entry point for bot interactions. Processes a message and returns a response.",
         params_schema={"user_id": "string", "message": "string", "context": "string"},
     )
-    def process_message(
+    async def process_message(
         self, session: Session, context: CoreContext, message_data: Dict[str, Any]
     ) -> ServiceResponse:
         """
@@ -36,7 +36,6 @@ class BotEngine:
         """
         sender = message_data.get("sender")
         text = message_data.get("text", "").strip().lower()
-        msg_id = message_data.get("message_id")
 
         if not sender or not text:
             return ServiceResponse.error_res(
@@ -51,19 +50,19 @@ class BotEngine:
 
         # 2. Quick Global Commands
         if text == "/menu":
-            return self._handle_global_command(
+            return await self._handle_global_command(
                 "bot.show_menu", context, {"menu_name": "main"}
             )
         if text == "volver":
-            return self._handle_global_command(
+            return await self._handle_global_command(
                 "bot.navigate", context, {"sender": sender, "menu_name": "main"}
             )
         if text == "!humano":
-            return self._handle_global_command(
+            return await self._handle_global_command(
                 "bot.set_human_mode", context, {"phone": sender}
             )
         if text == "!bot":
-            return self._handle_global_command(
+            return await self._handle_global_command(
                 "bot.set_bot_mode", context, {"phone": sender}
             )
 
@@ -72,13 +71,13 @@ class BotEngine:
         current_menu_name = state.get("current_menu")
 
         if current_menu_name:
-            return self._process_menu_option(
+            return await self._process_menu_option(
                 session, context, sender, text, current_menu_name
             )
 
         # 4. Welcome
         if text in ["hola", "buenos dias", "buenas tardes", "inicio", "/start"]:
-            return self._handle_global_command("bot.welcome", context, {})
+            return await self._handle_global_command("bot.welcome", context, {})
 
         return ServiceResponse.success_res(
             message="I didn't understand. Type '/menu' for options."
@@ -99,7 +98,7 @@ class BotEngine:
         )
         return res["is_human_intervening"] if res else False
 
-    def _process_menu_option(
+    async def _process_menu_option(
         self,
         session: Session,
         context: CoreContext,
@@ -138,39 +137,37 @@ class BotEngine:
 
         if action_type == "submenu":
             # Navigation logic handled via dispatcher commands for traceability
-            return self._handle_global_command(
+            return await self._handle_global_command(
                 "bot.navigate", context, {"sender": sender, "menu_name": action_value}
             )
 
         if action_type == "command":
             # This is the key: the bot delegates to the global dispatcher
-            return self._handle_global_command(
+            return await self._handle_global_command(
                 action_value, context, params={"sender": sender}
             )
 
         return ServiceResponse.error_res("Action type not supported.", "ACTION_ERROR")
 
-    def _handle_global_command(
+    async def _handle_global_command(
         self, cmd_name: str, ctx: CoreContext, params: Dict[str, Any]
     ) -> ServiceResponse:
         # In OmniCore-AI, the dispatcher is injected or accessed via the gateway
-        from src.core.dispatcher.gateway import ai_gateway
         from fastapi import Request
 
+        from src.core.dispatcher.gateway import ai_gateway
+
         # Create a dummy request since the bot doesn't have a real HTTP request
-        dummy_request = Request()
+        dummy_request = cast(Any, Request({}))
         # Manually set necessary attributes if the Gateway uses them
         dummy_request.method = "POST"
         dummy_request.url = "http://internal/bot"
 
         # In the BotEngine, the token is typically the agent_id or a fixed bot token
-        token = ctx.agent_id 
-        
-        return ai_gateway.execute(
-            command_name=cmd_name, 
-            token=token, 
-            params=params, 
-            request=dummy_request
+        token = ctx.agent_id
+
+        return await ai_gateway.execute(
+            command_name=cmd_name, token=token, params=params, request=dummy_request
         )
 
 

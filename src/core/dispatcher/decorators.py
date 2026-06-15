@@ -17,12 +17,14 @@ def command(
     """
 
     def decorator(func: Callable):
+        # Cast to Any to allow dynamic attribute assignment for metadata
+        f: Any = func
         # Attach metadata to the function object itself
-        func._is_omnicore_command = True
-        func._command_name = name
-        func._command_description = description
-        func._command_params_schema = params_schema or {}
-        func._command_is_system = is_system
+        f._is_omnicore_command = True
+        f._command_name = name
+        f._command_description = description
+        f._command_params_schema = params_schema or {}
+        f._command_is_system = is_system
         return wraps(func)(func)
 
     return decorator

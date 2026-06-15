@@ -150,11 +150,13 @@ class GovernanceService:
                 permissions.add("MASTER")
 
             # Check role-based permissions
-            perm_query = text("""
+            perm_query = text(
+                """
                 SELECT rp.permission_key FROM user_roles ur
                 JOIN role_permissions rp ON ur.role_id = rp.role_id
                 WHERE ur.user_id = :user_id
-            """)
+            """
+            )
             roles_perms = (
                 session.execute(perm_query, {"user_id": context.user_id})
                 .scalars()
@@ -163,10 +165,12 @@ class GovernanceService:
             permissions.update(roles_perms)
 
             # Check direct permissions
-            direct_query = text("""
+            direct_query = text(
+                """
                 SELECT permission_key FROM permissions 
                 WHERE tenant_id = :tid AND user_id = :uid AND granted = true
-            """)
+            """
+            )
             direct_perms = (
                 session.execute(
                     direct_query, {"tid": context.app_id, "uid": context.user_id}

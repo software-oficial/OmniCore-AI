@@ -26,11 +26,13 @@ class SchemaValidator:
         try:
             # Query the information_schema to check for table existence (Postgres compatible)
             # Note: If using SQLite for local tests, this query would change.
-            query = text("""
+            query = text(
+                """
                 SELECT table_name 
                 FROM information_schema.tables 
                 WHERE table_schema = 'public' AND table_name = :table
-            """)
+            """
+            )
 
             for table in required_tables:
                 result = session.execute(query, {"table": table}).scalar()
