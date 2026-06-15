@@ -165,6 +165,21 @@ async def create_project(
             {"id": app_id, "name": request.name, "owner": agent_id},
         )
 
+        # 2.1 Provision Infrastructure (Default to Sandbox)
+        core_db_manager.execute_raw(
+            "INSERT INTO app_infrastructure (app_id, db_host, db_port, db_user, db_password, db_name, tier) "
+            "VALUES (:app_id, :host, :port, :user, :pass, :db, :tier)",
+            {
+                "app_id": app_id,
+                "host": config.SANDBOX_DB_HOST,
+                "port": 5432,
+                "user": "sandbox_user",
+                "pass": "sandbox_pass",
+                "db": "sandbox_db",
+                "tier": "FREE",
+            },
+        )
+
         # 3. Map Agent to App
         core_db_manager.execute_raw(
             "INSERT INTO agent_app_mapping (agent_id, app_id) VALUES (:agent_id, :app_id)",
