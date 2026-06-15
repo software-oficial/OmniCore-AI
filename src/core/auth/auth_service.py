@@ -83,6 +83,17 @@ class AuthService:
                 f"Internal error: {str(e)}", "AUTH_REG_ERROR"
             )
 
+    def validate_user_exists(self, session: Session, user_id: str) -> bool:
+        """Checks if a user exists in the core database."""
+        try:
+            result = session.execute(
+                text("SELECT 1 FROM users WHERE id = :uid"), {"uid": user_id}
+            ).fetchone()
+            return result is not None
+        except Exception as e:
+            logger.error(f"Error validating user existence: {e}")
+            return False
+
     def create_api_token(
         self,
         session: Session,
@@ -93,6 +104,11 @@ class AuthService:
     ) -> ServiceResponse:
         """Creates a new API token for an agent."""
         try:
+            if not self.validate_user_exists(session, user_id):
+                return ServiceResponse.error_res(
+                    "The specified user does not exist.", "AUTH_USER_NOT_FOUND"
+                )
+
             # Generate a JWT token instead of an opaque string to match TokenManager.validate_token
             token = token_manager.generate_token(agent_id)
 

@@ -4,6 +4,7 @@ from typing import Any, Dict, List, cast
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
+from src.core.auth.auth_service import auth_service
 from src.core.auth.token_manager import token_manager
 from src.infrastructure.db.core_db_manager import core_db_manager
 from src.infrastructure.monitoring.logger import engine_logger
@@ -239,7 +240,14 @@ async def create_project(
         user_id = token
 
     try:
-        # 1. Find or Create the Agent for this user
+        # 1. Validate user existence first to prevent ForeignKeyViolation
+        with core_db_manager.get_session() as session:
+            if not auth_service.validate_user_exists(session, cast(str, user_id)):
+                raise HTTPException(
+                    status_code=401, detail="Invalid user identity. Please login again."
+                )
+
+        # Find or Create the Agent for this user
         agent_res = core_db_manager.execute_raw(
             "SELECT id FROM agents WHERE owner_user_id = :uid LIMIT 1", {"uid": user_id}
         ).fetchone()
