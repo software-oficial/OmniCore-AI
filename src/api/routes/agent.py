@@ -4,6 +4,7 @@ from typing import Any, Dict, List, cast
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
+from config.settings import config
 from src.core.auth.token_manager import token_manager
 from src.infrastructure.db.core_db_manager import core_db_manager
 from src.infrastructure.monitoring.logger import engine_logger
@@ -50,6 +51,8 @@ async def get_my_agent(authorization: str = Header(None)):
         if not agent:
             raise HTTPException(status_code=404, detail="No agent found for this user")
         return {"agent_id": agent[0], "name": agent[1]}
+    except HTTPException:
+        raise
     except Exception as e:
         engine_logger.error(f"Error in get_my_agent: {e}")
         raise HTTPException(
@@ -207,7 +210,7 @@ async def register_agent(request: RegisterRequest):
             "VALUES (:app_id, :host, :port, :user, :pass, :db, :tier)",
             {
                 "app_id": app_id,
-                "host": "sandbox.omnicore.internal",
+                "host": config.SANDBOX_DB_HOST,
                 "port": 5432,
                 "user": "sandbox_user",
                 "pass": "sandbox_pass",

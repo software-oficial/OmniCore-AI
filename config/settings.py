@@ -50,5 +50,8 @@ class Config:
     # Security
     JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-prod")
 
+    # Sandbox Infrastructure
+    SANDBOX_DB_HOST = os.getenv("SANDBOX_DB_HOST", "sandbox.omnicore.internal")
+
 
 config = Config()
