@@ -101,57 +101,71 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
             {"agent_id": agent_id, "app_id": app_id},
         )
 
-        # 6. AUTOMATIC SCHEMA DEPLOYMENT
-        # We use the system_service to push blueprints to the new DB
-        from src.core.dispatcher.core_types import CoreContext
-        from src.core.system_service import system_service
-        from src.infrastructure.db.db_manager import db_manager
+        # 6. AUTOMATIC SCHEMA DEPLOYMENT (Optimistic Attempt)
+        schema_deployed = False
+        try:
+            from src.core.dispatcher.core_types import CoreContext
+            from src.core.system_service import system_service
+            from src.infrastructure.db.db_manager import db_manager
 
-        async with db_manager.get_session(
-            app_id,
-            {
-                "host": request.db_host,
-                "port": request.db_port,
-                "user": request.db_user,
-                "password": request.db_password,
-                "dbname": request.db_name,
-            },
-            "FREE",
-        ) as session:
-            ctx = CoreContext(
-                agent_id=agent_id,
-                app_id=app_id,
-                mode="PRODUCTION",
-                db_config={
+            async with db_manager.get_session(
+                app_id,
+                {
                     "host": request.db_host,
                     "port": request.db_port,
                     "user": request.db_user,
                     "password": request.db_password,
                     "dbname": request.db_name,
                 },
-                tier="FREE",
-                entity="API",
+                "FREE",
+            ) as session:
+                ctx = CoreContext(
+                    agent_id=agent_id,
+                    app_id=app_id,
+                    mode="PRODUCTION",
+                    db_config={
+                        "host": request.db_host,
+                        "port": request.db_port,
+                        "user": request.db_user,
+                        "password": request.db_password,
+                        "dbname": request.db_name,
+                    },
+                    tier="FREE",
+                    entity="API",
+                )
+                deploy_res = system_service.deploy_schema(session, ctx, domains=None)
+                if deploy_res.success:
+                    schema_deployed = True
+                else:
+                    engine_logger.warning(
+                        f"Schema deployment failed: {deploy_res.message}"
+                    )
+        except Exception as e:
+            engine_logger.warning(
+                f"Could not deploy schema automatically (likely local DB): {e}"
             )
-            # Deploy all blueprints
-            deploy_res = system_service.deploy_schema(session, ctx, domains=None)
-            if not deploy_res.success:
-                raise Exception(f"Schema deployment failed: {deploy_res.message}")
 
         # 7. Generate Token
         token = token_manager.generate_token(agent_id, tier="FREE")
 
     except Exception as e:
-        engine_logger.error(f"Zero-to-Hero Onboarding error: {e}")
+        engine_logger.error(f"Zero-to-Hero Onboarding critical error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Onboarding failed: {str(e)}",
         )
 
+    msg = (
+        "Zero-to-Hero successful! Agent registered, DB linked, and schema deployed."
+        if schema_deployed
+        else "Zero-to-Hero successful! Agent and DB linked. Note: Automatic schema deployment failed (likely due to local DB). Please use the SDK to deploy the schema locally."
+    )
+
     return RegisterResponse(
         agent_id=agent_id,
         app_id=app_id,
         token=token,
-        message="Zero-to-Hero successful! Your Agent is registered, your DB is linked, and the schema has been deployed automatically. You are ready to operate.",
+        message=msg,
     )
 
 
