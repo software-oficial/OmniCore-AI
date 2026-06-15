@@ -101,9 +101,10 @@ async def generate_client_token(
         raise HTTPException(status_code=404, detail="No agent mapped to this app")
 
     agent_id = res[0]
-    response = auth_service.create_api_token(
-        user_id=user_id, agent_id=agent_id, token_name=token_name
-    )
+    with core_db_manager.get_session() as session:
+        response = auth_service.create_api_token(
+            session=session, user_id=user_id, agent_id=agent_id, token_name=token_name
+        )
     return response.to_dict()
 
 

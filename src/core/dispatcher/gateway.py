@@ -136,6 +136,7 @@ class AIGateway:
             mode=mode,
             db_config=app_context["db_config"],
             tier=effective_tier,
+            entity="API",
         )
 
         logger.info(

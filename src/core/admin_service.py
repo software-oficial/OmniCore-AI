@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict
 
-
 from src.core.auth.auth_service import auth_service
 from src.core.dispatcher.core_types import ServiceResponse
 from src.core.registry.infrastructure_registry import infrastructure_registry

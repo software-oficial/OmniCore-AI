@@ -155,8 +155,23 @@ class BotEngine:
     ) -> ServiceResponse:
         # In OmniCore-AI, the dispatcher is injected or accessed via the gateway
         from src.core.dispatcher.gateway import ai_gateway
+        from fastapi import Request
 
-        return ai_gateway.execute(cmd_name, ctx, params=params)
+        # Create a dummy request since the bot doesn't have a real HTTP request
+        dummy_request = Request()
+        # Manually set necessary attributes if the Gateway uses them
+        dummy_request.method = "POST"
+        dummy_request.url = "http://internal/bot"
+
+        # In the BotEngine, the token is typically the agent_id or a fixed bot token
+        token = ctx.agent_id 
+        
+        return ai_gateway.execute(
+            command_name=cmd_name, 
+            token=token, 
+            params=params, 
+            request=dummy_request
+        )
 
 
 # Singleton

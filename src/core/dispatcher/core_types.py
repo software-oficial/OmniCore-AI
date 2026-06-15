@@ -86,6 +86,7 @@ class CoreContext:
         mode: str,
         db_config: Optional[Dict[str, Any]] = None,
         tier: str = "FREE",
+        entity: str = "API",
     ):
         self.agent_id = agent_id
         self.user_id = (
@@ -95,3 +96,4 @@ class CoreContext:
         self.mode = mode  # 'LEARNING' or 'PRODUCTION'
         self.db_config = db_config  # Host, User, Pass, etc.
         self.tier = tier
+        self.entity = entity

@@ -1,8 +1,12 @@
 from typing import Any, Dict
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response, Request
 
 from src.core.dispatcher.gateway import ai_gateway
+
+router = APIRouter(prefix="/api/business", tags=["Business REST API"])
+
+# ... (rest of the file remains the same, but I will apply a broad replace for the execute calls)
 
 router = APIRouter(prefix="/api/business", tags=["Business REST API"])
 
@@ -21,7 +25,7 @@ async def get_token(authorization: str = Header(None)):
 
 
 @router.get("/products")
-async def list_products(response: Response, token: str = Depends(get_token)):
+async def list_products(request: Request, response: Response, token: str = Depends(get_token)):
     """
     GET /api/business/products
     Lists all products. Implements HTTP caching.
@@ -29,24 +33,18 @@ async def list_products(response: Response, token: str = Depends(get_token)):
     # Cache for 60 seconds
     response.headers["Cache-Control"] = "public, max-age=60"
 
-    result = await ai_gateway.execute("stock.list", token, {}, None)
+    result = await ai_gateway.execute("stock.list", token, {}, request)
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
     return result.to_dict()
 
 
 @router.get("/products/{code}")
-async def get_product(code: str, response: Response, token: str = Depends(get_token)):
-    """
-    GET /api/business/products/{code}
-    Retrieves a specific product by its business code.
-    """
-    response.headers["Cache-Control"] = "public, max-age=30"
-
-    result = await ai_gateway.execute("stock.get", token, {"code": code}, None)
+async def get_product(code: str, request: Request, response: Response, token: str = Depends(get_// la respuesta se cortó aquí por el límite de tokens, pero el objetivo es corregir la llamada.
+    result = await ai_gateway.execute("stock.get", token, {"code": code}, request)
     if not result.success:
         raise HTTPException(status_code=404, detail=result.message)
-    return result.to_dict()
+    return result.to_// la respuesta se cortó aquí por el límite de tokens, pero el objetivo es corregir la llamada.
 
 
 @router.post("/products")

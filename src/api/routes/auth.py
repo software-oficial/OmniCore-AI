@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, EmailStr
 
@@ -36,19 +35,25 @@ class TokenResponse(BaseModel):
 @router.post("/register")
 async def register(request: RegisterRequest):
     """Registers a new user account for the OmniCore Panel."""
-    res = auth_service.register_user(request.email, request.password)
-    if not res.success:
-        raise HTTPException(status_code=400, detail=res.message)
-    return res.to_dict()
+    from src.infrastructure.db.core_db_manager import core_db_manager
+
+    with core_db_manager.get_session() as session:
+        res = auth_service.register_user(session, request.email, request.password)
+        if not res.success:
+            raise HTTPException(status_code=400, detail=res.message)
+        return res.to_dict()
 
 
 @router.post("/login")
 async def login(request: LoginRequest):
     """Authenticates a user and returns session data."""
-    res = auth_service.login(request.email, request.password)
-    if not res.success:
-        raise HTTPException(status_code=401, detail=res.message)
-    return res.to_dict()
+    from src.infrastructure.db.core_db_manager import core_db_manager
+
+    with core_db_manager.get_session() as session:
+        res = auth_service.login(session, request.email, request.password)
+        if not res.success:
+            raise HTTPException(status_code=401, detail=res.message)
+        return res.to_dict()
 
 
 @router.post("/tokens/create")
@@ -60,16 +65,16 @@ async def create_token(request: TokenCreateRequest, authorization: str = Header(
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # In a full JWT implementation, we would decode the token to get the user_id.
-    # For now, we assume the authorization header contains the user_id or a session token.
     user_id = authorization.replace("Bearer ", "")
+    from src.infrastructure.db.core_db_manager import core_db_manager
 
-    res = auth_service.create_api_token(
-        user_id, request.agent_id, request.token_name, request.mode
-    )
-    if not res.success:
-        raise HTTPException(status_code=400, detail=res.message)
-    return res.to_dict()
+    with core_db_manager.get_session() as session:
+        res = auth_service.create_api_token(
+            session, user_id, request.agent_id, request.token_name, request.mode
+        )
+        if not res.success:
+            raise HTTPException(status_code=400, detail=res.message)
+        return res.to_dict()
 
 
 @router.get("/tokens")
@@ -79,10 +84,13 @@ async def list_tokens(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Authentication required")
 
     user_id = authorization.replace("Bearer ", "")
-    res = auth_service.list_user_tokens(user_id)
-    if not res.success:
-        raise HTTPException(status_code=500, detail=res.message)
-    return res.to_dict()
+    from src.infrastructure.db.core_db_manager import core_db_manager
+
+    with core_db_manager.get_session() as session:
+        res = auth_service.list_user_tokens(session, user_id)
+        if not res.success:
+            raise HTTPException(status_code=500, detail=res.message)
+        return res.to_dict()
 
 
 @router.delete("/tokens/{token_hash}")
@@ -91,7 +99,10 @@ async def revoke_token(token_hash: str, authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    res = auth_service.revoke_token(token_hash)
-    if not res.success:
-        raise HTTPException(status_code=500, detail=res.message)
-    return res.to_dict()
+    from src.infrastructure.db.core_db_manager import core_db_manager
+
+    with core_db_manager.get_session() as session:
+        res = auth_service.revoke_token(session, token_hash)
+        if not res.success:
+            raise HTTPException(status_code=500, detail=res.message)
+        return res.to_dict()

@@ -2,7 +2,6 @@ import logging
 import time
 from typing import Any, Dict, Optional, Tuple
 
-
 from src.infrastructure.cache.redis_manager import cache_manager
 from src.infrastructure.db.core_db_manager import core_db_manager
 

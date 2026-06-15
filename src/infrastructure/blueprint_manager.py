@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Dict, List, Optional
 
-
 logger = logging.getLogger("OmniCore.BlueprintManager")
 
 
