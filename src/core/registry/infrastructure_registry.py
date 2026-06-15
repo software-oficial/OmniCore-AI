@@ -2,6 +2,7 @@ import logging
 import time
 from typing import Any, Dict, Optional, Tuple
 
+from config.settings import config
 from src.infrastructure.cache.redis_manager import cache_manager
 from src.infrastructure.db.core_db_manager import core_db_manager
 
@@ -59,10 +60,14 @@ class InfrastructureRegistry:
                 return None
 
             # Format the DB config for the DynamicDbManager
-            config = {
+            db_host = result.db_host
+            if db_host == "sandbox.omnicore.internal":
+                db_host = config.SANDBOX_DB_HOST
+
+            config_ctx = {
                 "app_id": result.app_id,
                 "db_config": {
-                    "host": result.db_host,
+                    "host": db_host,
                     "port": result.db_port,
                     "user": result.db_user,
                     "password": result.db_password,
@@ -72,9 +77,9 @@ class InfrastructureRegistry:
             }
 
             # Store in Redis (L2) and Local Memory (L1)
-            cache_manager.set_session_context(agent_id, config, ttl=3600)
-            self._l1_cache[agent_id] = (now, config)
-            return config
+            cache_manager.set_session_context(agent_id, config_ctx, ttl=3600)
+            self._l1_cache[agent_id] = (now, config_ctx)
+            return config_ctx
         except Exception as e:
             logger.error(f"Error resolving app context for agent {agent_id}: {e}")
             return None
