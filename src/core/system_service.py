@@ -19,6 +19,40 @@ class SystemService:
     """
 
     @command(
+        name="system.help",
+        description="Provides guidance on how to discover and use available commands.",
+        params_schema={},
+    )
+    def get_help(self, session: Session, context: CoreContext) -> ServiceResponse:
+        """Provides guidance on how to discover and use available commands."""
+        return ServiceResponse.success_res(
+            message="Welcome to OmniCore-AI. To discover all available commands, their descriptions and required parameters, please use the official discovery endpoint: GET /api/discovery/commands. For detailed infrastructure setup guides, use: GET /api/agent/guides.",
+            data={
+                "discovery_endpoint": "/api/discovery/commands",
+                "guides_endpoint": "/api/agent/guides",
+                "manifest_endpoint": "/api/agent/manifest",
+            },
+        )
+
+    @command(
+        name="system.info",
+        description="Provides general information about the system, version, and data model.",
+        params_schema={},
+    )
+    def get_info(self, session: Session, context: CoreContext) -> ServiceResponse:
+        """Returns general system information."""
+        version = os.getenv("SYSTEM_VERSION", "1.0.0-stable")
+        return ServiceResponse.success_res(
+            message=f"OmniCore-AI v{version} is a stateless Meta-Orchestrator.",
+            data={
+                "version": version,
+                "model": "BYODB (Bring Your Own Database)",
+                "architecture": "Dispatcher Pattern",
+                "onboarding_guide": "/api/agent/guides",
+            },
+        )
+
+    @command(
         name="system.get_setting",
         description="Retrieves a specific system configuration value.",
         params_schema={"key": "string"},

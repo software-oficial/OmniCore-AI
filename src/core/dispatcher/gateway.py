@@ -380,7 +380,8 @@ class AIGateway:
         handler = self.loader.get_handler(command_name)
         if not handler:
             return ServiceResponse.error_res(
-                f"Command {command_name} not found", "COMMAND_NOT_FOUND"
+                message=f"Command '{command_name}' not found. To discover all available commands, use 'GET /api/discovery/commands'. For setup guides, use 'GET /api/agent/guides'.",
+                error_code="COMMAND_NOT_FOUND",
             )
 
         cmd_metadata = self.loader.get_metadata(command_name)
