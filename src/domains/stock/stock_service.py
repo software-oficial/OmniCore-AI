@@ -11,11 +11,12 @@ class StockService:
     """
     Pure Business Logic for Stock Management.
     Agnostic to the database source; relies on the injected session.
+    Ported from plataforma-stock.
     """
 
     @command(
         name="stock.add", 
-        description="Adds a new product and records the initial movement in the ledger.",
+        description="Adds a new product and records the initial movement in the ledger. Upserts if code exists.",
         params_schema={"code": "string", "name": "string", "price": "float", "quantity": "int", "category": "string", "is_weight": "boolean"}
     )
     def add_product(self, session: Session, context: CoreContext, code: str, name: str, price: float, quantity: int, category: Optional[str] = None, is_weight: bool = False) -> ServiceResponse:
@@ -162,12 +163,68 @@ class StockService:
     def get_low_stock(self, session: Session, context: CoreContext, threshold: float = 5.0) -> ServiceResponse:
         """Lists products that are below the critical threshold."""
         try:
-            query = text("SELECT * FROM products WHERE quantity < :threshold ORDER BY quantity ASC")
+            query = text("SELECT * FROM products WHERE quantity < :threshold ORDER by quantity ASC")
             result = session.execute(query, {"threshold": threshold}).mappings().all()
             return ServiceResponse.success_res(data=[dict(r) for r in result], message="Low stock products retrieved.")
         except Exception as e:
             logger.error(f"Error fetching low stock: {e}")
             return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_LOW_STOCK_ERROR")
+
+    @command(
+        name="stock.delete", 
+        description="Deletes a product from the inventory.",
+        params_schema={"code": "string"}
+    )
+    def delete_product(self, session: Session, context: CoreContext, code: str) -> ServiceResponse:
+        """Deletes a product from the inventory."""
+        try:
+            query = text("DELETE FROM products WHERE code = :code")
+            result = session.execute(query, {"code": code})
+            
+            if result.rowcount == 0:
+                return ServiceResponse.error_res(f"Product {code} not found", "PRODUCT_NOT_FOUND")
+                
+            return ServiceResponse.success_res(message=f"Product {code} deleted successfully.")
+        except Exception as e:
+            logger.error(f"Error deleting product {code}: {e}")
+            return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_DELETE_ERROR")
+
+    @command(
+        name="stock.bulk_add", 
+        description="Adds multiple products in a single transaction. Optimized for large imports.",
+        params_schema={"products": "list[dict]"}
+    )
+    def bulk_add_products(self, session: Session, context: CoreContext, products: List[Dict[str, Any]]) -> ServiceResponse:
+        """Adds multiple products in a single transaction."""
+        try:
+            success_count = 0
+            error_count = 0
+            
+            # We iterate and call add_product to ensure ledger movements are also recorded per item
+            # In a high-perf scenario, we'd use a bulk insert for products and bulk insert for movements
+            for p in products:
+                res = self.add_product(
+                    session, 
+                    context, 
+                    code=p.get('code'), 
+                    name=p.get('name'), 
+                    price=p.get('price'), 
+                    quantity=p.get('cantidad', p.get('quantity', 0)), 
+                    category=p.get('category'), 
+                    is_weight=p.get('is_weight', False)
+                )
+                if res.success:
+                    success_count += 1
+                else:
+                    error_count += 1
+            
+            return ServiceResponse.success_res(
+                data={"success": success_count, "errors": error_count}, 
+                message=f"Bulk processing completed. {success_count} added, {error_count} failed."
+            )
+        except Exception as e:
+            logger.error(f"Error in bulk_add_products: {e}")
+            return ServiceResponse.error_res(f"Internal error: {str(e)}", "STOCK_BULK_ADD_ERROR")
 
 # Singleton for the module
 stock_service = StockService()
