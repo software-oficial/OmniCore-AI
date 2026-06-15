@@ -1,9 +1,14 @@
 import json
+import logging
 import os
 from typing import Any, Dict
 
 import requests
 from sqlalchemy import create_engine, text
+
+# Configure basic logging for the SDK
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("OmniCoreSDK")
 
 
 class OmniCoreSDK:
@@ -103,16 +108,33 @@ class OmniCoreSDK:
         payload = {"name": name, "platform_name": platform_name, **db_config}
         try:
             response = requests.post(f"{self.api_base_url}/agent/onboard", json=payload)
+
+            if response.status_code != 200:
+                try:
+                    error_detail = response.json().get("detail", "Unknown API error")
+                except Exception:
+                    error_detail = response.text
+                raise Exception(
+                    f"Onboarding API Error ({response.status_code}): {error_detail}"
+                )
+
             res_data = response.json()
-            if res_data.get("success") or "token" in res_data:
+            if "agent_id" in res_data and "token" in res_data:
                 self.set_credentials(
                     res_data.get("agent_id"),
                     res_data.get("token"),
                     res_data.get("app_id"),
                 )
                 return res_data
+
+            raise Exception(
+                "Onboarding response was missing required credentials (agent_id/token)."
+            )
+
         except Exception as e:
-            return {"success": False, "message": f"Onboarding failed: {str(e)}"}
+            logger.error(f"Onboarding failed: {str(e)}")
+            # We raise the exception instead of returning None so the caller knows WHY it failed
+            raise e
 
 
 # Example Usage:
