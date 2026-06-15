@@ -1,66 +1,63 @@
-# 🚀 Guía de Inicio Rápido: OmniCore-AI API
+# 🚀 Guía de Inicio Rápido: OmniCore-AI
 
-Bienvenido al ecosistema OmniCore-AI. Esta guía está diseñada para que cualquier desarrollador pueda integrar la API en minutos, evitando errores comunes y maximizando la eficiencia.
+Bienvenido al ecosistema OmniCore-AI. Esta guía está diseñada para que cualquier desarrollador pueda integrar el sistema en minutos, operando de forma **100% local**.
 
-## 🛠️ 1. El Camino del Desarrollador (Flujo de Trabajo)
+⚠️ **ADVERTENCIA CRÍTICA**: No intentes configurar túneles de red (Cloudflare, Ngrok) ni subir tu base de datos a la nube. OmniCore-AI utiliza **Ejecución Delegada**. La API Cloud coordina, pero el SDK ejecuta todo en tu máquina.
 
-Para evitar errores de `MISSING_PARAMETER` o `INFRA_NOT_FOUND`, sigue siempre este orden:
+## 🛠️ 1. El Camino del Desarrollador (Flujo Local-First)
 
-### Paso 0: Infraestructura (Soberanía de Datos)
-OmniCore-AI **no aloja tu base de datos de negocio**. Para que el sistema funcione, debes:
-1. **Desplegar PostgreSQL**: Tener una instancia de Postgres accesible desde internet.
-2. **Ejecutar Blueprints**: Importar los archivos `.sql` (ej. `src/domains/stock/blueprint.sql`) en tu base de datos para crear las tablas necesarias.
-3. **Vincular**: Usar el endpoint `POST /api/agent/projects/create` enviando las credenciales de tu DB.
-**⚠️ Si saltas este paso, recibirás el error `INFRA_NOT_FOUND` o errores de conexión al intentar ejecutar cualquier comando.**
+Sigue este orden estrictamente para evitar errores de configuración:
 
-### Paso A: Descubrimiento (No adivines)
-Antes de enviar cualquier comando, consulta la lista de comandos reales y sus esquemas de parámetros.
-- **Endpoint**: `GET /api/discovery/commands`
-- **Qué obtienes**: Una lista de todos los comandos disponibles, su descripción y el JSON exacto que debes enviar en `params`.
+### Paso 1: El SDK (Tu Punto de Entrada)
+El SDK es la llave que conecta tu entorno local con el cerebro de OmniCore.
+1. **Descarga** `src/sdk/omnicore_sdk.py`.
+2. **Instala** `requests sqlalchemy psycopg2-binary`.
+3. **Configura** tus credenciales:
+   ```python
+   sdk = OmniCoreSDK()
+   sdk.set_credentials(agent_id="...", token="...", app_id="...")
+   ```
 
-### Paso B: Verificación de Alias
-Si no estás seguro del nombre del comando (ej. ¿es `ventas.list` o `sales.list`?), consulta los alias soportados.
-- **Endpoint**: `GET /api/discovery/aliases`
-- **Nota**: El sistema es tolerante y traducirá automáticamente alias comunes, pero te sugerirá el nombre oficial en la respuesta.
+### Paso 2: Base de Datos Local (Soberanía de Datos)
+Tú eres el dueño de tu data. El sistema solo necesita que la estructura sea la correcta.
+1. **Levanta PostgreSQL** localmente.
+2. **Crea una DB** vacía.
+3. **Carga los Blueprints**: Ejecuta los archivos `.sql` de `src/domains/*/blueprint.sql`. 
+   *Ejemplo: `psql -d my_db -f src/domains/stock/blueprint.sql`*
 
-### Paso C: Ejecución y Validación
-Envía tu comando a través del Gateway.
-- **Endpoint**: `POST /api/command` (o vía el Gateway de Agentes)
-- **Validación Masiva**: Si cometes errores en los parámetros, la API te devolverá **todos los errores a la vez** en una sola respuesta. No tendrás que hacer múltiples llamadas para corregir un solo comando.
+### Paso 3: Ejecución y Validación
+Ahora puedes ejecutar comandos. El SDK se encargará de pedir permiso a la nube y ejecutar la acción en tu DB local.
+- **Ejemplo**: `sdk.execute("stock.add", {"name": "Producto X", "price": 100})`
 
 ---
 
-## 🗺️ 2. Mapa de Módulos Funcionales
+## 🗺️ 2. Mapa de Módulos Funcionales (Ejemplos)
 
-### 📦 Módulo de Stock (Inventario)
-Gestiona la disponibilidad y registro de productos.
+### 📦 Módulo de Stock
 - `stock.add`: Registra productos nuevos.
-- `stock.update`: Ajusta cantidades existencias.
-- `stock.list`: Consulta el inventario actual.
+- `stock.list`: Consulta el inventario.
 
-### 💰 Módulo de Sales (Ventas)
-Procesa transacciones comerciales.
-- `sales.process`: El núcleo de la venta. Requiere `customer_id`, `items` y `payment_method`.
+### 💰 Módulo de Sales
+- `sales.process`: Procesa una venta completa.
 - `sales.list`: Historial de transacciones.
 
-### 🤖 Módulo de WhatsApp (Comunicación)
-Interacción automatizada con clientes.
-- `whatsapp.create_flow`: Define flujos de conversación.
-- `whatsapp.send`: Envío de mensajes directos.
+### 🤖 Módulo de WhatsApp
+- `whatsapp.bot.process_message`: El cerebro de la conversación.
+- `whatsapp.bot.welcome`: Inicializa el flujo.
 
 ---
 
-## ⚠️ 3. Reglas de Oro para evitar errores
+## ⚠️ 3. Reglas de Oro para el Éxito
 
-1. **Tipado Estricto**: Si el esquema dice `int`, envía un número, no un string `"10"`. La API validará esto estrictamente.
-2. **Soberanía de Datos**: Recuerda que esta API es un puente. No gestiona la base de datos del cliente directamente, sino que inyecta la sesión necesaria para operar sobre ella.
-3. **Modo LEARNING**: Si usas un token de aprendizaje, verás respuestas pedagógicas que te explican **por qué** falló un comando y cómo corregirlo.
+1. **Soberanía Total**: Recuerda que la API Cloud es un puente. Tu base de datos nunca sale de tu máquina.
+2. **El SDK es Obligatorio**: No intentes hacer peticiones HTTP directas al Gateway para acciones de negocio; usa el SDK para que la delegación funcione.
+3. **Modo LEARNING**: Si recibes un error con el prefijo `💡 MENTORSHIP`, lee la sugerencia; el sistema te está enseñando el patrón correcto.
 
-## 📋 4. Resumen de Endpoints de Utilidad
+## 📋 4. Resumen de Herramientas
 
-| Endpoint | Método | Propósito |
+| Herramienta | Propósito | Ubicación |
 | :--- | :--- | :--- |
-| `/api/discovery/commands` | `GET` | Listado oficial de comandos y parámetros. |
-| `/api/discovery/aliases` | `GET` | Diccionario de alias soportados. |
-| `/api/auth/login` | `POST` | Obtención de token JWT. |
-| `/health` | `GET` | Estado de salud del sistema y Redis. |
+| **OmniCore SDK** | Ejecutor Local | `src/sdk/omnicore_sdk.py` |
+| **Blueprints SQL** | Esquema de Tablas | `src/domains/*/blueprint.sql` |
+| **Cloud API** | Coordinador/Validador | `https://api.omnicore.ai` |
+| **Manifiesto** | Filosofía de Despliegue | `docs/LOCAL_FIRST.md` |

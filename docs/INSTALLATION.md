@@ -1,78 +1,61 @@
 # 🛠️ Guía de Instalación y Despliegue
 
-Esta guía detalla el proceso para levantar un entorno completo de OmniCore-AI, desde la infraestructura de base de datos hasta la capa de orquestación.
+Esta guía detalla cómo configurar tu entorno local para operar con OmniCore-AI. 
 
-## 🏗️ Arquitectura de Datos
-OmniCore-AI utiliza una arquitectura de base de datos híbrida:
-1. **Core Registry (Internal)**: Almacena agentes, aplicaciones y configuraciones de infraestructura. (Recomendado: Postgres o SQLite).
-2. **Business DBs (External)**: Bases de datos independientes para cada cliente/app donde reside la data de negocio. (Obligatorio: Postgres).
+**IMPORTANTE**: Antes de empezar, lee el [Manifiesto Local-First](LOCAL_FIRST.md). OmniCore-AI utiliza **Ejecución Delegada**, lo que significa que no necesitas túneles de red ni bases de datos online.
 
-## 🚀 Paso a Paso: Instalación Local
+## 🚀 Paso 1: Instalación del SDK (Obligatorio)
+El SDK es el agente que ejecuta los comandos en tu máquina. Sin él, el sistema no es operable.
+
+1. **Descarga el SDK**: Copia el archivo `src/sdk/omnicore_sdk.py` a tu proyecto.
+2. **Instala dependencias**:
+   ```bash
+   pip install requests sqlalchemy psycopg2-binary
+   ```
+3. **Configuración**: Inicializa el SDK con tus credenciales:
+   ```python
+   from omnicore_sdk import OmniCoreSDK
+   sdk = OmniCoreSDK()
+   sdk.set_credentials(agent_id="TU_ID", token="TU_TOKEN", app_id="TU_APP_ID")
+   ```
+
+## 🏗️ Paso 2: Base de Datos Local (Soberanía de Datos)
+OmniCore-AI no aloja tu data. Tú gestionas tu propia base de datos de negocio localmente.
+
+1. **Instalar PostgreSQL**: Asegúrate de tener Postgres corriendo en tu máquina (puerto `5432`).
+2. **Crear Base de Datos**: Crea una base de datos vacía (ej: `omnicore_biz`).
+3. **Ejecutar Blueprints**: Importa los esquemas SQL proporcionados en `src/domains/*/blueprint.sql` para crear las tablas necesarias.
+   ```bash
+   psql -U usuario -d omnicore_biz -f src/domains/stock/blueprint.sql
+   ```
+
+---
+
+## ⚙️ Configuración Avanzada (Para Administradores del Motor)
+*Esta sección es solo si deseas desplegar tu propia instancia del motor de OmniCore-AI en lugar de usar la Cloud API.*
 
 ### 1. Infraestructura de Soporte
-Asegúrese de tener corriendo los siguientes servicios:
-- **PostgreSQL**: Puerto `5432` (estándar).
-- **Redis**: Puerto `6379` (estándar).
+- **PostgreSQL**: Puerto `5432`.
+- **Redis**: Puerto `6379`.
 
-### 2. Configuración del Entorno
-Cree un archivo `.env` en la raíz del proyecto con las siguientes variables:
+### 2. Configuración del Entorno (`.env`)
 ```env
-# Core Registry
 OMNICORE_INTERNAL_DB_URL=postgresql://user:pass@localhost:5432/omnicore_registry
-
-# Cache & Sessions
 REDIS_HOST=localhost
 REDIS_PORT=6379
-
-# API Settings
 HOST=0.0.0.0
 PORT=8000
 VERSION=1.0.0
 ```
 
-### 3. Dependencias y Setup
+### 3. Ejecución del Motor y Sentinel
 ```bash
-# Instalar dependencias
 pip install -r requirements.txt
-
-# Inicializar el esquema del Core y crear datos de prueba
 python3 seed_omnicore.py
-```
-
-### 4. Ejecución del Sistema
-El sistema consta de dos procesos principales que deben correr simultáneamente:
-
-**A. El Motor (API Gateway):**
-```bash
 export PYTHONPATH=.
 nohup python3 api/main.py > backend.log 2>&1 &
-```
-
-**B. El Sentinel (Watchdog):**
-El Sentinel monitorea el `/api/heartbeat` y reinicia el motor si falla.
-```bash
 python3 system_ops/sentinel_worker.py
 ```
 
----
-
-## 🧪 Configuración de Entorno de Pruebas (SIT)
-Para probar el sistema rápidamente sin configurar manualmente cada DB de negocio, utilice los scripts de automatización:
-
-1. **Setup de Infra de Test**:
-   ```bash
-   python3 setup_test_infra.py
-   ```
-   *Este script crea un agente, una app y registra la infraestructura en el Core Registry.*
-
-2. **Validación de Salud**:
-   ```bash
-   curl http://localhost:8000/health
-   ```
-
 ## ☁️ Despliegue en Railway
-OmniCore-AI está optimizado para Railway:
-1. Conecte su repositorio a Railway.
-2. Añada los servicios de **PostgreSQL** y **Redis** desde el Marketplace.
-3. Configure las variables de entorno en la pestaña `Variables` usando los valores proporcionados por Railway (`${{Postgres.DATABASE_URL}}`, etc.).
-4. El `Procfile` ya está configurado para iniciar el servidor FastAPI.
+Para desplegar la infraestructura del motor en Railway, conecta tu repositorio y configura las variables de entorno proporcionadas por Railway en la pestaña `Variables`. El `Procfile` ya está configurado.
