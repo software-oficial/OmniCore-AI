@@ -16,6 +16,42 @@ class SystemService:
     """
 
     @command(
+        name="system.deploy_schema",
+        description="Deploys the database schema blueprints to the client's external DB.",
+        params_schema={"domains": "list[string]"}
+    )
+    def deploy_schema(self, session: Session, context: CoreContext, domains: Optional[List[str]] = None) -> ServiceResponse:
+        """
+        Executes the SQL blueprints for the specified domains in the external DB.
+        If domains is None, deploys all available blueprints.
+        """
+        from src.infrastructure.blueprint_manager import blueprint_manager
+        
+        try:
+            # 1. Resolve blueprints (Note: blueprint_manager path might need adjustment to 'src/domains')
+            # We override the modules_path on the fly or assume the manager handles it.
+            # Let's adjust the logic to use the current project structure.
+            blueprint_manager.modules_path = "src/domains"
+            blueprints = blueprint_manager.get_all_blueprints(requested_modules=domains)
+            
+            if not blueprints:
+                return ServiceResponse.error_res("No blueprints found to deploy.", "NO_BLUEPRINTS")
+            
+            executed_domains = []
+            for domain, sql in blueprints.items():
+                # Execute each blueprint SQL
+                session.execute(text(sql))
+                executed_domains.append(domain)
+            
+            session.commit()
+            return ServiceResponse.success_res(
+                message=f"Successfully deployed blueprints for: {', '.join(executed_domains)}."
+            )
+        except Exception as e:
+            logger.error(f"Schema deployment failure: {e}")
+            return ServiceResponse.error_res(f"Deployment failed: {str(e)}", "DEPLOY_ERROR")
+
+    @command(
         name="system.get_version",
         description="Retrieves the current system version and deployment metadata.",
         params_schema={}
