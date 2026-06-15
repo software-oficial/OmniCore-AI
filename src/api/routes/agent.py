@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 from pydantic import BaseModel
 from src.infrastructure.db.core_db_manager import core_db_manager
 from src.core.auth.token_manager import token_manager
-from src.infrastructure.monitoring.logger import logger
+from src.infrastructure.monitoring.logger import engine_logger
 import uuid
 
 router = APIRouter(prefix="/api/agent", tags=["Agent"])
@@ -81,7 +81,7 @@ async def list_projects(authorization: str = Header(None)):
         
         return [{"id": a[0], "name": a[1]} for a in apps]
     except Exception as e:
-        logger.error(f"Error retrieving projects: {e}")
+        engine_logger.error(f"Error retrieving projects: {e}")
         raise HTTPException(status_code=500, detail="An internal server error occurred while retrieving projects.")
 
 class ProjectCreateRequest(BaseModel):
@@ -129,7 +129,7 @@ async def create_project(request: ProjectCreateRequest, authorization: str = Hea
         
         return {"success": True, "app_id": app_id, "message": f"Project {request.name} created successfully."}
     except Exception as e:
-        logger.error(f"Project creation error: {e}")
+        engine_logger.error(f"Project creation error: {e}")
         raise HTTPException(status_code=500, detail="Failed to create project.")
 
 @router.post("/register", response_model=RegisterResponse)
@@ -181,7 +181,7 @@ async def register_agent(request: RegisterRequest):
         token = token_manager.generate_token(agent_id, tier="FREE")
 
     except Exception as e:
-        logger.error(f"Registration error: {e}")
+        engine_logger.error(f"Registration error: {e}")
         raise HTTPException(status_code=500, detail="Registration failed due to an internal server error.")
 
     return RegisterResponse(
