@@ -293,9 +293,9 @@ class WhatsappService:
         ).mappings().all()
         
         options_list = [f"{i+1}. {opt['label']}" for i, opt in enumerate(options)]
-        full_text = f"{menu['text']}
+        full_text = f"""{menu['text']}
 
-{chr(10).join(options_list)}"
+{chr(10).join(options_list)}"""
         return ServiceResponse.success_res(message=full_text)
 
 # Singleton

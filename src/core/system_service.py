@@ -1,6 +1,8 @@
 import logging
+import os
 from typing import Dict, Any, Optional
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
 from src.core.dispatcher.decorators import command
 from src.infrastructure.db.core_db_manager import core_db_manager
