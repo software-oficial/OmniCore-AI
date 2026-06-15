@@ -57,9 +57,9 @@ class AuthService:
             password_hash = hashlib.sha256(password.encode()).hexdigest()
             session.execute(
                 text(
-                    "INSERT INTO users (id, email, password_hash, role) VALUES (gen_random_uuid(), :email, :hash, :role)"
+                    "INSERT INTO users (id, email, password_hash) VALUES (gen_random_uuid(), :email, :hash)"
                 ),
-                {"email": email, "hash": password_hash, "role": role},
+                {"email": email, "hash": password_hash},
             )
             session.commit()
             return ServiceResponse.success_res(message="User registered successfully.")
@@ -165,16 +165,14 @@ class AuthService:
 
             query = text(
                 """
-                INSERT INTO users (id, email, password_hash, role) 
-                VALUES (gen_random_uuid(), :username, :hash, :role)
-            """
+                INSERT INTO users (id, email, password_hash)
+                VALUES (gen_random_uuid(), :username, :hash)
+                """
             )
-            session.execute(
-                query, {"username": username, "hash": password_hash, "role": role}
-            )
+            session.execute(query, {"username": username, "hash": password_hash})
             session.commit()
             return ServiceResponse.success_res(
-                message=f"Employee {username} created with role {role}."
+                message=f"Employee {username} created successfully."
             )
         except Exception as e:
             session.rollback()

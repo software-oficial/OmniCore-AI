@@ -39,13 +39,11 @@ class SalesService:
         try:
             # In a real scenario, password would be hashed
             session.execute(
-                text(
-                    "INSERT INTO users (username, password, role) VALUES (:user, :pass, :role)"
-                ),
-                {"user": username, "pass": password, "role": role},
+                text("INSERT INTO users (username, password) VALUES (:user, :pass)"),
+                {"user": username, "pass": password},
             )
             return ServiceResponse.success_res(
-                message=f"Employee {username} created successfully with role {role}."
+                message=f"Employee {username} created successfully."
             )
         except Exception as e:
             logger.error(f"Error creating employee {username}: {e}")

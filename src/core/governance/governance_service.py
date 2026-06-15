@@ -139,46 +139,32 @@ class GovernanceService:
         # 2. Cache Miss: Resolve from DB
         permissions = set()
         try:
-            # Check for MASTER role
-            user_query = text("SELECT role FROM users WHERE id = :user_id")
-            user = (
-                session.execute(user_query, {"user_id": context.user_id})
-                .mappings()
-                .first()
-            )
-            if user and user["role"] and user["role"].upper() == "MASTER":
-                permissions.add("MASTER")
-
-            # Check role-based permissions
+            # Resolve permissions via user_roles and role_permissions
             perm_query = text(
                 """
                 SELECT rp.permission_key FROM user_roles ur
                 JOIN role_permissions rp ON ur.role_id = rp.role_id
                 WHERE ur.user_id = :user_id
-            """
-            )
-            roles_perms = (
-                session.execute(perm_query, {"user_id": context.user_id})
-                .scalars()
-                .all()
-            )
-            permissions.update(roles_perms)
-
-            # Check direct permissions
-            direct_query = text(
-                """
+                UNION
                 SELECT permission_key FROM permissions 
                 WHERE tenant_id = :tid AND user_id = :uid AND granted = true
-            """
+                """
             )
-            direct_perms = (
+            permissions = set(
                 session.execute(
-                    direct_query, {"tid": context.app_id, "uid": context.user_id}
+                    perm_query,
+                    {
+                        "user_id": context.user_id,
+                        "tid": context.app_id,
+                        "uid": context.user_id,
+                    },
                 )
                 .scalars()
                 .all()
             )
-            permissions.update(direct_perms)
+
+            # If no permissions found, check if this is a superuser/master from a legacy or system perspective
+            # Since 'role' column is gone, MASTER must be a permission key in the system.
 
             # Cache the result for 15 minutes
             cache_manager.set(cache_key, list(permissions), ttl=900)
