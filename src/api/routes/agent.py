@@ -101,51 +101,7 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
             {"agent_id": agent_id, "app_id": app_id},
         )
 
-        # 6. AUTOMATIC SCHEMA DEPLOYMENT (Optimistic Attempt)
-        schema_deployed = False
-        try:
-            from src.core.dispatcher.core_types import CoreContext
-            from src.core.system_service import system_service
-            from src.infrastructure.db.db_manager import db_manager
-
-            async with db_manager.get_session(
-                app_id,
-                {
-                    "host": request.db_host,
-                    "port": request.db_port,
-                    "user": request.db_user,
-                    "password": request.db_password,
-                    "dbname": request.db_name,
-                },
-                "FREE",
-            ) as session:
-                ctx = CoreContext(
-                    agent_id=agent_id,
-                    app_id=app_id,
-                    mode="PRODUCTION",
-                    db_config={
-                        "host": request.db_host,
-                        "port": request.db_port,
-                        "user": request.db_user,
-                        "password": request.db_password,
-                        "dbname": request.db_name,
-                    },
-                    tier="FREE",
-                    entity="API",
-                )
-                deploy_res = system_service.deploy_schema(session, ctx, domains=None)
-                if deploy_res.success:
-                    schema_deployed = True
-                else:
-                    engine_logger.warning(
-                        f"Schema deployment failed: {deploy_res.message}"
-                    )
-        except Exception as e:
-            engine_logger.warning(
-                f"Could not deploy schema automatically (likely local DB): {e}"
-            )
-
-        # 7. Generate Token
+        # 6. Generate Token
         token = token_manager.generate_token(agent_id, tier="FREE")
 
     except Exception as e:
@@ -155,17 +111,11 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
             detail=f"Onboarding failed: {str(e)}",
         )
 
-    msg = (
-        "Zero-to-Hero successful! Agent registered, DB linked, and schema deployed."
-        if schema_deployed
-        else "Zero-to-Hero successful! Agent and DB linked. Note: Automatic schema deployment failed (likely due to local DB). Please use the SDK to deploy the schema locally."
-    )
-
     return RegisterResponse(
         agent_id=agent_id,
         app_id=app_id,
         token=token,
-        message=msg,
+        message="Zero-to-Hero successful! Your Agent is registered and your DB is linked. IMPORTANT: You must now use the OmniCore SDK locally to deploy the database schema (blueprints) to your local PostgreSQL instance.",
     )
 
 
