@@ -54,6 +54,8 @@ class AuthService:
         try:
             import hashlib
 
+            from sqlalchemy.exc import IntegrityError
+
             password_hash = hashlib.sha256(password.encode()).hexdigest()
             session.execute(
                 text(
@@ -63,6 +65,17 @@ class AuthService:
             )
             session.commit()
             return ServiceResponse.success_res(message="User registered successfully.")
+        except IntegrityError as e:
+            session.rollback()
+            if "users_email_key" in str(e.orig):
+                return ServiceResponse.error_res(
+                    "This email is already registered. Please login or use a different email.",
+                    "AUTH_EMAIL_EXISTS",
+                )
+            logger.error(f"Integrity error during registration: {e}")
+            return ServiceResponse.error_res(
+                f"Internal database error: {str(e)}", "AUTH_REG_ERROR"
+            )
         except Exception as e:
             session.rollback()
             logger.error(f"Registration error: {e}")
@@ -158,8 +171,9 @@ class AuthService:
     ) -> ServiceResponse:
         """Invites a new employee."""
         try:
-            # Hash password (simplified for this porting phase)
             import hashlib
+
+            from sqlalchemy.exc import IntegrityError
 
             password_hash = hashlib.sha256(password.encode()).hexdigest()
 
@@ -173,6 +187,17 @@ class AuthService:
             session.commit()
             return ServiceResponse.success_res(
                 message=f"Employee {username} created successfully."
+            )
+        except IntegrityError as e:
+            session.rollback()
+            if "users_email_key" in str(e.orig):
+                return ServiceResponse.error_res(
+                    f"The email/username {username} is already registered.",
+                    "AUTH_EMAIL_EXISTS",
+                )
+            logger.error(f"Integrity error during employee creation: {e}")
+            return ServiceResponse.error_res(
+                f"Internal database error: {str(e)}", "AUTH_CREATE_ERROR"
             )
         except Exception as e:
             session.rollback()
