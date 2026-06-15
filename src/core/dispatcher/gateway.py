@@ -161,13 +161,6 @@ class AIGateway:
 
         if ctx.execution_strategy == "DELEGATED":
             # DELEGATED MODE: The Cloud API only validates and authorizes.
-            # The Local Agent will perform the actual DB execution.
-
-            # We still perform a governance check to see if the command is allowed for this agent/tier
-            # Since we can't open a session, we do a "stateless" governance check if possible or
-            # simply authorize based on the command metadata.
-
-            # For now, we return a 'PERMISSION_GRANTED' response for the Local Agent to execute.
             return ServiceResponse.success_res(
                 data={
                     "action": "EXECUTE_LOCALLY",
@@ -201,10 +194,13 @@ class AIGateway:
         traces["exec_ms"] = (time.perf_counter() - t_exec_start) * 1000
 
         duration_ms = (time.perf_counter() - start_time) * 1000
-        if isinstance(result, ServiceResponse):
-            result.latency_ms = duration_ms
-        else:
-            result = ServiceResponse.success_res(data=result, latency_ms=duration_ms)
+
+        # FORCE ENVELOPE PATTERN: Ensure result is ALWAYS a ServiceResponse
+        # This prevents the SDK from crashing when handlers return raw lists or dicts
+        if not isinstance(result, ServiceResponse):
+            result = ServiceResponse.success_res(data=result)
+
+        result.latency_ms = duration_ms
 
         from src.core.telemetry.telemetry_service import telemetry_service
 
