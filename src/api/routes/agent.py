@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from pydantic import BaseModel
 from src.infrastructure.db.core_db_manager import core_db_manager
 from src.core.auth.token_manager import token_manager
+from src.infrastructure.monitoring.logger import logger
 import uuid
 
 router = APIRouter(prefix="/api/agent", tags=["Agent"])
