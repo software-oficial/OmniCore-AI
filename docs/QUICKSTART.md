@@ -4,7 +4,14 @@ Bienvenido al ecosistema OmniCore-AI. Esta guía está diseñada para que cualqu
 
 ## 🛠️ 1. El Camino del Desarrollador (Flujo de Trabajo)
 
-Para evitar errores de `MISSING_PARAMETER` o `INVALID_TYPE`, sigue siempre este orden:
+Para evitar errores de `MISSING_PARAMETER` o `INFRA_NOT_FOUND`, sigue siempre este orden:
+
+### Paso 0: Infraestructura (Soberanía de Datos)
+OmniCore-AI **no aloja tu base de datos de negocio**. Para que el sistema funcione, debes:
+1. **Desplegar PostgreSQL**: Tener una instancia de Postgres accesible desde internet.
+2. **Ejecutar Blueprints**: Importar los archivos `.sql` (ej. `src/domains/stock/blueprint.sql`) en tu base de datos para crear las tablas necesarias.
+3. **Vincular**: Usar el endpoint `POST /api/agent/projects/create` enviando las credenciales de tu DB.
+**⚠️ Si saltas este paso, recibirás el error `INFRA_NOT_FOUND` o errores de conexión al intentar ejecutar cualquier comando.**
 
 ### Paso A: Descubrimiento (No adivines)
 Antes de enviar cualquier comando, consulta la lista de comandos reales y sus esquemas de parámetros.

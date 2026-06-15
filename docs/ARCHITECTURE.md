@@ -21,18 +21,28 @@ Toda petición sigue un camino estrictamente gobernado para garantizar la seguri
 
 ---
 
-## 🛡️ Estrategia de Seguridad (Defense-in-Depth)
+## 🗄️ Arquitectura de Datos (Modelo BYODB)
 
-OmniCore-AI implementa un modelo de seguridad multicapa para neutralizar los vectores de ataque más comunes en APIs modernas:
+OmniCore-AI opera bajo un modelo de **Soberanía de Datos Absoluta**. Para garantizar la privacidad, seguridad y escalabilidad, implementamos el patrón **BYODB (Bring Your Own Database)**.
 
-1. **Neutralización de XSS (HTML Encoding)**: 
-   En lugar de intentar filtrar etiquetas peligrosas (blacklisting), el sistema aplica un **Escapado de HTML** sistemático a todos los inputs de texto. Los caracteres `<` `>` `&` `"` `'` se convierten en sus entidades HTML correspondientes. Esto garantiza que cualquier código inyectado sea tratado como texto plano y nunca ejecutado por el navegador.
+### 1. Core Registry (Infraestructura OmniCore)
+Es la base de datos interna del sistema. Gestiona únicamente la "capa de control":
+- **Agentes**: Identidades de los desarrolladores/empresas.
+- **Aplicaciones**: Mapeo de agentes a proyectos.
+- **Infraestructura**: Credenciales de conexión (host, puerto, user, pass) hacia las DBs externas.
+- **SaaS Tiers**: Control de planes y límites de uso.
 
-2. **Prevención de Mass Assignment (Schema Filtering)**: 
-   El Gateway implementa un filtro de "lista blanca" basado en el esquema de cada comando. Si un atacante envía campos adicionales (ej. `price` en un comando de `update_stock`), el sistema los descarta automáticamente antes de que lleguen al servicio de negocio.
+### 2. Business DB (Infraestructura del Desarrollador)
+Es la base de datos donde reside toda la operación comercial. **OmniCore-AI no crea ni aloja esta base de datos**. El desarrollador es responsable de:
+- **Alojamiento**: Desplegar una instancia de PostgreSQL.
+- **Esquema**: Ejecutar los `blueprints.sql` proporcionados por OmniCore para crear las tablas necesarias (Stock, Ventas, Bot, etc.).
+- **Conectividad**: Configurar los firewalls para que el Core de OmniCore pueda alcanzar su servidor.
 
-3. **Integridad de Datos (Strict Type Checking)**: 
-   Cada comando tiene un esquema de tipos definido. El sistema valida que los datos recibidos coincidan exactamente con el tipo esperado (`int`, `float`, `string`, etc.), rechazando la petición inmediatamente si hay una discrepancia.
+### 🔄 Flujo de Vinculación de Datos
+
+`Desarrollador` $\rightarrow$ `Crea DB Postgres` $\rightarrow$ `Ejecuta Blueprints SQL` $\rightarrow$ `Vincula Credenciales vía API (/projects/create)` $\rightarrow$ `OmniCore Inyecta Sesión Dinámica` $\rightarrow$ `Ejecución de Negocio`
+
+Este diseño garantiza que si el desarrollador desea migrar su negocio, simplemente se lleva su base de datos; OmniCore es solo el motor de ejecución inteligente.
 
 ---
 

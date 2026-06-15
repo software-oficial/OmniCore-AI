@@ -88,27 +88,25 @@ Este módulo implementa un motor de conversación con **Persistencia de Estado H
 
 ---
 
-## 🗄️ Requisitos de Base de Datos (Infraestructura del Cliente)
+## 🗄️ Requisitos de Infraestructura (Soberanía de Datos del Desarrollador)
 
-Para que OmniCore-AI funcione, el desarrollador debe desplegar el esquema de negocio en la **DB Externa** del cliente. Sin estas tablas, el sistema devolverá `INFRA_NOT_FOUND` o errores de ejecución.
+**IMPORTANTE**: OmniCore-AI es un orquestador stateless. **Tú eres el dueño y gestor de tu base de datos de negocio**. El sistema no provisiona bases de datos automáticamente.
 
-### 1. Tablas de Persistencia de Estado (OBLIGATORIO)
-El bot requiere una tabla para recordar dónde se quedó el usuario:
-```sql
-CREATE TABLE IF NOT EXISTS bot_states (
-    sender VARCHAR(50) PRIMARY KEY,
-    state_data JSONB NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
+### 🚀 Guía de Montaje del SaaS en tu Servidor
 
-### 2. Tablas de Estructura de Bot (WhatsApp)
-Para gestionar menús dinámicos:
-- `whatsapp_conversations`: Control de intervención humana y estado global.
-- `whatsapp_menus`: Definición de textos de los menús.
-- `whatsapp_menu_options`: Mapeo de opciones $\rightarrow$ Acciones (Navegación, Comandos o Humano).
+Para poner en marcha tu instancia de negocio conectada a OmniCore-AI, sigue este flujo:
 
-*Consulte el archivo `modules/whatsapp/blueprint.sql` para obtener el script completo de creación.*
+1. **Despliegue de DB**: Levanta una instancia de **PostgreSQL** (en Railway, AWS, Supabase, o tu propio VPS).
+2. **Ejecución de Blueprints**: Ejecuta los scripts SQL proporcionados en la carpeta `src/domains/*/blueprint.sql` dentro de tu base de datos. Esto creará la estructura de tablas necesaria para que los módulos de Stock, Ventas y Bot funcionen.
+3. **Vinculación de Proyecto**: Llama al endpoint `POST /api/agent/projects/create` enviando el nombre de tu proyecto y las credenciales de conexión de tu base de datos (`db_host`, `db_port`, `db_user`, `db_password`, `db_name`).
+4. **Operación**: Comienza a consumir la API utilizando el `app_id` generado. El Gateway se encargará de inyectar la sesión hacia tu servidor de base de datos en cada petición.
+
+### 🛠️ Tablas Obligatorias (Ejemplos)
+El sistema fallará si no existen las tablas definidas en los blueprints. Por ejemplo, el Bot de WhatsApp requiere:
+- `bot_states`: Para persistencia de contexto.
+- `whatsapp_menus` y `whatsapp_menu_options`: Para la navegación dinámica.
+
+*Si recibes el error `INFRA_NOT_FOUND`, significa que el proyecto no ha sido vinculado correctamente o las credenciales son inválidas.*
 
 ---
 

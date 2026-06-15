@@ -4,7 +4,6 @@ from typing import Any, Dict, List, cast
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from config.settings import config
 from src.core.auth.token_manager import token_manager
 from src.infrastructure.db.core_db_manager import core_db_manager
 from src.infrastructure.monitoring.logger import engine_logger
@@ -116,6 +115,11 @@ async def list_projects(authorization: str = Header(None)):
 
 class ProjectCreateRequest(BaseModel):
     name: str
+    db_host: str
+    db_port: int = 5432
+    db_user: str
+    db_password: str
+    db_name: str
 
 
 @router.post("/projects/create")
@@ -124,6 +128,7 @@ async def create_project(
 ):
     """
     Creates a new project (app) for the authenticated user's agent.
+    The developer MUST provide their own database credentials.
     """
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -165,17 +170,17 @@ async def create_project(
             {"id": app_id, "name": request.name, "owner": agent_id},
         )
 
-        # 2.1 Provision Infrastructure (Default to Sandbox)
+        # 2.1 Provision Infrastructure (BYODB - Bring Your Own Database)
         core_db_manager.execute_raw(
             "INSERT INTO app_infrastructure (app_id, db_host, db_port, db_user, db_password, db_name, tier) "
             "VALUES (:app_id, :host, :port, :user, :pass, :db, :tier)",
             {
                 "app_id": app_id,
-                "host": config.SANDBOX_DB_HOST,
-                "port": 5432,
-                "user": "sandbox_user",
-                "pass": "sandbox_pass",
-                "db": "sandbox_db",
+                "host": request.db_host,
+                "port": request.db_port,
+                "user": request.db_user,
+                "pass": request.db_password,
+                "db": request.db_name,
                 "tier": "FREE",
             },
         )
@@ -189,7 +194,7 @@ async def create_project(
         return {
             "success": True,
             "app_id": app_id,
-            "message": f"Project {request.name} created successfully.",
+            "message": f"Project {request.name} created successfully. Your database configuration has been linked. Please ensure your DB is accessible from OmniCore-AI.",
         }
     except Exception as e:
         engine_logger.error(f"Project creation error: {e}")
@@ -199,8 +204,9 @@ async def create_project(
 @router.post("/register", response_model=RegisterResponse)
 async def register_agent(request: RegisterRequest):
     """
-    Registers a new AI Agent and automatically provisions a Sandbox Infrastructure.
-    This allows the developer to start testing immediately in LEARNING mode.
+    Registers a new AI Agent.
+    The developer will need to create a project and provide their own database
+    credentials to start using the API.
     """
     agent_id = str(uuid.uuid4())
     app_id = str(uuid.uuid4())
@@ -219,22 +225,7 @@ async def register_agent(request: RegisterRequest):
             {"id": app_id, "name": request.platform_name, "owner": agent_id},
         )
 
-        # 3. Provision Sandbox Infrastructure (Learning Mode)
-        core_db_manager.execute_raw(
-            "INSERT INTO app_infrastructure (app_id, db_host, db_port, db_user, db_password, db_name, tier) "
-            "VALUES (:app_id, :host, :port, :user, :pass, :db, :tier)",
-            {
-                "app_id": app_id,
-                "host": config.SANDBOX_DB_HOST,
-                "port": 5432,
-                "user": "sandbox_user",
-                "pass": "sandbox_pass",
-                "db": "sandbox_db",
-                "tier": "FREE",
-            },
-        )
-
-        # 4. Map Agent to App
+        # 3. Map Agent to App
         core_db_manager.execute_raw(
             "INSERT INTO agent_app_mapping (agent_id, app_id) VALUES (:agent_id, :app_id)",
             {"agent_id": agent_id, "app_id": app_id},
@@ -254,7 +245,7 @@ async def register_agent(request: RegisterRequest):
         agent_id=agent_id,
         app_id=app_id,
         token=token,
-        message="Welcome to OmniCore-AI! Your Sandbox environment is ready.",
+        message="Welcome to OmniCore-AI! Please create a project and link your database to get started.",
     )
 
 
@@ -262,9 +253,21 @@ async def register_agent(request: RegisterRequest):
 async def get_manifest():
     """
     Returns the Semantic Business Manifest for AI Agents.
+    Now includes critical onboarding information for the BYODB model.
     """
     return {
         "ontology": "Business-as-a-Service (BaaS) for Stock, Bot, and Payments",
+        "onboarding": {
+            "model": "BYODB (Bring Your Own Database)",
+            "concept": "OmniCore-AI is a stateless orchestrator. You are responsible for hosting and managing your own business database (PostgreSQL).",
+            "quick_steps": [
+                "1. Deploy a PostgreSQL instance.",
+                "2. Execute OmniCore Blueprints (SQL scripts) on your DB.",
+                "3. Link your DB via POST /api/agent/projects/create.",
+                "4. Consume the API.",
+            ],
+            "docs_endpoint": "/api/agent/guides",
+        },
         "modes": {
             "LEARNING": "Sandbox mode for AI exploration. No real DB impact.",
             "PRODUCTION": "Live mode. Real DB impact, billed by usage.",
@@ -275,5 +278,61 @@ async def get_manifest():
                 "params": {"name": "string", "price": "float", "quantity": "int"},
                 "example": {"name": "Laptop", "price": 1200.50, "quantity": 10},
             }
+        },
+    }
+
+
+@router.get("/guides")
+async def get_guides():
+    """
+    Provides detailed step-by-step guides for developers to set up their
+    infrastructure and connect it to OmniCore-AI.
+    """
+    return {
+        "title": "Developer Onboarding Guide - OmniCore-AI",
+        "infrastructure_model": "BYODB (Bring Your Own Database)",
+        "steps": [
+            {
+                "step": 1,
+                "title": "Database Deployment",
+                "description": "Deploy a PostgreSQL instance. You can use services like Railway, Supabase, AWS RDS, or your own VPS.",
+                "requirement": "Ensure the database is accessible from the internet (OmniCore-AI servers must be able to connect to it).",
+            },
+            {
+                "step": 2,
+                "title": "Schema Initialization (Blueprints)",
+                "description": "Execute the provided SQL blueprints on your new database. These scripts create the necessary tables for the business modules.",
+                "action": "Download and run the .sql files from the /src/domains/ folder of the repository.",
+                "essential_tables": [
+                    "bot_states",
+                    "whatsapp_menus",
+                    "stock_inventory",
+                    "sales_records",
+                ],
+            },
+            {
+                "step": 3,
+                "title": "Project Linking",
+                "description": "Connect your database to your OmniCore Agent.",
+                "endpoint": "POST /api/agent/projects/create",
+                "payload_example": {
+                    "name": "My Awesome App",
+                    "db_host": "your-db-host.com",
+                    "db_port": 5432,
+                    "db_user": "admin",
+                    "db_password": "securepassword",
+                    "db_name": "my_business_db",
+                },
+            },
+            {
+                "step": 4,
+                "title": "API Consumption",
+                "description": "You are now ready to use the API. Use your agent token and the app_id generated in Step 3 to execute business commands.",
+                "verification": "Try executing 'stock.list' to verify the connection.",
+            },
+        ],
+        "troubleshooting": {
+            "INFRA_NOT_FOUND": "Your project is not linked to a database or the credentials provided in Step 3 are incorrect.",
+            "ConnectionError": "OmniCore-AI cannot reach your database. Check your firewall settings and ensure the DB is public/accessible.",
         },
     }
