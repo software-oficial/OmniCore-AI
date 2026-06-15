@@ -1,148 +1,95 @@
-import hashlib
-import uuid
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from src.core.dispatcher.core_types import CoreContext, ServiceResponse
+from src.core.dispatcher.decorators import command
 import logging
-from typing import Tuple, Optional, Dict, Any
-from fastapi import HTTPException
-from src.infrastructure.db.core_db_manager import core_db_manager
-from src.core.dispatcher.core_types import ServiceResponse
 
-# In a real production env, use bcrypt or argon2
-# For this implementation, we use a secure salted sha256 for demonstration
-# but the architecture allows swapping for any password hasher.
 logger = logging.getLogger("OmniCore.AuthService")
 
 class AuthService:
     """
-    Handles User Identity, Registration, and Session Management.
+    Service to manage users, roles, and granular permissions (PBAC).
+    Ported from plataforma-stock.
     """
-    def __init__(self):
-        self.logger = logging.getLogger("AuthService")
 
-    def _hash_password(self, password: str, salt: str = "OMNICORE_SALT_2026") -> str:
-        return hashlib.sha256((password + salt).encode()).hexdigest()
-
-    def register_user(self, email: str, password: str) -> ServiceResponse:
-        """Registers a new user in the system."""
-        user_id = str(uuid.uuid4())
-        password_hash = self._hash_password(password)
-        
+    @command(
+        name="user.invite_employee",
+        description="Invites a new employee to the tenant with specific role.",
+        params_schema={"username": "string", "password": "string", "role": "string"}
+    )
+    def create_employee_account(self, session: Session, context: CoreContext, username: str, password: str, role: str = "empleado") -> ServiceResponse:
+        """Invites a new employee."""
         try:
-            core_db_manager.execute_raw(
-                "INSERT INTO users (id, email, password_hash) VALUES (:id, :email, :pass)",
-                {"id": user_id, "email": email, "pass": password_hash}
-            )
-            return ServiceResponse.success_res(
-                data={"user_id": user_id}, 
-                message="User registered successfully."
-            )
-        except Exception as e:
-            if "unique constraint" in str(e).lower() or "duplicate" in str(e).lower():
-                return ServiceResponse.error_res("Email already registered", "USER_ALREADY_EXISTS")
-            return ServiceResponse.error_res(f"Registration error: {str(e)}", "AUTH_ERROR")
-
-    def login(self, email: str, password: str) -> ServiceResponse:
-        """Validates credentials and returns a session indicator."""
-        password_hash = self._hash_password(password)
-        
-        try:
-            result = core_db_manager.execute_raw(
-                "SELECT id, email FROM users WHERE email = :email AND password_hash = :pass",
-                {"email": email, "pass": password_hash}
-            )
-            user = result.fetchone()
+            # Hash password (simplified for this porting phase)
+            import hashlib
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
             
-            if not user:
-                return ServiceResponse.error_res("Invalid email or password", "INVALID_CREDENTIALS")
+            query = text("""
+                INSERT INTO users (id, email, password_hash, role) 
+                VALUES (gen_random_uuid(), :username, :hash, :role)
+            """)
+            session.execute(query, {"username": username, "hash": password_hash, "role": role})
+            session.commit()
+            return ServiceResponse.success_res(message=f"Employee {username} created with role {role}.")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error creating employee: {e}")
+            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_CREATE_ERROR")
+
+    @command(
+        name="user.set_permission",
+        description="Assigns or revokes a granular permission key for a user.",
+        params_schema={"user_id": "string", "permission_key": "string", "granted": "boolean"}
+    )
+    def set_user_permission(self, session: Session, context: CoreContext, user_id: str, permission_key: str, granted: bool) -> ServiceResponse:
+        """Sets a user permission."""
+        try:
+            if granted:
+                query = text("""
+                    INSERT INTO user_permissions (user_id, permission_key) 
+                    VALUES (:uid, :pk) ON CONFLICT DO NOTHING
+                """)
+            else:
+                query = text("DELETE FROM user_permissions WHERE user_id = :uid AND permission_key = :pk")
             
-            # Acceso estrictamente por índice para evitar errores de tupla
-            user_id = user[0]
-            user_email = user[1]
-            
-            return ServiceResponse.success_res(
-                data={"user_id": user_id, "email": user_email}, 
-                message="Login successful."
-            )
+            session.execute(query, {"uid": user_id, "pk": permission_key})
+            session.commit()
+            return ServiceResponse.success_res(message="Permission updated successfully.")
         except Exception as e:
-            return ServiceResponse.error_res(f"Login error: {str(e)}", "AUTH_ERROR")
+            session.rollback()
+            logger.error(f"Error setting permission: {e}")
+            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_PERMISSION_ERROR")
 
-    def create_api_token(self, user_id: str, agent_id: str, token_name: str, mode: str = "PRODUCTION") -> ServiceResponse:
-        """
-        Generates a new API token for a user's agent.
-        Supports both LEARNING (ephemeral/Redis) and PRODUCTION (persistent/DB).
-        """
-        from src.core.auth.token_manager import token_manager
-
-        # 1. Handle LEARNING Mode (Ephemeral)
-        if mode.upper() == "LEARNING":
-            token = token_manager.generate_token(agent_id, mode="LEARNING")
-            return ServiceResponse.success_res(
-                data={"api_token": token, "mode": "LEARNING"}, 
-                message=f"Ephemeral token '{token_name}' generated (Expires in 24h)."
-            )
-
-        # 2. Handle PRODUCTION Mode (Persistent)
-        # CRITICAL: Verify user exists to prevent Foreign Key violations
-        user_exists = core_db_manager.execute_raw(
-            "SELECT 1 FROM users WHERE id = :uid", {"uid": user_id}
-        ).scalar()
-        
-        if not user_exists:
-            return ServiceResponse.error_res(
-                "The specified user ID does not exist in the system.", 
-                "USER_NOT_FOUND"
-            )
-
-        # Check Token Limit
-        result = core_db_manager.execute_raw(
-            "SELECT count(*) as count FROM api_tokens WHERE user_id = :uid",
-            {"uid": user_id}
-        )
-        token_count = result.fetchone()[0]
-        
-        if token_count >= 10:
-            return ServiceResponse.error_res("Token limit reached. You can have a maximum of 10 Production API tokens.", "TOKEN_LIMIT_EXCEEDED")
-        
-        # Generate Persistent Token
-        raw_token = f"oc_{uuid.uuid4().hex}"
-        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-        
+    @command(
+        name="user.list",
+        description="Lists all users/employees of the tenant.",
+        params_schema={}
+    )
+    def list_users(self, session: Session, context: CoreContext) -> ServiceResponse:
+        """Lists users."""
         try:
-            core_db_manager.execute_raw(
-                "INSERT INTO api_tokens (token_hash, user_id, agent_id, token_name) VALUES (:hash, :uid, :aid, :name)",
-                {"hash": token_hash, "uid": user_id, "aid": agent_id, "name": token_name}
-            )
-            return ServiceResponse.success_res(
-                data={"api_token": raw_token, "mode": "PRODUCTION"}, 
-                message=f"Persistent token '{token_name}' generated successfully."
-            )
+            query = text("SELECT id, email, role FROM users")
+            users = session.execute(query).mappings().all()
+            return ServiceResponse.success_res(data=[dict(u) for u in users], message="Users listed.")
         except Exception as e:
-            logger.error(f"Database error during token insertion: {e}")
-            return ServiceResponse.error_res(f"Token generation failed due to a database error: {str(e)}", "TOKEN_DB_ERROR")
+            logger.error(f"Error listing users: {e}")
+            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_LIST_ERROR")
 
-    def list_user_tokens(self, user_id: str) -> ServiceResponse:
-        """Lists all tokens associated with a user."""
+    @command(
+        name="user.revoke_access",
+        description="Revokes access for a user.",
+        params_schema={"user_id": "string"}
+    )
+    def revoke_user_access(self, session: Session, context: CoreContext, user_id: str) -> ServiceResponse:
+        """Revokes user access."""
         try:
-            result = core_db_manager.execute_raw(
-                "SELECT token_name, agent_id, created_at FROM api_tokens WHERE user_id = :uid",
-                {"uid": user_id}
-            )
-            rows = result.fetchall()
-            # Convert tuple to dict explicitly to avoid dictionary update sequence error
-            tokens = [
-                {"token_name": row[0], "agent_id": row[1], "created_at": str(row[2])} 
-                for row in rows
-            ]
-            return ServiceResponse.success_res(data=tokens, message="Tokens retrieved.")
+            session.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
+            session.commit()
+            return ServiceResponse.success_res(message="Access revoked.")
         except Exception as e:
-            return ServiceResponse.error_res(f"Error retrieving tokens: {str(e)}", "TOKEN_ERROR")
-
-    def revoke_token(self, token_hash: str) -> ServiceResponse:
-        """Revokes an API token."""
-        try:
-            core_db_manager.execute_raw("DELETE FROM api_tokens WHERE token_hash = :hash", {"hash": token_hash})
-            return ServiceResponse.success_res(message="Token revoked successfully.")
-        except Exception as e:
-            return ServiceResponse.error_res(f"Error revoking token: {str(e)}", "TOKEN_ERROR")
+            session.rollback()
+            logger.error(f"Error revoking access: {e}")
+            return ServiceResponse.error_res(f"Internal error: {str(e)}", "AUTH_REVOKE_ERROR")
 
 # Singleton
 auth_service = AuthService()
