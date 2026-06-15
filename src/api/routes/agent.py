@@ -23,6 +23,128 @@ class RegisterResponse(BaseModel):
     message: str
 
 
+class OnboardRequest(BaseModel):
+    name: str
+    platform_name: str
+    db_host: str
+    db_port: int = 5432
+    db_user: str
+    db_password: str
+    db_name: str
+
+
+@router.post("/onboard", response_model=RegisterResponse)
+async def onboard_agent(request: OnboardRequest, authorization: str = Header(None)):
+    """
+    Zero-to-Hero Onboarding for AI Agents.
+    Automates: Agent Registration -> Project Creation -> Infra Linking -> Schema Deployment.
+    """
+    # 1. Handle Identity
+    user_id: str
+    if not authorization:
+        # If no token, we treat this as a first-time registration
+        user_id = str(uuid.uuid4())
+    else:
+        token = authorization.replace("Bearer ", "")
+        try:
+            payload = token_manager.decode_token(token)
+            uid = payload.get("user_id") if payload else token
+            user_id = cast(str, uid if uid is not None else token)
+        except Exception:
+            user_id = token
+
+    agent_id = str(uuid.uuid4())
+    app_id = str(uuid.uuid4())
+    api_key = str(uuid.uuid4())
+
+    try:
+        # 2. Create Agent
+        core_db_manager.execute_raw(
+            "INSERT INTO agents (id, name, api_key, owner_user_id) VALUES (:id, :name, :key, :uid)",
+            {"id": agent_id, "name": request.name, "key": api_key, "uid": user_id},
+        )
+
+        # 3. Create App
+        core_db_manager.execute_raw(
+            "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner)",
+            {"id": app_id, "name": request.platform_name, "owner": agent_id},
+        )
+
+        # 4. Provision Infrastructure (BYODB)
+        core_db_manager.execute_raw(
+            "INSERT INTO app_infrastructure (app_id, db_host, db_port, db_user, db_password, db_name, tier) "
+            "VALUES (:app_id, :host, :port, :user, :pass, :db, :tier)",
+            {
+                "app_id": app_id,
+                "host": request.db_host,
+                "port": request.db_port,
+                "user": request.db_user,
+                "pass": request.db_password,
+                "db": request.db_name,
+                "tier": "FREE",
+            },
+        )
+
+        # 5. Map Agent to App
+        core_db_manager.execute_raw(
+            "INSERT INTO agent_app_mapping (agent_id, app_id) VALUES (:agent_id, :app_id)",
+            {"agent_id": agent_id, "app_id": app_id},
+        )
+
+        # 6. AUTOMATIC SCHEMA DEPLOYMENT
+        # We use the system_service to push blueprints to the new DB
+        from src.core.dispatcher.core_types import CoreContext
+        from src.core.system_service import system_service
+        from src.infrastructure.db.db_manager import db_manager
+
+        async with db_manager.get_session(
+            app_id,
+            {
+                "host": request.db_host,
+                "port": request.db_port,
+                "user": request.db_user,
+                "password": request.db_password,
+                "dbname": request.db_name,
+            },
+            "FREE",
+        ) as session:
+            ctx = CoreContext(
+                agent_id=agent_id,
+                app_id=app_id,
+                mode="PRODUCTION",
+                db_config={
+                    "host": request.db_host,
+                    "port": request.db_port,
+                    "user": request.db_user,
+                    "password": request.db_password,
+                    "dbname": request.db_name,
+                },
+                tier="FREE",
+                entity="API",
+            )
+            # Deploy all blueprints
+            deploy_res = system_service.deploy_schema(session, ctx, domains=None)
+            if not deploy_res.success:
+                raise Exception(f"Schema deployment failed: {deploy_res.message}")
+
+        # 7. Generate Token
+        token = token_manager.generate_token(agent_id, tier="FREE")
+
+    except Exception as e:
+        engine_logger.error(f"Zero-to-Hero Onboarding error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Onboarding failed: {str(e)}",
+        )
+
+    return RegisterResponse(
+        agent_id=agent_id,
+        app_id=app_id,
+        token=token,
+        message="Zero-to-Hero successful! Your Agent is registered, your DB is linked, and the schema has been deployed automatically. You are ready to operate.",
+    )
+
+
 @router.get("/me")
 async def get_my_agent(authorization: str = Header(None)):
     """
@@ -41,6 +163,7 @@ async def get_my_agent(authorization: str = Header(None)):
         user_id = payload.get("user_id")
         if not user_id:
             user_id = token
+        user_id = cast(str, user_id)
 
         result = core_db_manager.execute_raw(
             "SELECT id, name FROM agents WHERE owner_user_id = :uid LIMIT 1",
@@ -253,18 +376,18 @@ async def register_agent(request: RegisterRequest):
 async def get_manifest():
     """
     Returns the Semantic Business Manifest for AI Agents.
-    Now includes critical onboarding information for the BYODB model.
+    Now focused on Local Linux Zero-to-Hero Onboarding.
     """
     return {
         "ontology": "Business-as-a-Service (BaaS) for Stock, Bot, and Payments",
         "onboarding": {
-            "model": "BYODB (Bring Your Own Database)",
-            "concept": "OmniCore-AI is a stateless orchestrator. You are responsible for hosting and managing your own business database (PostgreSQL).",
+            "model": "BYODB (Bring Your Own Database) - Local Linux",
+            "concept": "OmniCore-AI is a stateless orchestrator. You must install PostgreSQL on your local Linux server to host your business data.",
             "quick_steps": [
-                "1. Deploy a PostgreSQL instance.",
-                "2. Execute OmniCore Blueprints (SQL scripts) on your DB.",
-                "3. Link your DB via POST /api/agent/projects/create.",
-                "4. Consume the API.",
+                "1. Install PostgreSQL on Linux (sudo apt install postgresql).",
+                "2. Create local DB and User (sudo -u postgres psql).",
+                "3. Run the Auto-Onboarding: POST /api/agent/onboard.",
+                "4. Verify and Consume the API.",
             ],
             "docs_endpoint": "/api/agent/guides",
         },
@@ -286,53 +409,72 @@ async def get_manifest():
 async def get_guides():
     """
     Provides detailed step-by-step guides for developers to set up their
-    infrastructure and connect it to OmniCore-AI.
+    infrastructure on a LOCAL LINUX server and connect it to OmniCore-AI.
     """
     return {
-        "title": "Developer Onboarding Guide - OmniCore-AI",
-        "infrastructure_model": "BYODB (Bring Your Own Database)",
+        "title": "Local Linux Deployment Guide - OmniCore-AI",
+        "infrastructure_model": "BYODB (Bring Your Own Database) - Local Install",
         "steps": [
             {
                 "step": 1,
-                "title": "Database Deployment",
-                "description": "Deploy a PostgreSQL instance. You can use services like Railway, Supabase, AWS RDS, or your own VPS.",
-                "requirement": "Ensure the database is accessible from the internet (OmniCore-AI servers must be able to connect to it).",
-            },
-            {
-                "step": 2,
-                "title": "Schema Initialization (Blueprints)",
-                "description": "Execute the provided SQL blueprints on your new database. These scripts create the necessary tables for the business modules.",
-                "action": "Download and run the .sql files from the /src/domains/ folder of the repository.",
-                "essential_tables": [
-                    "bot_states",
-                    "whatsapp_menus",
-                    "stock_inventory",
-                    "sales_records",
+                "title": "Database Installation (Local Linux)",
+                "description": "Install PostgreSQL on your Ubuntu/Debian server.",
+                "commands": [
+                    "sudo apt update",
+                    "sudo apt install postgresql postgresql-contrib -y",
+                    "sudo systemctl start postgresql",
+                    "sudo systemctl enable postgresql",
                 ],
-            },
-            {
-                "step": 3,
-                "title": "Project Linking",
-                "description": "Connect your database to your OmniCore Agent.",
-                "endpoint": "POST /api/agent/projects/create",
-                "payload_example": {
-                    "name": "My Awesome App",
-                    "db_host": "your-db-host.com",
-                    "db_port": 5432,
-                    "db_user": "admin",
-                    "db_password": "securepassword",
-                    "db_name": "my_business_db",
+                "setup_db": {
+                    "command": "sudo -u postgres psql",
+                    "sql": [
+                        "CREATE DATABASE omnicore_biz;",
+                        "CREATE USER omni_admin WITH PASSWORD 'secure_password';",
+                        "GRANT ALL PRIVILEGES ON DATABASE omnicore_biz TO omni_admin;",
+                        "\\c omnicore_biz",
+                        "GRANT ALL ON SCHEMA public TO omni_admin;",
+                    ],
                 },
             },
             {
-                "step": 4,
-                "title": "API Consumption",
-                "description": "You are now ready to use the API. Use your agent token and the app_id generated in Step 3 to execute business commands.",
-                "verification": "Try executing 'stock.list' to verify the connection.",
+                "step": 2,
+                "title": "Zero-to-Hero Automation",
+                "description": "Use the onboard endpoint to let OmniCore-AI configure your database automatically.",
+                "endpoint": "POST /api/agent/onboard",
+                "payload_example": {
+                    "name": "MyLocalAgent",
+                    "platform_name": "MyLocalSaaS",
+                    "db_host": "localhost",
+                    "db_port": 5432,
+                    "db_user": "omni_admin",
+                    "db_password": "secure_password",
+                    "db_name": "omnicore_biz",
+                },
+                "benefit": "OmniCore-AI will automatically deploy all SQL blueprints (tables, indexes) into your local DB.",
+            },
+            {
+                "step": 3,
+                "title": "Connectivity Verification",
+                "description": "Run these commands via the Gateway to ensure everything is working.",
+                "verification_checklist": [
+                    {
+                        "command": "system.get_version",
+                        "expected": "Version string (e.g. 1.0.0-stable)",
+                    },
+                    {
+                        "command": "system.get_health",
+                        "expected": '{"db": "OK", "api": "OK"}',
+                    },
+                    {
+                        "command": "stock.list",
+                        "expected": "Empty list [] (meaning DB is connected but empty)",
+                    },
+                ],
             },
         ],
         "troubleshooting": {
-            "INFRA_NOT_FOUND": "Your project is not linked to a database or the credentials provided in Step 3 are incorrect.",
-            "ConnectionError": "OmniCore-AI cannot reach your database. Check your firewall settings and ensure the DB is public/accessible.",
+            "ConnectionRefused": "Ensure PostgreSQL is running on port 5432 and allows connections from the API host.",
+            "AuthFailed": "Verify that the db_user and db_password match what you created in Step 1.",
+            "INFRA_NOT_FOUND": "The onboarding failed or you are using a token not linked to any project.",
         },
     }
