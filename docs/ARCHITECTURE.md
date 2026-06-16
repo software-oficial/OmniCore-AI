@@ -9,7 +9,7 @@ Toda petición sigue un camino estrictamente gobernado para garantizar la seguri
 `Request` $ightarrow$ `Sanitization` $ightarrow$ `Token Validation` $ightarrow$ `Infra Lookup` $ightarrow$ `Type & Param Filter` $ightarrow$ `Session Injection` $ightarrow$ `Governance Check` $ightarrow$ `Module Execution` $ightarrow$ `Standardized Response`
 
 ### Componentes Clave:
-1. **AIGateway (`core/dispatcher/gateway.py`)**: El punto de entrada. Coordina la sanitización, valida el token, filtra parámetros según el esquema y gestiona el ciclo de vida de la petición.
+1. **AIGateway (`core/dispatcher/gateway.py`)**: El punto de entrada. Coordina la sanitización, valida el token, filtra parámetros según el esquema y gestiona el ciclo de vida de la petición. Incluye el **Manejador de Errores Semánticos (ODDS)** que sugiere correcciones de esquema en tiempo real.
 2. **GovernanceService (`core/governance/governance_service.py`)**: El "filtro" de seguridad.
    - **SaaS Tiers**: Verifica si el plan del cliente permite el comando.
    - **PBAC**: Valida permisos granulares en la DB externa del cliente.
@@ -18,6 +18,7 @@ Toda petición sigue un camino estrictamente gobernado para garantizar la seguri
    - **Multi-tenancy**: Crea pools de conexión dinámicos por aplicación.
    - **Circuit Breaker**: Si una DB externa falla repetidamente, el manager "abre el circuito" y rechaza peticiones inmediatamente para no saturar el Core.
    - **Concurrency Control**: Semáforos globales para evitar que un solo cliente agote los recursos del sistema.
+4. **ODDS (OmniCore Dynamic Discovery System)**: La capa de auto-descubrimiento. Permite a los clientes (humanos o IA) consultar la estructura real de la base de datos y los contratos de los comandos mediante endpoints de introspección, eliminando la divergencia entre documentación y realidad técnica.
 
 ---
 

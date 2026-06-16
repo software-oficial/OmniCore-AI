@@ -26,18 +26,21 @@ Este endpoint actúa como un proxy inteligente que valida la seguridad, inyecta 
 
 ## 🤖 Bootstrapping para Agentes de IA (LLMs)
 
-Si eres un Agente de IA, no intentes adivinar los comandos. El sistema es dinámico y puede evolucionar. Sigue este flujo de arranque para operar con precisión:
+Si eres un Agente de IA, ya no necesitas depender de documentación estática. OmniCore-AI implementa el **OmniCore Dynamic Discovery System (ODDS)**, transformando la API en un sistema auto-descriptivo. Sigue este flujo de auto-aprendizaje para operar con precisión:
 
-### 1. Fase de Descubrimiento (Discovery)
-Antes de realizar cualquier acción de negocio, debes consultar el catálogo actual de capacidades:
-- **Consulta de Ayuda**: `GET /api/gateway/help` $\rightarrow$ Te devuelve la lista de comandos categorizados, sus descripciones y el esquema de parámetros esperado.
-- **Especificación Técnica**: `GET /api/gateway/openapi` $\rightarrow$ Te proporciona el esquema OpenAPI 3.0 completo para una integración técnica perfecta.
+### 1. Fase de Descubrimiento Dinámico (The ODDS Loop)
+Antes de realizar cualquier acción de negocio, debes realizar una introspección del sistema en tiempo real:
 
-### 2. Ciclo de Ejecución Seguro
+- **Introspección de Esquema**: `GET /api/discovery/schema` $\rightarrow$ Te devuelve el mapa real y actual de tablas y columnas de la base de datos de negocio. Úsalo para entender qué campos existen antes de intentar leer o escribir datos.
+- **Catálogo de Comandos**: `GET /api/discovery/commands` $\rightarrow$ Lista todas las capacidades disponibles y sus descripciones.
+- **Inspección de Contrato**: `GET /api/gateway/inspect/{command}` $\rightarrow$ Te proporciona el contrato exacto de un comando: parámetros requeridos, opcionales, tipos de datos y un **ejemplo de valor válido**.
+- **Especificación Técnica**: `GET /api/gateway/openapi` $\rightarrow$ Proporciona el esquema OpenAPI 3.0 completo.
+
+### 2. Ciclo de Ejecución y Auto-Corrección
 Para cada acción, sigue este patrón:
-1. **Validar**: Verifica en el esquema de `help` que el comando existe y que tienes todos los parámetros requeridos.
+1. **Descubrir**: Consulta el esquema de DB y el contrato del comando.
 2. **Ejecutar**: Envía la petición a `/api/gateway/execute`.
-3. **Analizar**: Lee el `error_code`. Si recibes un error, no inventes parámetros; vuelve a consultar `/api/gateway/help`.
+3. **Corregir**: Si recibes un error con el prefijo `💡 SEMANTIC ERROR`, lee la sugerencia. El sistema analizará la base de datos y te sugerirá el nombre correcto de la columna o parámetro que intentaste usar.
 
 ### 3. Gestión de Memoria y Estado
 OmniCore-AI es stateless, pero ofrece herramientas de persistencia para el bot:

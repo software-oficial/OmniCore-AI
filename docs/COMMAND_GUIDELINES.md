@@ -4,7 +4,7 @@ Este documento define el estándar obligatorio para la implementación de nuevos
 
 ## 1. El Decorador `@command`
 
-Todo comando debe estar envuelto en el decorador `@command`. Este decorador proporciona la metadata necesaria para que la IA descubra la funcionalidad y el sistema valide los inputs.
+Todo comando debe estar envuelto en el decorador `@command`. Este decorador proporciona la metadata necesaria para que la IA descubra la funcionalidad y el sistema valide los inputs. Gracias al sistema **ODDS (OmniCore Dynamic Discovery System)**, esta metadata se expone en tiempo real vía API.
 
 ### Parámetros del Decorador:
 | Parámetro | Tipo | Obligatorio | Descripción |
@@ -12,6 +12,7 @@ Todo comando debe estar envuelto en el decorador `@command`. Este decorador prop
 | `name` | `string` | Sí | Identificador único. Formato sugerido: `modulo.accion` (ej: `stock.update`). |
 | `description` | `string` | Sí | Descripción clara y concisa. **Es lo que la IA usa para decidir si invocar el comando.** |
 | `params_schema` | `dict` | Sí | Diccionario de parámetros esperados y sus tipos (ej: `{"codigo": "string", "cantidad": "int"}`). |
+| `example` | `dict` | No | Un ejemplo real de los parámetros para el comando. **Crucial para reducir alucinaciones de la IA.** |
 
 ---
 

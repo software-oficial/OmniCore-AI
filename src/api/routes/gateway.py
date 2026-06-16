@@ -189,6 +189,33 @@ async def get_help():
     return help_guide
 
 
+@router.get("/gateway/inspect/{command}")
+async def inspect_command(command: str):
+    """
+    ODDS Pilar 2: Detailed inspection of a command's contract.
+    Returns required/optional parameters, types, and examples.
+    """
+    registry = module_loader._command_registry
+    if command not in registry:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail=f"Command {command} not found")
+
+    meta = registry[command]
+    schema = meta.get("params_schema", {})
+
+    required = [p for p, t in schema.items() if t != "optional"]
+    optional = [p for p, t in schema.items() if t == "optional"]
+
+    return {
+        "command": command,
+        "required_params": required,
+        "optional_params": optional,
+        "types": schema,
+        "example": meta.get("example"),
+    }
+
+
 @router.post("/gateway/execute")
 async def handle_command(
     command: Optional[str] = Body(None, embed=True),

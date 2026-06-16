@@ -41,6 +41,7 @@ class AIGateway:
         handler: Callable,
         description: str = "No description provided",
         params_schema: Optional[Dict[str, Any]] = None,
+        example: Optional[Dict[str, Any]] = None,
         is_system: bool = False,
     ):
         """Registers a command handler with semantic metadata for AI discovery."""
@@ -48,6 +49,7 @@ class AIGateway:
             "handler": handler,
             "description": description,
             "params_schema": params_schema or {},
+            "example": example,
             "registered_at": time.time(),
             "is_system": is_system,
         }
@@ -457,6 +459,38 @@ class AIGateway:
                     else ServiceResponse.success_res(data=result)
                 )
         except Exception as e:
+            # ODDS Pilar 3: Smart Error Feedback for DB errors
+            if "column" in str(e).lower() and "does not exist" in str(e).lower():
+                import re
+
+                match = re.search(
+                    r'column "([^"]+)" of relation "([^"]+)" does not exist', str(e)
+                )
+                if match:
+                    wrong_col, table_name = match.groups()
+
+                    # Introspect schema for suggestions
+                    try:
+                        query = f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}'"
+                        with db_manager.get_session_sync(
+                            ctx.app_id, ctx.db_config or {}, ctx.tier
+                        ) as session:
+                            columns = [row[0] for row in session.execute(query).all()]
+
+                        closest = difflib.get_close_matches(
+                            wrong_col, columns, n=1, cutoff=0.5
+                        )
+                        if closest:
+                            suggestion = f" Column '{wrong_col}' does not exist in table '{table_name}'. Did you mean '{closest[0]} '?"
+                            return ServiceResponse.error_res(
+                                message=f"💡 SEMANTIC ERROR: {str(e)}{suggestion}",
+                                error_code="SCHEMA_MISMATCH",
+                            )
+                    except Exception as inner_e:
+                        logger.error(
+                            f"Failed to generate semantic suggestion: {inner_e}"
+                        )
+
             from src.core.dispatcher.exceptions import handle_omnicore_exception
 
             return handle_omnicore_exception(e)

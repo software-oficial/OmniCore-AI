@@ -9,6 +9,7 @@ El objetivo principal de OmniCore-AI es eliminar la fricción entre la inteligen
 - **Soberanía de Datos (Statelessness)**: El Core no almacena datos de clientes finales; cada instancia de negocio reside en su propia base de datos externa.
 - **Gobernanza Dinámica**: Control de acceso basado en Tiers (Planes), PBAC (Permisos) y Restricciones de Entidad.
 - **Resiliencia Industrial**: Implementación de Circuit Breakers, Global Concurrency Control y un Watchdog externo (Sentinel).
+- **API Auto-Descriptiva (ODDS)**: Sistema de auto-descubrimiento dinámico que permite a agentes de IA introspeccionar el esquema de DB y los contratos de comandos en tiempo real.
 - **Interoperabilidad AI-First**: Manifiestos semánticos y un "Learning Mode" para facilitar la adopción por parte de LLMs.
 
 ---
@@ -17,8 +18,10 @@ El objetivo principal de OmniCore-AI es eliminar la fricción entre la inteligen
 
 ### 1. Orquestación de Infraestructura
 - **Dynamic DB Injection**: Inyección en tiempo real de sesiones de base de datos basadas en el contexto del agente.
-- **Infrastructure Registry**: Mapeo centralizado de agentes $ightarrow$ aplicaciones $ightarrow$ credenciales de DB.
+- **OmniCore Dynamic Discovery System (ODDS)**: Capa de introspección que expone el esquema real de la DB y el contrato detallado de cada comando, eliminando la dependencia de documentación estática.
+- **Infrastructure Registry**: Mapeo centralizado de agentes $ightarrow$ aplicaciones $ightarrow$ credenciales de DB.
 - **Blueprints Dinámicos**: Despliegue de esquemas de negocio mediante scripts SQL modulares.
+
 
 ### 2. Motor de Gobernanza (3 Capas)
 - **SaaS Tiers**: Bloqueo de funcionalidades según el plan (`FREE`, `PRO`, `ENTERPRISE`).

@@ -169,6 +169,33 @@ class DynamicDbManager:
             finally:
                 session.close()
 
+    def get_session_sync(
+        self, app_id: str, db_config: Dict[str, Any], tier: str = "FREE"
+    ):
+        """
+        Synchronous session provider for non-async contexts (e.g. error analytics).
+        Provides a context manager that yields a SQLAlchemy Session.
+        """
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _session_scope():
+            self._check_circuit(app_id)
+
+            if app_id not in self._engines:
+                self._create_engine(db_config)
+                self._session_factories[app_id] = sessionmaker(
+                    bind=self._engines[app_id]
+                )
+
+            session = self._session_factories[app_id]()
+            try:
+                yield session
+            finally:
+                session.close()
+
+        return _session_scope()
+
     def evict_idle_pools(self, max_idle_seconds: int = 1800):
         now = time.time()
         to_evict = [
