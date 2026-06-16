@@ -43,7 +43,33 @@ class StockService:
     @command(
         name="stock.import_validated",
         description="Imports products from a list, performing a pre-validation check to avoid partial corruption.",
-        params_schema={"products": "list[dict]"},
+        params_schema={
+            "products": {
+                "type": "list",
+                "item_schema": {
+                    "code": "string",
+                    "name": "string",
+                    "price": "float",
+                    "quantity": "int",
+                },
+            }
+        },
+        example={
+            "products": [
+                {
+                    "code": "P001",
+                    "name": "Agua Mineral 500ml",
+                    "price": 0.5,
+                    "quantity": 100,
+                },
+                {
+                    "code": "P002",
+                    "name": "Refresco Cola 1L",
+                    "price": 1.2,
+                    "quantity": 50,
+                },
+            ]
+        },
     )
     def import_validated(
         self, session: Session, context: CoreContext, products: List[Dict[str, Any]]
@@ -435,7 +461,18 @@ class StockService:
     @command(
         name="stock.audit_inventory",
         description="Performs a full inventory audit by comparing recorded stock with a physical count. Records discrepancies in the ledger.",
-        params_schema={"audit_data": "list[dict]"},
+        params_schema={
+            "audit_data": {
+                "type": "list",
+                "item_schema": {"code": "string", "physical_count": "int"},
+            }
+        },
+        example={
+            "audit_data": [
+                {"code": "P001", "physical_count": 98},
+                {"code": "P002", "physical_count": 52},
+            ]
+        },
     )
     def audit_inventory(
         self, session: Session, context: CoreContext, audit_data: List[Dict[str, Any]]

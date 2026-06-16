@@ -194,6 +194,7 @@ async def inspect_command(command: str):
     """
     ODDS Pilar 2: Detailed inspection of a command's contract.
     Returns required/optional parameters, types, and examples.
+    Now PUBLIC to ensure seamless auto-learning.
     """
     registry = module_loader._command_registry
     if command not in registry:
@@ -204,14 +205,31 @@ async def inspect_command(command: str):
     meta = registry[command]
     schema = meta.get("params_schema", {})
 
-    required = [p for p, t in schema.items() if t != "optional"]
-    optional = [p for p, t in schema.items() if t == "optional"]
+    # Process parameters to handle nested structures (lists of dicts)
+    processed_types = {}
+    required = []
+    optional = []
+
+    for p_name, p_val in schema.items():
+        if isinstance(p_val, dict) and p_val.get("type") == "list":
+            # Handle nested list schema
+            item_schema = p_val.get("item_schema", {})
+            type_desc = f"list of objects: {item_schema}"
+            processed_types[p_name] = type_desc
+            required.append(p_name)  # Assume lists are required if defined this way
+        else:
+            # Standard type
+            processed_types[p_name] = p_val
+            if p_val == "optional":
+                optional.append(p_name)
+            else:
+                required.append(p_name)
 
     return {
         "command": command,
         "required_params": required,
         "optional_params": optional,
-        "types": schema,
+        "types": processed_types,
         "example": meta.get("example"),
     }
 

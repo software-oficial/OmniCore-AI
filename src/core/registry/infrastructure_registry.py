@@ -84,6 +84,37 @@ class InfrastructureRegistry:
             logger.error(f"Error resolving app context for agent {agent_id}: {e}")
             return None
 
+    def get_all_apps(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Retrieves all registered applications and their infrastructure.
+        Useful for system-wide diagnostics or public schema samples.
+        """
+        query = """
+            SELECT a.id as app_id, a.name, ai.db_host, ai.db_port, ai.db_user, ai.db_password, ai.db_name, ai.tier
+            FROM apps a
+            JOIN app_infrastructure ai ON a.id = ai.app_id
+        """
+        try:
+            results = core_db_manager.execute_raw(query).mappings().all()
+            apps = {}
+            for r in results:
+                apps[r.app_id] = {
+                    "app_id": r.app_id,
+                    "name": r.name,
+                    "tier": r.tier,
+                    "db_config": {
+                        "host": r.db_host,
+                        "port": r.db_port,
+                        "user": r.db_user,
+                        "password": r.db_password,
+                        "dbname": r.db_name,
+                    },
+                }
+            return apps
+        except Exception as e:
+            logger.error(f"Error fetching all apps: {e}")
+            return {}
+
     def _invalidate_cache(self, agent_id: str):
         """Removes agent from all cache tiers."""
         self._l1_cache.pop(agent_id, None)

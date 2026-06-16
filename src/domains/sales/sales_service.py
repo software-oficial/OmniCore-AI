@@ -411,10 +411,23 @@ class SalesService:
         description="Processes the final payment, deducts stock, and updates the cash box.",
         params_schema={
             "cliente": "string",
-            "items": "list[dict]",
+            "items": {
+                "type": "list",
+                "item_schema": {"product_code": "string", "quantity": "int"},
+            },
             "metodo_pago": "string",
             "paga_con": "float",
             "alias": "string",
+        },
+        example={
+            "cliente": "Juan Perez",
+            "items": [
+                {"product_code": "P001", "quantity": 2},
+                {"product_code": "P005", "quantity": 1},
+            ],
+            "metodo_pago": "Efectivo",
+            "paga_con": 500.0,
+            "alias": None,
         },
     )
     def process_sale(
