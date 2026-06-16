@@ -150,16 +150,24 @@ async def get_my_agent(authorization: str = Header(None)):
 
         user_id = payload.get("user_id")
         if not user_id:
-            user_id = token
+            # In case the token is an Agent token (agent_id) instead of User token
+            user_id = payload.get("agent_id")
+            if not user_id:
+                raise HTTPException(
+                    status_code=401, detail="Identity not found in token"
+                )
+
         user_id = cast(str, user_id)
 
         result = core_db_manager.execute_raw(
-            "SELECT id, name FROM agents WHERE owner_user_id = :uid LIMIT 1",
+            "SELECT id, name FROM agents WHERE id = :uid OR owner_user_id = :uid LIMIT 1",
             {"uid": user_id},
         )
         agent = result.fetchone()
         if not agent:
-            raise HTTPException(status_code=404, detail="No agent found for this user")
+            raise HTTPException(
+                status_code=404, detail="No agent found for this identity"
+            )
         return {"agent_id": agent[0], "name": agent[1]}
     except HTTPException:
         raise

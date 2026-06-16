@@ -57,14 +57,17 @@ class AuthService:
             from sqlalchemy.exc import IntegrityError
 
             password_hash = hashlib.sha256(password.encode()).hexdigest()
-            session.execute(
+            result = session.execute(
                 text(
-                    "INSERT INTO users (id, email, password_hash) VALUES (gen_random_uuid(), :email, :hash)"
+                    "INSERT INTO users (id, email, password_hash) VALUES (gen_random_uuid(), :email, :hash) RETURNING id"
                 ),
                 {"email": email, "hash": password_hash},
             )
+            user_id = result.scalar()
             session.commit()
-            return ServiceResponse.success_res(message="User registered successfully.")
+            return ServiceResponse.success_res(
+                data={"user_id": user_id}, message="User registered successfully."
+            )
         except IntegrityError as e:
             session.rollback()
             if "users_email_key" in str(e.orig):
@@ -111,7 +114,7 @@ class AuthService:
 
             # Generate a JWT token instead of an opaque string to match TokenManager.validate_token
             token = token_manager.generate_token(
-                agent_id=agent_id, app_id="SYSTEM", dev_id="SYSTEM"
+                agent_id=agent_id, app_id="SYSTEM", dev_id="SYSTEM", user_id=user_id
             )
 
             session.execute(

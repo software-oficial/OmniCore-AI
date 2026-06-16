@@ -22,6 +22,7 @@ class TokenManager:
         dev_id: str,
         tier: str = "FREE",
         permissions: Optional[List[str]] = None,
+        user_id: Optional[str] = None,
     ) -> str:
         """Generates a signed JWT containing the full hierarchy and permissions."""
         payload = {
@@ -30,6 +31,7 @@ class TokenManager:
             "dev_id": dev_id,
             "tier": tier,
             "permissions": permissions or [],
+            "user_id": user_id,
             "exp": datetime.utcnow() + timedelta(days=30),
         }
         return jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
