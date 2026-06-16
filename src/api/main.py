@@ -115,6 +115,11 @@ async def api_root():
 for module in ["sales", "stock", "whatsapp"]:
     module_loader.load_module(module)
 
+logger.info(
+    "SYSTEM_BOOT",
+    f"ModuleLoader initialized. Total commands registered: {len(module_loader._command_registry)}",
+)
+
 ai_gateway.register_command(
     "system.deploy_schema",
     system_service.deploy_schema,

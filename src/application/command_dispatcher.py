@@ -80,7 +80,8 @@ class CommandDispatcher:
         app_context = infrastructure_registry.get_app_context(agent_id)
         if not app_context:
             return ServiceResponse.error_res(
-                "Infrastructure not found", "INFRA_NOT_FOUND"
+                "No business database linked to this agent. Please use POST /api/dev/fast-onboard to link your infrastructure and deploy the required schema.",
+                "INFRA_NOT_FOUND",
             )
 
         # Build Enterprise CoreContext

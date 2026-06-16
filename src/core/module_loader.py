@@ -48,12 +48,14 @@ class ModuleLoader:
                 try:
                     if module_path in sys.modules:
                         module = importlib.reload(sys.modules[module_path])
+                        logger.info(f"♻️ Reloaded module: {module_path}")
                     else:
                         module = importlib.import_module(module_path)
 
                     self._loaded_modules[module_path] = module
 
                     # Scan the module for commands
+                    commands_found = 0
                     for attr_name in dir(module):
                         attr = getattr(module, attr_name)
 
@@ -68,6 +70,9 @@ class ModuleLoader:
                             ):
                                 self._register_command(attr)
                                 commands_found += 1
+                                logger.debug(
+                                    f"✅ Registered command function: {attr_name} in {module_path}"
+                                )
 
                         # 2. Instance methods (singletons)
                         elif hasattr(attr, "__dict__") or hasattr(attr, "__slots__"):
@@ -84,14 +89,21 @@ class ModuleLoader:
                                     if hasattr(member, "__self__"):
                                         self._register_command(member)
                                         commands_found += 1
+                                        logger.debug(
+                                            f"✅ Registered command method: {member_name} from instance {attr_name} in {module_path}"
+                                        )
 
                     logger.info(
                         f"✅ Loaded {module_path}. Found {commands_found} commands."
                     )
                 except Exception as e:
-                    logger.error(f"❌ Failed to load sub-module {module_path}: {e}")
+                    logger.error(
+                        f"❌ Failed to load sub-module {module_path}: {e}",
+                        exc_info=True,
+                    )
 
             return True
+
         except Exception as e:
             logger.error(f"❌ Failed to load domain package {domain_package_path}: {e}")
             return False

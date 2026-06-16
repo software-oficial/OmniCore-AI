@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from src.core.auth.auth_service import auth_service
 from src.core.registry.infrastructure_registry import infrastructure_registry
 from src.infrastructure.db.core_db_manager import core_db_manager
+from src.infrastructure.logging.omni_logger import logger
 
 router = APIRouter(prefix="/api/dev", tags=["Developer Control Plane"])
 
@@ -27,6 +28,12 @@ class OnboardClientRequest(BaseModel):
     )
     tier: str = Field(
         "FREE", description="Initial subscription tier (e.g., FREE, GOLD, PLATINUM)"
+    )
+
+
+class FastOnboardRequest(OnboardClientRequest):
+    deploy_schema: bool = Field(
+        True, description="Whether to automatically deploy the DB schema blueprints"
     )
 
 
@@ -102,6 +109,57 @@ async def onboard_client(payload: OnboardClientRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/fast-onboard", dependencies=[Depends(verify_dev_access)])
+async def fast_onboard(payload: FastOnboardRequest):
+    """
+    Fast-Track Onboarding: Registers the client AND deploys the DB schema in one step.
+    Eliminates INFRA_NOT_FOUND and BLUEPRINT_INCOMPLETE errors immediately.
+    """
+    try:
+        # 1. Register App and Link Agent
+        app_id = infrastructure_registry.register_app(
+            agent_id=payload.agent_id,
+            app_name=payload.app_name,
+            db_config=payload.db_config.model_dump(),
+            tier=payload.tier,
+        )
+
+        # 2. Atomic Schema Deployment
+        if payload.deploy_schema:
+            from src.core.dispatcher.core_types import CoreContext
+            from src.core.system_service import system_service
+            from src.infrastructure.db.db_manager import db_manager
+
+            ctx = CoreContext(
+                agent_id=payload.agent_id,
+                app_id=app_id,
+                dev_id="SYSTEM",
+                mode="PRODUCTION",
+                db_config=payload.db_config.model_dump(),
+                tier=payload.tier,
+            )
+
+            async with db_manager.get_session(
+                app_id, payload.db_config.model_dump(), payload.tier
+            ) as session:
+                deploy_res = await system_service.deploy_schema(session, ctx)
+                if not deploy_res.success:
+                    return {
+                        "success": False,
+                        "app_id": app_id,
+                        "message": f"Client registered but schema deployment failed: {deploy_res.message}",
+                    }
+
+        return {
+            "success": True,
+            "app_id": app_id,
+            "message": f"Client {payload.app_name} is now FULLY OPERATIONAL. Infrastructure linked and schema deployed.",
+        }
+    except Exception as e:
+        logger.error(f"Fast Onboard failure: {e}")
+        raise HTTPException(status_code=400, detail=f"Fast-Onboarding failed: {str(e)}")
 
 
 @router.post("/clients/{app_id}/deploy", dependencies=[Depends(verify_dev_access)])
