@@ -1,6 +1,5 @@
-from typing import Any, Dict
-
-from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, Field
 
 from src.core.auth.auth_service import auth_service
 from src.core.registry.infrastructure_registry import infrastructure_registry
@@ -9,6 +8,64 @@ from src.infrastructure.db.core_db_manager import core_db_manager
 router = APIRouter(prefix="/api/dev", tags=["Developer Control Plane"])
 
 
+# --- Request Models ---
+class DBConfig(BaseModel):
+    host: str = Field(..., json_schema_extra={"example": "localhost"})
+    port: int = Field(..., json_schema_extra={"example": 5432})
+    user: str = Field(..., json_schema_extra={"example": "postgres"})
+    password: str = Field(..., json_schema_extra={"example": "password"})
+    dbname: str = Field(..., json_schema_extra={"example": "omnicore_biz"})
+
+
+class OnboardClientRequest(BaseModel):
+    agent_id: str = Field(..., description="Unique ID for the AI Agent")
+    app_name: str = Field(
+        ..., description="Human-readable name of the client application"
+    )
+    db_config: DBConfig = Field(
+        ..., description="Database connection details for the external business DB"
+    )
+    tier: str = Field(
+        "FREE", description="Initial subscription tier (e.g., FREE, GOLD, PLATINUM)"
+    )
+
+
+class CreatePlanRequest(BaseModel):
+    tier_name: str = Field(
+        ...,
+        json_schema_extra={"example": "Plan Oro"},
+        description="Name of the subscription plan",
+    )
+    level: int = Field(
+        ...,
+        json_schema_extra={"example": 5},
+        description="Hierarchy level of the plan (higher = more privileges)",
+    )
+
+
+class MapCommandPlanRequest(BaseModel):
+    command_name: str = Field(
+        ...,
+        json_schema_extra={"example": "stock.import.commit"},
+        description="The registered command name",
+    )
+    min_tier: str = Field(
+        ...,
+        json_schema_extra={"example": "PLAN_ORO"},
+        description="The minimum tier required to execute this command",
+    )
+
+
+class GenerateClientTokenRequest(BaseModel):
+    token_name: str = Field(
+        ...,
+        json_schema_extra={"example": "Production-Token-1"},
+        description="Name for the generated token",
+    )
+    user_id: str = Field(..., description="ID of the user who owns this token")
+
+
+# --- Dependencies ---
 async def verify_dev_access(authorization: str = Header(None)):
     """
     Validates the Master Developer Key.
@@ -23,23 +80,25 @@ async def verify_dev_access(authorization: str = Header(None)):
     return True
 
 
+# --- Endpoints ---
+
+
 @router.post("/clients/onboard", dependencies=[Depends(verify_dev_access)])
-async def onboard_client(payload: Dict[str, Any]):
+async def onboard_client(payload: OnboardClientRequest):
     """
     Onboards a new supermarket/client for the developer.
-    Payload: {agent_id, app_name, db_config: {host, port, user, password, dbname}, tier}
     """
     try:
         app_id = infrastructure_registry.register_app(
-            agent_id=payload["agent_id"],
-            app_name=payload["app_name"],
-            db_config=payload["db_config"],
-            tier=payload.get("tier", "FREE"),
+            agent_id=payload.agent_id,
+            app_name=payload.app_name,
+            db_config=payload.db_config.model_dump(),
+            tier=payload.tier,
         )
         return {
             "success": True,
             "app_id": app_id,
-            "message": f"Client {payload['app_name']} onboarded.",
+            "message": f"Client {payload.app_name} onboarded.",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -60,6 +119,7 @@ async def deploy_client_schema(app_id: str):
     ctx = CoreContext(
         agent_id="dev_admin",
         app_id=app_id,
+        dev_id="SYSTEM",
         mode="PRODUCTION",
         db_config=app_info["db_config"],
         tier=app_info["tier"],
@@ -87,9 +147,7 @@ async def update_client_tier(app_id: str, tier: str):
 
 
 @router.post("/clients/{app_id}/tokens", dependencies=[Depends(verify_dev_access)])
-async def generate_client_token(
-    app_id: str, token_name: str = Body(...), user_id: str = Body(...)
-):
+async def generate_client_token(app_id: str, payload: GenerateClientTokenRequest):
     """
     Generates a production token for a client's agent.
     """
@@ -103,7 +161,10 @@ async def generate_client_token(
     agent_id = res[0]
     with core_db_manager.get_session() as session:
         response = auth_service.create_api_token(
-            session=session, user_id=user_id, agent_id=agent_id, token_name=token_name
+            session=session,
+            user_id=payload.user_id,
+            agent_id=agent_id,
+            token_name=payload.token_name,
         )
     return response.to_dict()
 
@@ -121,22 +182,21 @@ async def list_clients():
 
 
 @router.post("/plans", dependencies=[Depends(verify_dev_access)])
-async def create_plan(payload: Dict[str, Any]):
+async def create_plan(payload: CreatePlanRequest):
     """
     Creates a new subscription plan with a specific hierarchy level.
-    Payload: {tier_name: "Plan Oro", level: 5}
     """
     from src.core.governance.governance_service import governance_service
 
     try:
         core_db_manager.execute_raw(
             "INSERT INTO governance_tiers (tier_name, level) VALUES (:name, :level)",
-            {"name": payload["tier_name"].upper(), "level": payload["level"]},
+            {"name": payload.tier_name.upper(), "level": payload.level},
         )
         governance_service.clear_tier_cache()
         return {
             "success": True,
-            "message": f"Plan {payload['tier_name']} created successfully.",
+            "message": f"Plan {payload.tier_name} created successfully.",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -157,10 +217,9 @@ async def list_plans():
 
 
 @router.post("/plans/commands", dependencies=[Depends(verify_dev_access)])
-async def map_command_to_plan(payload: Dict[str, Any]):
+async def map_command_to_plan(payload: MapCommandPlanRequest):
     """
     Maps a specific system command to a minimum required plan.
-    Payload: {command_name: "stock.import.commit", min_tier: "PLAN_ORO"}
     """
 
     try:
@@ -171,11 +230,11 @@ async def map_command_to_plan(payload: Dict[str, Any]):
             VALUES (:cmd, :tier) 
             ON CONFLICT(command_name) DO UPDATE SET min_tier = :tier
             """,
-            {"cmd": payload["command_name"], "tier": payload["min_tier"].upper()},
+            {"cmd": payload.command_name, "tier": payload.min_tier.upper()},
         )
         return {
             "success": True,
-            "message": f"Command {payload['command_name']} now requires {payload['min_tier']}.",
+            "message": f"Command {payload.command_name} now requires {payload.min_tier}.",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

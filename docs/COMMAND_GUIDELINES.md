@@ -11,7 +11,7 @@ Todo comando debe estar envuelto en el decorador `@command`. Este decorador prop
 | :--- | :--- | :--- | :--- |
 | `name` | `string` | Sí | Identificador único. Formato sugerido: `modulo.accion` (ej: `stock.update`). |
 | `description` | `string` | Sí | Descripción clara y concisa. **Es lo que la IA usa para decidir si invocar el comando.** |
-| `params_schema` | `dict` | Sí | Diccionario de parámetros esperados y sus tipos (ej: `{"codigo": "string", "cantidad": "int"}`). |
+| `params_model` | `Type[BaseModel]` o `dict` | Sí | Modelo de Pydantic o diccionario de parámetros esperados y sus tipos (ej: `{"codigo": "string", "cantidad": "int"}`). |
 | `example` | `dict` | No | Un ejemplo real de los parámetros para el comando. **Crucial para reducir alucinaciones de la IA.** |
 
 ---
@@ -24,7 +24,7 @@ Para que la inyección de dependencias del Gateway funcione, la función **DEBE*
 @command(
     name="modulo.accion",
     description="Descripción detallada para la IA",
-    params_schema={"param1": "tipo", "param2": "tipo"}
+    params_model={"param1": "tipo", "param2": "tipo"}
 )
 def nombre_de_la_funcion(self, session: Session, context: CoreContext, param1: Tipo, param2: Tipo) -> ServiceResponse:
     # Implementación
@@ -35,7 +35,7 @@ def nombre_de_la_funcion(self, session: Session, context: CoreContext, param1: T
 1.  **`self`**: Referencia a la instancia del servicio (clase).
 2.  **`session: Session`**: Sesión de SQLAlchemy inyectada. Es la **única** vía de acceso a la base de datos de negocio.
 3.  **`context: CoreContext`**: Objeto con metadata de la sesión (Agent ID, App ID, Tier de suscripción, Mode).
-4.  **Parámetros de Negocio**: Deben coincidir exactamente en nombre y tipo con lo definido en el `params_schema`.
+4.  **Parámetros de Negocio**: Deben coincidir exactamente en nombre y tipo con lo definido en el `params_model`.
 
 ---
 

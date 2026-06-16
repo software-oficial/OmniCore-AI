@@ -47,7 +47,7 @@ class SalesService:
     @command(
         name="user.create_employee",
         description="Creates a new employee user for the business with a specific role.",
-        params_schema={"username": "string", "password": "string", "role": "string"},
+        params_model={"username": "string", "password": "string", "role": "string"},
     )
     def create_employee(
         self,
@@ -76,7 +76,7 @@ class SalesService:
     @command(
         name="user.change_role",
         description="Updates the role of an existing employee.",
-        params_schema={"username": "string", "new_role": "string"},
+        params_model={"username": "string", "new_role": "string"},
     )
     def change_role(
         self, session: Session, context: CoreContext, username: str, new_role: str
@@ -99,7 +99,7 @@ class SalesService:
     @command(
         name="sales.report_daily",
         description="Generates a detailed financial report of the day, split by payment method.",
-        params_schema={"date": "string"},
+        params_model={"date": "string"},
     )
     def report_daily(
         self, session: Session, context: CoreContext, date: str
@@ -141,7 +141,7 @@ class SalesService:
     @command(
         name="sales.handle_mp_webhook",
         description="Processes an incoming MercadoPago webhook notification to automatically complete a pending sale and deduct stock.",
-        params_schema={
+        params_model={
             "payment_id": "string",
             "external_reference": "string",
             "status": "string",
@@ -224,7 +224,7 @@ class SalesService:
     @command(
         name="user.grant_permission",
         description="Grants a specific granular permission to a user.",
-        params_schema={"username": "string", "permission_key": "string"},
+        params_model={"username": "string", "permission_key": "string"},
     )
     def grant_permission(
         self, session: Session, context: CoreContext, username: str, permission_key: str
@@ -259,7 +259,7 @@ class SalesService:
     @command(
         name="user.revoke_permission",
         description="Revokes a specific granular permission from a user.",
-        params_schema={"username": "string", "permission_key": "string"},
+        params_model={"username": "string", "permission_key": "string"},
     )
     def revoke_permission(
         self, session: Session, context: CoreContext, username: str, permission_key: str
@@ -294,7 +294,7 @@ class SalesService:
     @command(
         name="caja.abrir",
         description="Opens a physical cash box for the day with an initial amount.",
-        params_schema={"monto_inicial": "float"},
+        params_model={"monto_inicial": "float"},
     )
     def open_cash_box(
         self, session: Session, context: CoreContext, monto_inicial: float
@@ -329,7 +329,7 @@ class SalesService:
     @command(
         name="caja.cerrar",
         description="Closes the cash box and calculates the difference (Surcharge/Shortage).",
-        params_schema={"monto_real": "float"},
+        params_model={"monto_real": "float"},
     )
     def close_cash_box(
         self, session: Session, context: CoreContext, monto_real: float
@@ -377,7 +377,7 @@ class SalesService:
     @command(
         name="caja.status",
         description="Retrieves the current status of the cash box.",
-        params_schema={},
+        params_model={},
     )
     def get_cash_box_status(
         self, session: Session, context: CoreContext
@@ -401,7 +401,7 @@ class SalesService:
     @command(
         name="venta.nueva",
         description="Initializes a new sale session (draft).",
-        params_schema={},
+        params_model={},
     )
     def create_new_sale_session(
         self, session: Session, context: CoreContext
@@ -414,7 +414,7 @@ class SalesService:
     @command(
         name="venta.add",
         description="Adds a product to the current pending sale.",
-        params_schema={"codigo": "string", "cantidad": "int"},
+        params_model={"codigo": "string", "cantidad": "int"},
     )
     def add_to_sale(
         self, session: Session, context: CoreContext, codigo: str, cantidad: int
@@ -431,7 +431,7 @@ class SalesService:
     @command(
         name="venta.cobrar",
         description="Processes the final payment, deducts stock, and updates the cash box.",
-        params_schema=SaleCobrarModel,
+        params_model=SaleCobrarModel,
         example={
             "cliente": "Juan Perez",
             "items": [
@@ -595,7 +595,7 @@ class SalesService:
     @command(
         name="venta.cancelar",
         description="Cancels a pending sale and restores stock if already deducted.",
-        params_schema={"sale_id": "int"},
+        params_model={"sale_id": "int"},
     )
     def cancel_sale(
         self, session: Session, context: CoreContext, sale_id: int
@@ -628,7 +628,7 @@ class SalesService:
     @command(
         name="venta.create_link",
         description="Creates a pending sale and generates a MercadoPago payment link.",
-        params_schema={"codigo": "string", "cantidad": "int", "cliente": "string"},
+        params_model={"codigo": "string", "cantidad": "int", "cliente": "string"},
     )
     def create_payment_link(
         self,
@@ -714,7 +714,7 @@ class SalesService:
     @command(
         name="alias.add",
         description="Creates a new alias with a specific credit/recollection limit.",
-        params_schema={"nombre": "string", "limite": "float"},
+        params_model={"nombre": "string", "limite": "float"},
     )
     def add_alias(
         self, session: Session, context: CoreContext, nombre: str, limite: float
@@ -742,7 +742,7 @@ class SalesService:
     @command(
         name="alias.list",
         description="Lists all aliases and their current accumulations.",
-        params_schema={},
+        params_model={},
     )
     def list_aliases(self, session: Session, context: CoreContext) -> ServiceResponse:
         """Lists all aliases."""
@@ -760,7 +760,7 @@ class SalesService:
     @command(
         name="alias.delete",
         description="Deletes an alias from the system.",
-        params_schema={"alias_id": "string"},
+        params_model={"alias_id": "string"},
     )
     def delete_alias(
         self, session: Session, context: CoreContext, alias_id: str

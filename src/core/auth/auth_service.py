@@ -110,7 +110,9 @@ class AuthService:
                 )
 
             # Generate a JWT token instead of an opaque string to match TokenManager.validate_token
-            token = token_manager.generate_token(agent_id)
+            token = token_manager.generate_token(
+                agent_id=agent_id, app_id="SYSTEM", dev_id="SYSTEM"
+            )
 
             session.execute(
                 text(
@@ -175,7 +177,7 @@ class AuthService:
     @command(
         name="user.invite_employee",
         description="Invites a new employee to the tenant with specific role.",
-        params_schema={"username": "string", "password": "string", "role": "string"},
+        params_model={"username": "string", "password": "string", "role": "string"},
     )
     def create_employee_account(
         self,
@@ -225,7 +227,7 @@ class AuthService:
     @command(
         name="user.set_permission",
         description="Assigns or revokes a granular permission key for a user.",
-        params_schema={
+        params_model={
             "user_id": "string",
             "permission_key": "string",
             "granted": "boolean",
@@ -268,7 +270,7 @@ class AuthService:
     @command(
         name="user.list",
         description="Lists all users/employees of the tenant.",
-        params_schema={},
+        params_model={},
     )
     def list_users(self, session: Session, context: CoreContext) -> ServiceResponse:
         """Lists users."""
@@ -287,7 +289,7 @@ class AuthService:
     @command(
         name="user.revoke_access",
         description="Revokes access for a user.",
-        params_schema={"user_id": "string"},
+        params_model={"user_id": "string"},
     )
     def revoke_user_access(
         self, session: Session, context: CoreContext, user_id: str

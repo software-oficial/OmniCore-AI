@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -83,19 +83,21 @@ class CoreContext:
         self,
         agent_id: str,
         app_id: str,
+        dev_id: str,
         mode: str,
         db_config: Optional[Dict[str, Any]] = None,
         tier: str = "FREE",
+        permissions: Optional[List[str]] = None,
         entity: str = "API",
         execution_strategy: str = "DIRECT",
     ):
         self.agent_id = agent_id
-        self.user_id = (
-            agent_id  # Defaulting user_id to agent_id for seamless integration
-        )
+        self.user_id = agent_id  # Defaulting user_id to agent_id
         self.app_id = app_id
+        self.dev_id = dev_id
         self.mode = mode  # 'LEARNING' or 'PRODUCTION'
         self.db_config = db_config  # Host, User, Pass, etc.
         self.tier = tier
+        self.permissions = permissions or []
         self.entity = entity
         self.execution_strategy = execution_strategy

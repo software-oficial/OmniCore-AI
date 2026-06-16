@@ -26,5 +26,5 @@ OmniCore-AI es un Meta-Orquestador diseñado para que Agentes de IA desplieguen 
 Para añadir nuevas capacidades al sistema:
 1. **Definir el Blueprint**: Crear el SQL necesario para las tablas de negocio.
 2. **Implementar la Lógica**: Crear funciones stateless que utilicen la sesión inyectada.
-3. **Registrar mediante Decorador**: Usar el decorador `@command(name="...", description="...", params_schema={...})` sobre la función. El `ModuleLoader` se encargará del registro automático.
+3. **Registrar mediante Decorador**: Usar el decorador `@command(name="...", description="...", params_model={...})` sobre la función. El `ModuleLoader` se encargará del registro automático.
 4. **Validar Gobernanza**: Definir el Tier mínimo y la llave de permiso requerida en el `GovernanceService`.

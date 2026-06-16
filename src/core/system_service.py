@@ -21,7 +21,7 @@ class SystemService:
     @command(
         name="system.help",
         description="Provides guidance on how to discover and use available commands.",
-        params_schema={},
+        params_model={},
     )
     def get_help(self, session: Session, context: CoreContext) -> ServiceResponse:
         """Provides guidance on how to discover and use available commands."""
@@ -37,7 +37,7 @@ class SystemService:
     @command(
         name="system.info",
         description="Provides general information about the system, version, and data model.",
-        params_schema={},
+        params_model={},
     )
     def get_info(self, session: Session, context: CoreContext) -> ServiceResponse:
         """Returns general system information."""
@@ -55,7 +55,7 @@ class SystemService:
     @command(
         name="system.get_setting",
         description="Retrieves a specific system configuration value.",
-        params_schema={"key": "string"},
+        params_model={"key": "string"},
     )
     def get_setting(
         self, session: Session, context: CoreContext, key: str
@@ -86,7 +86,7 @@ class SystemService:
     @command(
         name="system.deploy_schema",
         description="Deploys the database schema blueprints to the client's external DB.",
-        params_schema={"domains": "list[string]"},
+        params_model={"domains": "list[string]"},
     )
     def deploy_schema(
         self,
@@ -95,43 +95,17 @@ class SystemService:
         domains: Optional[List[str]] = None,
     ) -> ServiceResponse:
         """
-        Executes the SQL blueprints for the specified domains in the external DB.
-        If domains is None, deploys all available blueprints.
+        Enterprise Handler: Delegates execution to the DeploySchemaUseCase.
         """
-        from src.infrastructure.blueprint_manager import blueprint_manager
+        from src.application.deploy_schema_use_case import DeploySchemaUseCase
 
-        try:
-            # 1. Resolve blueprints (Note: blueprint_manager path might need adjustment to 'src/domains')
-            # We override the modules_path on the fly or assume the manager handles it.
-            # Let's adjust the logic to use the current project structure.
-            blueprint_manager.modules_path = "src/domains"
-            blueprints = blueprint_manager.get_all_blueprints(requested_modules=domains)
-
-            if not blueprints:
-                return ServiceResponse.error_res(
-                    "No blueprints found to deploy.", "NO_BLUEPRINTS"
-                )
-
-            executed_domains = []
-            for domain, sql in blueprints.items():
-                # Execute each blueprint SQL
-                session.execute(text(sql))
-                executed_domains.append(domain)
-
-            session.commit()
-            return ServiceResponse.success_res(
-                message=f"Successfully deployed blueprints for: {', '.join(executed_domains)}."
-            )
-        except Exception as e:
-            logger.error(f"Schema deployment failure: {e}")
-            return ServiceResponse.error_res(
-                f"Deployment failed: {str(e)}", "DEPLOY_ERROR"
-            )
+        use_case = DeploySchemaUseCase(session, context)
+        return use_case.execute(domains=domains)
 
     @command(
         name="system.get_version",
         description="Retrieves the current system version and deployment metadata.",
-        params_schema={},
+        params_model={},
     )
     def get_version(self, session: Session, context: CoreContext) -> ServiceResponse:
         """Returns the current version of the system."""
@@ -153,7 +127,7 @@ class SystemService:
     @command(
         name="system.set_maintenance",
         description="Toggles the global maintenance mode for the business infrastructure.",
-        params_schema={"enabled": "boolean"},
+        params_model={"enabled": "boolean"},
     )
     def set_maintenance(
         self, session: None, context: CoreContext, enabled: bool
@@ -177,7 +151,7 @@ class SystemService:
     @command(
         name="system.validate_blueprint",
         description="Checks if the external business database has all required tables according to the blueprint.",
-        params_schema={"domain": "string"},
+        params_model={"domain": "string"},
     )
     def validate_blueprint(
         self, session: Session, context: CoreContext, domain: str
@@ -226,7 +200,7 @@ class SystemService:
     @command(
         name="system.get_health",
         description="Performs a comprehensive health check of the infrastructure (DB, API Tokens, Connectivity).",
-        params_schema={},
+        params_model={},
     )
     def get_health(self, session: Session, context: CoreContext) -> ServiceResponse:
         """Comprehensive health check."""

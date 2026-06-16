@@ -1,9 +1,8 @@
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, Header
 
 from src.core.dispatcher.core_types import ServiceResponse
-from src.core.dispatcher.gateway import ai_gateway
 from src.core.module_loader import module_loader
 
 router = APIRouter(prefix="/api", tags=["Gateway"])
@@ -52,24 +51,44 @@ async def get_openapi():
             continue
 
         description = meta.get("description", "No description provided")
-        params_schema = meta.get("params_schema", {})
+        raw_schema = meta.get("params_schema", {})
+
+        # Resolve the actual properties whether it's a simple dict or a JSON schema
+        params_schema = {}
+        if isinstance(raw_schema, dict):
+            if "properties" in raw_schema:
+                # It's a JSON schema (from Pydantic)
+                params_schema = raw_schema["properties"]
+            else:
+                # It's a simple mapping {"param": "type"}
+                params_schema = raw_schema
 
         # Create a virtual path for each command to make it visible in Swagger
-        # e.g., /gateway/execute/stock.add
         path = f"/gateway/execute/{name}"
 
-        # Map our simple type hints to OpenAPI types
+        # Map our simple type hints or JSON schema types to OpenAPI types
         properties = {}
-        for p_name, p_type in params_schema.items():
-            oa_type = "string"
-            if p_type == "float":
-                oa_type = "number"
-            elif p_type == "int":
-                oa_type = "integer"
-            elif p_type == "boolean":
-                oa_type = "boolean"
-            elif "list" in p_type:
-                oa_type = "array"
+        for p_name, p_info in params_schema.items():
+            if isinstance(p_info, dict):
+                # JSON schema style: {"type": "string", ...}
+                oa_type = p_info.get("type", "string")
+                # Map JSON schema types to OA types if necessary
+                if oa_type == "integer":
+                    oa_type = "integer"
+                elif oa_type == "number":
+                    oa_type = "number"
+            else:
+                # Simple mapping style: "string", "int", "float"
+                p_type = str(p_info)
+                oa_type = "string"
+                if p_type == "float":
+                    oa_type = "number"
+                elif p_type == "int":
+                    oa_type = "integer"
+                elif p_type == "boolean":
+                    oa_type = "boolean"
+                elif "list" in p_type:
+                    oa_type = "array"
 
             properties[p_name] = {"type": oa_type}
 
@@ -86,8 +105,12 @@ async def get_openapi():
                                 "properties": properties,
                                 "required": [
                                     p
-                                    for p, t in params_schema.items()
-                                    if t != "optional"
+                                    for p, v in params_schema.items()
+                                    if (
+                                        isinstance(v, dict)
+                                        and p in raw_schema.get("required", [])
+                                    )
+                                    or (not isinstance(v, dict) and v != "optional")
                                 ],
                             }
                         }
@@ -131,7 +154,7 @@ async def get_help():
             if isinstance(meta, dict)
             else "No description provided"
         )
-        schema = meta.get("params_schema", {}) if isinstance(meta, dict) else {}
+        schema = meta.get("json_schema", {}) if isinstance(meta, dict) else {}
 
         categories[prefix].append(
             {"command": name, "description": description, "params": schema}
@@ -203,27 +226,36 @@ async def inspect_command(command: str):
         raise HTTPException(status_code=404, detail=f"Command {command} not found")
 
     meta = registry[command]
-    schema = meta.get("params_schema", {})
+    schema = meta.get("json_schema", {})
 
     # Process parameters to handle nested structures (lists of dicts)
     processed_types = {}
     required = []
     optional = []
 
-    for p_name, p_val in schema.items():
-        if isinstance(p_val, dict) and p_val.get("type") == "list":
-            # Handle nested list schema
-            item_schema = p_val.get("item_schema", {})
-            type_desc = f"list of objects: {item_schema}"
-            processed_types[p_name] = type_desc
-            required.append(p_name)  # Assume lists are required if defined this way
-        else:
-            # Standard type
-            processed_types[p_name] = p_val
-            if p_val == "optional":
-                optional.append(p_name)
-            else:
+    if isinstance(schema, dict):
+        # If it's a JSON schema, look for properties
+        actual_params = schema.get("properties", schema)
+
+        for p_name, p_val in actual_params.items():
+            if isinstance(p_val, dict) and p_val.get("type") == "array":
+                item_schema = p_val.get("items", {})
+                type_desc = f"list of: {item_schema}"
+                processed_types[p_name] = type_desc
                 required.append(p_name)
+            elif isinstance(p_val, dict):
+                processed_types[p_name] = p_val.get("type", "string")
+                if p_name in schema.get("required", []):
+                    required.append(p_name)
+                else:
+                    optional.append(p_name)
+            else:
+                # Legacy simple mapping
+                processed_types[p_name] = p_val
+                if p_val == "optional":
+                    optional.append(p_name)
+                else:
+                    required.append(p_name)
 
     return {
         "command": command,
@@ -254,15 +286,12 @@ async def handle_command(
         else authorization
     )
 
-    from fastapi import Request
+    from src.application.command_dispatcher import command_dispatcher
 
-    # Pass all possible execution modes to the gateway
-    result = await ai_gateway.execute(
-        command_name=command,
+    # Call the Enterprise Dispatcher instead of the legacy ai_gateway
+    result = await command_dispatcher.dispatch(
+        command_name=command or "",
         token=token,
-        params=params,
-        request=cast(Any, Request({"type": "http"})),
-        flow=flow,
-        requested_mode=x_omnicore_mode,
+        params=params or {},
     )
     return result.to_dict()

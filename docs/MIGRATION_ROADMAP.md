@@ -68,6 +68,6 @@ ightarrow$ `whatsapp.handle_bot_flow`
 ## 🏁 Criterios de Aceptación (Definition of Done)
 Para marcar una tarea como completada, debe cumplir:
 1. **Stateless**: La función no depende de variables globales; usa la `session` inyectada.
-2. **Documentada**: El comando tiene un `params_schema` claro y descripción pedagógica.
+2. **Documentada**: El comando tiene un `params_model` claro y descripción pedagógica.
 3. **Gobernada**: El comando está registrado en el `GovernanceService`.
 4. **Verificada**: Existe un test automatizado que valida el flujo en un entorno de staging.

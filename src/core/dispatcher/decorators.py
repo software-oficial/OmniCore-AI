@@ -10,7 +10,7 @@ from pydantic import BaseModel
 def command(
     name: str,
     description: str = "No description provided",
-    params_schema: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None,
+    params_model: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None,
     example: Optional[Dict[str, Any]] = None,
     is_system: bool = False,
 ):
@@ -27,7 +27,7 @@ def command(
         f._is_omnicore_command = True
         f._command_name = name
         f._command_description = description
-        f._command_params_schema = params_schema
+        f._command_params_model = params_model
         f._command_example = example
         f._command_is_system = is_system
         return wraps(func)(func)

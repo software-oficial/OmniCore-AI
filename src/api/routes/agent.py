@@ -114,7 +114,9 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
         )
 
         # 6. Generate Token
-        token = token_manager.generate_token(agent_id, tier="FREE")
+        token = token_manager.generate_token(
+            agent_id=agent_id, app_id=app_id, dev_id="SYSTEM"
+        )
 
     except Exception as e:
         engine_logger.error(f"Zero-to-Hero Onboarding critical error: {e}")
@@ -348,7 +350,9 @@ async def register_agent(request: RegisterRequest):
         )
 
         # Generate initial Learning token
-        token = token_manager.generate_token(agent_id, tier="FREE")
+        token = token_manager.generate_token(
+            agent_id=agent_id, app_id=app_id, dev_id="SYSTEM"
+        )
 
     except Exception as e:
         engine_logger.error(f"Registration error: {e}")

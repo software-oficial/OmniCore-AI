@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 
@@ -26,6 +28,13 @@ class TokenCreateRequest(BaseModel):
     )
     mode: str = Field(
         "PRODUCTION", description="Execution mode: 'PRODUCTION' or 'LEARNING'"
+    )
+    scope: Optional[str] = Field(
+        "all",
+        description="Restricted scope for the token (e.g. 'read-only', 'sales-only')",
+    )
+    expires_in: Optional[int] = Field(
+        None, description="Token expiration time in seconds (null for permanent)"
     )
 
 

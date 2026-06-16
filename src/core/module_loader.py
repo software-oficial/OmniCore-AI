@@ -74,6 +74,8 @@ class ModuleLoader:
                             # We only care about objects that are actually instances of a class
                             # to find bound methods.
                             for member_name in dir(attr):
+                                if member_name.startswith("__"):
+                                    continue
                                 member = getattr(attr, member_name)
                                 if callable(member) and getattr(
                                     member, "_is_omnicore_command", False
@@ -100,7 +102,7 @@ class ModuleLoader:
         self._command_registry[cmd_name] = {
             "handler": handler,
             "description": getattr(handler, "_command_description"),
-            "params_schema": getattr(handler, "_command_params_schema"),
+            "params_model": getattr(handler, "_command_params_model"),
             "registered_at": time.time(),
             "is_system": getattr(handler, "_command_is_system"),
         }

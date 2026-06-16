@@ -1,5 +1,6 @@
 import asyncio
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
@@ -30,6 +31,26 @@ app = FastAPI(
     description="The AI-Ready Business OS Gateway",
     version=config.VERSION,
 )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start background workers
+    asyncio.create_task(pool_cleanup_worker())
+
+    # Start Async Log Worker
+    from src.infrastructure.logging.omni_logger import get_logger
+
+    main_logger = get_logger("OmniCore.Main")
+    asyncio.create_task(main_logger.process_logs())
+    logger.info(
+        "LOG_SYSTEM",
+        "Async Log Worker has been initialized and is running in background.",
+    )
+    yield
+
+
+app.router.lifespan_context = lifespan
 logger = get_logger("OmniCore.Main")
 
 
@@ -245,22 +266,6 @@ async def pool_cleanup_worker():
         except Exception as e:
             logger.error("LOG_SYSTEM", f"Error during DB pool cleanup: {e}")
         await asyncio.sleep(config.POOL_CLEANUP_INTERVAL)
-
-
-@app.on_event("startup")
-async def startup_event():
-    # Start background workers
-    asyncio.create_task(pool_cleanup_worker())
-
-    # Start Async Log Worker
-    from src.infrastructure.logging.omni_logger import get_logger
-
-    main_logger = get_logger("OmniCore.Main")
-    asyncio.create_task(main_logger.process_logs())
-    logger.info(
-        "LOG_SYSTEM",
-        "Async Log Worker has been initialized and is running in background.",
-    )
 
 
 @app.get("/health")

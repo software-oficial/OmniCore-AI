@@ -41,20 +41,24 @@ class AIGateway:
         command_name: str,
         handler: Callable,
         description: str = "No description provided",
-        params_schema: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None,
+        params_model: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None,
         example: Optional[Dict[str, Any]] = None,
         is_system: bool = False,
     ):
         """Registers a command handler with semantic metadata for AI discovery."""
-        # If it's a Pydantic model, extract the schema for the discovery registry
-        final_schema = params_schema or {}
-        if isinstance(params_schema, type) and issubclass(params_schema, BaseModel):
-            final_schema = params_schema.model_json_schema()
+        # Store the original model/schema for validation
+        final_model = params_model or {}
+
+        # Generate the JSON schema for discovery/OpenAPI
+        json_schema = final_model
+        if isinstance(params_model, type) and issubclass(params_model, BaseModel):
+            json_schema = params_model.model_json_schema()
 
         self.loader._command_registry[command_name] = {
             "handler": handler,
             "description": description,
-            "params_schema": final_schema,
+            "params_model": final_model,
+            "json_schema": json_schema,
             "example": example,
             "registered_at": time.time(),
             "is_system": is_system,
@@ -80,10 +84,10 @@ class AIGateway:
 
         # 1. Validation (Delegated)
         cmd_metadata = self.loader.get_metadata(effective_command)
-        schema = cmd_metadata.get("params_schema", {})
+        model = cmd_metadata.get("params_model", {})
 
         is_valid, error_res, filtered_params = RequestValidator.validate(
-            effective_command, params or {}, schema
+            effective_command, params or {}, model
         )
         if not is_valid:
             return error_res
@@ -94,7 +98,7 @@ class AIGateway:
         # 2. Token Validation
         t_auth_start = time.perf_counter()
 
-        is_valid, agent_id, jwt_tier = token_manager.validate_token(token)
+        is_valid, payload, jwt_tier = token_manager.validate_token(token)
         traces["auth_ms"] = (time.perf_counter() - t_auth_start) * 1000
 
         if not is_valid:
@@ -111,7 +115,8 @@ class AIGateway:
             )
             return res
 
-        # Mypy: agent_id is now str
+        # Extract agent_id from payload
+        agent_id = payload.get("agent_id") if payload else None
         assert agent_id is not None
 
         # 3. Context Retrieval
@@ -157,6 +162,7 @@ class AIGateway:
         ctx = CoreContext(
             agent_id=agent_id,
             app_id=app_context["app_id"],
+            dev_id="SYSTEM",
             mode=mode,
             db_config=app_context["db_config"],
             tier=effective_tier,
@@ -227,18 +233,15 @@ class AIGateway:
         # 5. System Audit Log
         t_audit_start = time.perf_counter()
         try:
-            from src.infrastructure.db.core_db_manager import core_db_manager
+            from src.core.governance.audit_service import audit_service
 
-            audit_query = "INSERT INTO system_audit_log (agent_id, app_id, command, status, message) VALUES (:agent_id, :app_id, :command, :status, :message)"
-            core_db_manager.execute_raw(
-                audit_query,
-                {
-                    "agent_id": agent_id,
-                    "app_id": ctx.app_id,
-                    "command": cmd_for_telemetry,
-                    "status": "SUCCESS" if result.success else "FAILED",
-                    "message": result.message[:255],
-                },
+            audit_service.log_event(
+                agent_id=agent_id,
+                app_id=ctx.app_id,
+                command=cmd_for_telemetry,
+                status="SUCCESS" if result.success else "FAILED",
+                message=result.message[:255],
+                params=filtered_params,
             )
         except Exception as e:
             logger.error(f"Audit log failure: {e}")
@@ -384,12 +387,12 @@ class AIGateway:
 
         # 2. Pedagogical Type and Parameter Validation
         cmd_metadata = self.loader.get_metadata(command_name)
-        schema = cmd_metadata.get("params_schema", {})
+        json_schema = cmd_metadata.get("json_schema", {})
 
-        if isinstance(schema, dict):
+        if isinstance(json_schema, dict):
             from src.infrastructure.validation.type_checker import type_checker
 
-            is_valid, type_err = type_checker.validate_types(params, schema)
+            is_valid, type_err = type_checker.validate_types(params, json_schema)
             if not is_valid:
                 err = cast(ServiceResponse, type_err)
                 return ServiceResponse.error_res(

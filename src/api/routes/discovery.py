@@ -26,7 +26,7 @@ async def list_all_commands():
             {
                 "command": cmd_name,
                 "description": metadata["description"],
-                "params": metadata["params_schema"],
+                "params": metadata.get("json_schema", metadata.get("params_model", {})),
                 "is_system": metadata["is_system"],
             }
         )
@@ -101,7 +101,7 @@ async def get_business_schema(authorization: str = Header(None)):
                     table_name, ordinal_position;
                 """
             )
-            result = await session.execute(query)
+            result = session.execute(query)
             rows = result.all()
             schema_map: Dict[str, Dict[str, Any]] = {}
             for table, column, dtype, nullable in rows:
