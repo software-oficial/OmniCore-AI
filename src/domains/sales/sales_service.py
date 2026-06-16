@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, cast
 
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
@@ -10,6 +11,27 @@ from src.core.dispatcher.decorators import command
 from src.domains.stock.stock_service import stock_service
 
 logger = logging.getLogger("OmniCore.SalesService")
+
+
+class SaleItem(BaseModel):
+    """Strict model for a sale item to avoid 'list[dict]' ambiguity."""
+
+    product_code: str = Field(..., description="The unique SKU/code of the product")
+    quantity: int = Field(..., gt=0, description="Quantity must be greater than zero")
+
+
+class SaleCobrarModel(BaseModel):
+    """Strict contract for the 'venta.cobrar' command."""
+
+    cliente: str = Field(..., description="Customer name or ID")
+    items: List[SaleItem] = Field(
+        ..., min_length=1, description="List of products to sell"
+    )
+    metodo_pago: str = Field(
+        ..., description="Payment method (e.g., Efectivo, Transferencia)"
+    )
+    paga_con: float = Field(0.0, ge=0, description="Amount paid by customer")
+    alias: Optional[str] = Field(None, description="Alias for transfer payments")
 
 
 class SalesService:
@@ -409,16 +431,7 @@ class SalesService:
     @command(
         name="venta.cobrar",
         description="Processes the final payment, deducts stock, and updates the cash box.",
-        params_schema={
-            "cliente": "string",
-            "items": {
-                "type": "list",
-                "item_schema": {"product_code": "string", "quantity": "int"},
-            },
-            "metodo_pago": "string",
-            "paga_con": "float",
-            "alias": "string",
-        },
+        params_schema=SaleCobrarModel,
         example={
             "cliente": "Juan Perez",
             "items": [
