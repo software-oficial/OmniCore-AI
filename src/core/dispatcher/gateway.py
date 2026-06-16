@@ -3,9 +3,10 @@ import difflib
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, Type, Union, cast
 
 from fastapi import Request
+from pydantic import BaseModel
 
 from src.core.auth.token_manager import token_manager
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
@@ -40,15 +41,20 @@ class AIGateway:
         command_name: str,
         handler: Callable,
         description: str = "No description provided",
-        params_schema: Optional[Dict[str, Any]] = None,
+        params_schema: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None,
         example: Optional[Dict[str, Any]] = None,
         is_system: bool = False,
     ):
         """Registers a command handler with semantic metadata for AI discovery."""
+        # If it's a Pydantic model, extract the schema for the discovery registry
+        final_schema = params_schema or {}
+        if isinstance(params_schema, type) and issubclass(params_schema, BaseModel):
+            final_schema = params_schema.model_json_schema()
+
         self.loader._command_registry[command_name] = {
             "handler": handler,
             "description": description,
-            "params_schema": params_schema or {},
+            "params_schema": final_schema,
             "example": example,
             "registered_at": time.time(),
             "is_system": is_system,
