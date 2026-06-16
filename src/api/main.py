@@ -7,7 +7,17 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config.settings import config
-from src.api.routes import admin, agent, auth, business, dev, gateway, infra, sdk
+from src.api.routes import (
+    admin,
+    agent,
+    auth,
+    business,
+    dev,
+    discovery,
+    gateway,
+    infra,
+    sdk,
+)
 from src.core.admin_service import admin_service
 from src.core.dispatcher.gateway import ai_gateway
 from src.core.module_loader import module_loader
@@ -118,6 +128,7 @@ ai_gateway.register_command(
 
 # 2. Include Modular Routes
 app.include_router(gateway.router)
+app.include_router(discovery.router)
 app.include_router(business.router)
 app.include_router(infra.router)
 app.include_router(agent.router)
