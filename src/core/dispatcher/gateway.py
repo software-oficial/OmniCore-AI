@@ -141,7 +141,11 @@ class AIGateway:
         if db_host in ["localhost", "127.0.0.1"]:
             execution_strategy = "DELEGATED"
 
-        # Use JWT tier if available, otherwise fallback to registry
+        # FORCE DIRECT for system commands to avoid delegation of cloud-state queries
+        if cmd_metadata.get("is_system", False):
+            execution_strategy = "DIRECT"
+
+        # Use JWT tier if available, fallback to registry
         effective_tier = jwt_tier or app_context.get("tier", "FREE")
 
         ctx = CoreContext(

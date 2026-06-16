@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 from fastapi import APIRouter, Header, HTTPException
+from sqlalchemy import text
 
 from src.core.auth.token_manager import token_manager
 from src.core.dispatcher.gateway import ai_gateway
@@ -85,7 +86,8 @@ async def get_business_schema(authorization: str = Header(None)):
             app_context["app_id"], app_context["db_config"], "PRODUCTION"
         ) as session:
 
-            query = """
+            query = text(
+                """
                 SELECT 
                     table_name, 
                     column_name, 
@@ -97,10 +99,10 @@ async def get_business_schema(authorization: str = Header(None)):
                     table_schema = 'public'
                 ORDER BY 
                     table_name, ordinal_position;
-            """
+                """
+            )
             result = await session.execute(query)
             rows = result.all()
-
             schema_map: Dict[str, Dict[str, Any]] = {}
             for table, column, dtype, nullable in rows:
                 if table not in schema_map:
