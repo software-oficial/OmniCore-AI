@@ -228,29 +228,28 @@ async def inspect_command(command: str):
     meta = registry[command]
     schema = meta.get("json_schema", {})
 
-    # Process parameters to handle nested structures (lists of dicts)
     processed_types = {}
     required = []
     optional = []
 
-    if isinstance(schema, dict):
-        # If it's a JSON schema, look for properties
-        actual_params = schema.get("properties", schema)
+    if isinstance(schema, dict) and "properties" in schema:
+        properties = schema["properties"]
+        required_fields = schema.get("required", [])
 
-        for p_name, p_val in actual_params.items():
-            if isinstance(p_val, dict) and p_val.get("type") == "array":
-                item_schema = p_val.get("items", {})
-                type_desc = f"list of: {item_schema}"
-                processed_types[p_name] = type_desc
+        for p_name, p_val in properties.items():
+            # Extract type from JSON schema
+            p_type = p_val.get("type", "string")
+            processed_types[p_name] = p_type
+
+            if p_name in required_fields:
                 required.append(p_name)
-            elif isinstance(p_val, dict):
-                processed_types[p_name] = p_val.get("type", "string")
-                if p_name in schema.get("required", []):
-                    required.append(p_name)
-                else:
-                    optional.append(p_name)
             else:
-                # Legacy simple mapping
+                optional.append(p_name)
+    else:
+        # Fallback for legacy simple schemas or empty schemas
+        # If it's a simple dict {"param": "type"}, use it
+        if isinstance(schema, dict):
+            for p_name, p_val in schema.items():
                 processed_types[p_name] = p_val
                 if p_val == "optional":
                     optional.append(p_name)

@@ -111,10 +111,18 @@ class ModuleLoader:
     def _register_command(self, handler: Callable):
         """Helper to register a handler in the master registry."""
         cmd_name = getattr(handler, "_command_name")
+        params_model = getattr(handler, "_command_params_model")
+
+        # Generate JSON Schema if the params_model is a Pydantic model
+        json_schema = {}
+        if params_model and hasattr(params_model, "model_json_schema"):
+            json_schema = params_model.model_json_schema()
+
         self._command_registry[cmd_name] = {
             "handler": handler,
             "description": getattr(handler, "_command_description"),
-            "params_model": getattr(handler, "_command_params_model"),
+            "params_model": params_model,
+            "json_schema": json_schema,
             "registered_at": time.time(),
             "is_system": getattr(handler, "_command_is_system"),
         }

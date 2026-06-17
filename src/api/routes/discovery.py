@@ -22,12 +22,15 @@ async def list_all_commands():
 
     discovery_data = []
     for cmd_name, metadata in registry.items():
+        if not isinstance(metadata, dict):
+            continue
+
         discovery_data.append(
             {
                 "command": cmd_name,
-                "description": metadata["description"],
+                "description": metadata.get("description", "No description provided"),
                 "params": metadata.get("json_schema", metadata.get("params_model", {})),
-                "is_system": metadata["is_system"],
+                "is_system": metadata.get("is_system", False),
             }
         )
 

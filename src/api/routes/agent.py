@@ -136,7 +136,7 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
         )
 
         async with db_manager.get_session(app_id, db_config, "FREE") as session:
-            deploy_res = await system_service.deploy_schema(session, ctx)
+            deploy_res = system_service.deploy_schema(session, ctx)
             if not deploy_res.success:
                 engine_logger.error(
                     f"Schema deployment failed during onboarding: {deploy_res.message}"
