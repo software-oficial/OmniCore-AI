@@ -11,7 +11,7 @@ class BlueprintManager:
     Enables 'Zero-Touch' infrastructure deployment for developers.
     """
 
-    def __init__(self, modules_path: str = "modules"):
+    def __init__(self, modules_path: str = "src/domains"):
         self.modules_path = modules_path
 
     def get_module_blueprint(self, module_name: str) -> Optional[str]:

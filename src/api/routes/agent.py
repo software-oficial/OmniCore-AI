@@ -113,7 +113,40 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
             {"agent_id": agent_id, "app_id": app_id},
         )
 
-        # 6. Generate Token
+        # 6. Automatic Schema Deployment (Zero-to-Hero)
+        from src.core.dispatcher.core_types import CoreContext
+        from src.core.system_service import system_service
+        from src.infrastructure.db.db_manager import db_manager
+
+        db_config = {
+            "host": request.db_host,
+            "port": request.db_port,
+            "user": request.db_user,
+            "password": request.db_password,
+            "dbname": request.db_name,
+        }
+
+        ctx = CoreContext(
+            agent_id=agent_id,
+            app_id=app_id,
+            dev_id="SYSTEM",
+            mode="PRODUCTION",
+            db_config=db_config,
+            tier="FREE",
+        )
+
+        async with db_manager.get_session(app_id, db_config, "FREE") as session:
+            deploy_res = await system_service.deploy_schema(session, ctx)
+            if not deploy_res.success:
+                engine_logger.error(
+                    f"Schema deployment failed during onboarding: {deploy_res.message}"
+                )
+                # We don't fail the whole onboarding, but we notify the user
+                deployment_status = f"FAILED: {deploy_res.message}"
+            else:
+                deployment_status = "SUCCESSFUL"
+
+        # 7. Generate Token
         token = token_manager.generate_token(
             agent_id=agent_id, app_id=app_id, dev_id="SYSTEM"
         )
@@ -129,7 +162,7 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
         agent_id=agent_id,
         app_id=app_id,
         token=token,
-        message="Zero-to-Hero successful! Your Agent is registered and your DB is linked. IMPORTANT: You must now use the OmniCore SDK locally to deploy the database schema (blueprints) to your local PostgreSQL instance.",
+        message=f"Zero-to-Hero successful! Agent registered, DB linked, and schema deployment was {deployment_status}.",
     )
 
 

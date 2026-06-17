@@ -126,6 +126,12 @@ ai_gateway.register_command(
     description="Deploys the database schema blueprints to the client's external DB.",
 )
 
+ai_gateway.register_command(
+    "system.get_health",
+    system_service.get_health,
+    description="Performs a comprehensive health check of the infrastructure (DB, API Tokens, Connectivity).",
+)
+
 # Developer Control Plane: Commands for the developer to manage their own SaaS clients and plans
 ai_gateway.register_command(
     "dev.admin.update_client_tier",
