@@ -39,6 +39,6 @@ CREATE TABLE IF NOT EXISTS cash_box (
     hora_cierre TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_sales_status ON sales(status);
-CREATE INDEX idx_sales_client ON sales(client_name);
-CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
+CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status);
+CREATE INDEX IF NOT EXISTS idx_sales_client ON sales(client_name);
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);

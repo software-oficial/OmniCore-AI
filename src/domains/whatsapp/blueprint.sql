@@ -30,5 +30,5 @@ CREATE TABLE IF NOT EXISTS whatsapp_menu_options (
     sort_order INTEGER DEFAULT 0
 );
 
-CREATE INDEX idx_conv_status ON whatsapp_conversations(status);
-CREATE INDEX idx_menu_name ON whatsapp_menus(menu_name);
+CREATE INDEX IF NOT EXISTS idx_conv_status ON whatsapp_conversations(status);
+CREATE INDEX IF NOT EXISTS idx_menu_name ON whatsapp_menus(menu_name);

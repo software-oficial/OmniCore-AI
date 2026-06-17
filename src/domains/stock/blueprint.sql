@@ -23,6 +23,6 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_products_code ON products(code);
-CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_movements_product ON stock_movements(product_code);
+CREATE INDEX IF NOT EXISTS idx_products_code ON products(code);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_movements_product ON stock_movements(product_code);
