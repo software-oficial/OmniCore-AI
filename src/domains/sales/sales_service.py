@@ -292,7 +292,7 @@ class SalesService:
             )
 
     @command(
-        name="caja.abrir",
+        name="cash.open",
         description="Opens a physical cash box for the day with an initial amount.",
         params_model={"monto_inicial": "float"},
     )
@@ -327,7 +327,7 @@ class SalesService:
             )
 
     @command(
-        name="caja.cerrar",
+        name="cash.close",
         description="Closes the cash box and calculates the difference (Surcharge/Shortage).",
         params_model={"monto_real": "float"},
     )
@@ -375,7 +375,7 @@ class SalesService:
             )
 
     @command(
-        name="caja.status",
+        name="cash.status",
         description="Retrieves the current status of the cash box.",
         params_model={},
     )

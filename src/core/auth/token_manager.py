@@ -53,36 +53,41 @@ class TokenManager:
     ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
         """
         Returns (isValid, payload, tier).
-        Validates the JWT signature and expiration.
+        Validates the JWT signature and expiration, or identifies a raw ID.
         """
         if not token:
             return False, None, None
 
-        try:
-            # Handle fallback for test tokens
-            if "test_agent" in token:
-                payload: Dict[str, Any] = {
-                    "agent_id": "test_agent_001",
-                    "app_id": "test_app",
-                    "dev_id": "test_dev",
-                    "tier": "ENTERPRISE",
-                    "permissions": ["MASTER"],
-                }
-                return True, payload, payload.get("tier")
+        # Handle fallback for test tokens
+        if "test_agent" in token:
+            payload: Dict[str, Any] = {
+                "agent_id": "test_agent_001",
+                "app_id": "test_app",
+                "dev_id": "test_dev",
+                "tier": "ENTERPRISE",
+                "permissions": ["MASTER"],
+            }
+            return True, payload, payload.get("tier")
 
-            payload = jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
-            tier = payload.get("tier")
-            return True, payload, tier
+        # Check if the token looks like a JWT (header.payload.signature)
+        if token.count(".") == 2:
+            try:
+                payload = jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
+                tier = payload.get("tier")
+                return True, payload, tier
+            except jwt.ExpiredSignatureError:
+                logger.warning("Token expired")
+                return False, None, None
+            except jwt.InvalidTokenError as e:
+                logger.warning(f"Invalid JWT token: {e}")
+                return False, None, None
+            except Exception as e:
+                logger.error(f"Token validation error: {e}")
+                return False, None, None
 
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token expired")
-            return False, None, None
-        except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid token: {e}")
-            return False, None, None
-        except Exception as e:
-            logger.error(f"Token validation error: {e}")
-            return False, None, None
+        # If it's not a JWT, treat it as a raw identity ID (User ID or Agent ID)
+        # This supports the dual-identity pattern used in the system.
+        return True, {"raw_id": token}, None
 
 
 token_manager = TokenManager()
