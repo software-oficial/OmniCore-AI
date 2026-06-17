@@ -44,7 +44,12 @@ Un usuario puede tener varios agentes. Primero debes "dar de alta" un agente par
 ```json
 {
   "agent_name": "MiAgenteVentas",
-  "tier": "FREE"
+  "tier": "FREE",
+  "db_host": "localhost",
+  "db_port": 5432,
+  "db_user": "omni_admin",
+  "db_password": "secure_password",
+  "db_name": "omnicore_biz"
 }
 ```
 **Respuesta:** Obtendrás el `agent_id`. Este ID identifica al "trabajador" de IA.
