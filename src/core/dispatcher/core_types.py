@@ -90,6 +90,7 @@ class CoreContext:
         permissions: Optional[List[str]] = None,
         entity: str = "API",
         execution_strategy: str = "DIRECT",
+        settings: Optional[Dict[str, Any]] = None,
     ):
         self.agent_id = agent_id
         self.user_id = agent_id  # Defaulting user_id to agent_id
@@ -101,3 +102,4 @@ class CoreContext:
         self.permissions = permissions or []
         self.entity = entity
         self.execution_strategy = execution_strategy
+        self.settings = settings or {}

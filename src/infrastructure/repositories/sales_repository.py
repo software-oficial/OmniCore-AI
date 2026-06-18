@@ -16,46 +16,6 @@ class SalesRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    # --- User & Permission Management ---
-    def create_user(self, username: str, password: str) -> None:
-        self.session.execute(
-            text("INSERT INTO users (username, password) VALUES (:user, :pass)"),
-            {"user": username, "pass": password},
-        )
-
-    def update_user_role(self, username: str, role: str) -> int:
-        result = self.session.execute(
-            text("UPDATE users SET role = :role WHERE username = :user"),
-            {"role": role, "user": username},
-        )
-        return result.rowcount
-
-    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-        return (
-            self.session.execute(
-                text("SELECT id, username, role FROM users WHERE username = :u"),
-                {"u": username},
-            )
-            .mappings()
-            .first()
-        )
-
-    def grant_permission(self, user_id: int, permission_key: str) -> None:
-        self.session.execute(
-            text(
-                "INSERT INTO user_permissions (user_id, permission_key) VALUES (:uid, :perm) ON CONFLICT DO NOTHING"
-            ),
-            {"uid": user_id, "perm": permission_key},
-        )
-
-    def revoke_permission(self, user_id: int, permission_key: str) -> None:
-        self.session.execute(
-            text(
-                "DELETE FROM user_permissions WHERE user_id = :uid AND permission_key = :perm"
-            ),
-            {"uid": user_id, "perm": permission_key},
-        )
-
     # --- Cash Box Management ---
     def open_cash_box(self, monto_inicial: float) -> int:
         result = self.session.execute(

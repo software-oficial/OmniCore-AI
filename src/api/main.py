@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -30,6 +31,19 @@ app = FastAPI(
     title="OmniCore-AI Engine",
     description="The AI-Ready Business OS Gateway",
     version=config.VERSION,
+)
+
+# Hybrid CORS Configuration
+# Allows both internal (same-origin) and external (SaaS frontend) requests
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000"
+).split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

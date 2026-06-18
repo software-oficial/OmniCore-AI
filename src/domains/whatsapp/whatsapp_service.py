@@ -66,7 +66,9 @@ class WhatsappService:
         body: str,
         sender_type: str = "bot",
     ) -> ServiceResponse:
-        return MessageDeliveryUseCase(session).send_text_message(to, body, sender_type)
+        return MessageDeliveryUseCase(session, context).send_text_message(
+            to, body, sender_type
+        )
 
     @command(
         name="whatsapp.upload_media",
@@ -85,7 +87,7 @@ class WhatsappService:
         mime_type: str,
         file_content: bytes,
     ) -> ServiceResponse:
-        return MessageDeliveryUseCase(session).upload_media_file(
+        return MessageDeliveryUseCase(session, context).upload_media_file(
             filename, mime_type, file_content
         )
 
@@ -111,7 +113,7 @@ class WhatsappService:
         filename: str = "",
         sender_type: str = "bot",
     ) -> ServiceResponse:
-        return MessageDeliveryUseCase(session).send_media_message(
+        return MessageDeliveryUseCase(session, context).send_media_message(
             to, media_id, media_type, caption, filename, sender_type
         )
 

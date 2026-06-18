@@ -7,49 +7,72 @@ from src.application.stock_import_use_case import StockImportUseCase
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
 from src.core.dispatcher.decorators import command
 
-logger = logging.getLogger("OmniCore.ImportService")
+logger = logging.getLogger("OmniCore.StockImportService")
 
 
-class ImportService:
+class StockImportService:
     """
-    Thin Delegate for Inventory Import.
-    Handles the interaction between raw data formats and the Import Use Case.
+    Domain Layer: Exposes mass stock import capabilities as executable commands.
+    Allows the owner to upload product lists via CSV/Excel and map them to internal fields.
     """
 
-    def __init__(self):
-        self.logger = logging.getLogger("ImportService")
-
+    @command(
+        name="stock.import.preview",
+        description="Previews a stock import by automatically detecting column mapping.",
+        params_model={"raw_data": "list", "custom_mapping": "dict"},
+    )
     def preview_import(
         self,
         session: Session,
         context: CoreContext,
         raw_data: List[Dict[str, Any]],
         custom_mapping: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Previsualiza la importación aplicando el mapeo.
-        Devuelve los datos transformados para que el usuario los valide antes del commit.
-        """
-        # Note: The mapping logic is now handled by the Use Case for architectural consistency
-        use_case = StockImportUseCase(session)
-        return use_case.preview_import(raw_data, custom_mapping)
-
-    @command(
-        name="stock.import.commit",
-        description="Commits a previously previewed import to the inventory.",
-        params_model={"import_id": "string"},
-    )
-    def commit_import(
-        self, session: Session, context: CoreContext, data_list: List[Dict[str, Any]]
     ) -> ServiceResponse:
         """
-        Inserta la lista de productos validados en el inventario del tenant.
+        Processes raw data and returns a preview of how it will be mapped.
         """
-        # The logic of iterating and calling add_product is now in StockImportUseCase.execute_bulk_add
-        # We extract the 'mapped' data from the preview result list
-        mapped_products = [item.get("mapped", {}) for item in data_list]
-        return StockImportUseCase(session).execute_bulk_add(context, mapped_products)
+        try:
+            use_case = StockImportUseCase(session)
+            preview = use_case.preview_import(raw_data, custom_mapping)
+
+            if preview.get("status") == "error":
+                return ServiceResponse.error_res(
+                    preview["message"], "IMPORT_PREVIEW_ERROR"
+                )
+
+            return ServiceResponse.success_res(
+                data=preview, message="Import preview generated successfully."
+            )
+        except Exception as e:
+            logger.error(f"Error in preview_import command: {e}")
+            return ServiceResponse.error_res(
+                f"Internal error during preview: {str(e)}", "IMPORT_PREVIEW_ERROR"
+            )
+
+    @command(
+        name="stock.import.execute",
+        description="Executes the bulk import of products using a validated mapping.",
+        params_model={"raw_data": "list", "mapping": "dict"},
+    )
+    def execute_import(
+        self,
+        session: Session,
+        context: CoreContext,
+        raw_data: List[Dict[str, Any]],
+        mapping: Dict[str, str],
+    ) -> ServiceResponse:
+        """
+        Applies the mapping and performs the bulk upsert of products into the DB.
+        """
+        try:
+            use_case = StockImportUseCase(session)
+            return use_case.execute_mapped_import(context, raw_data, mapping)
+        except Exception as e:
+            logger.error(f"Error in execute_import command: {e}")
+            return ServiceResponse.error_res(
+                f"Internal error during execution: {str(e)}", "IMPORT_EXEC_ERROR"
+            )
 
 
-# Singleton para acceso global
-import_service = ImportService()
+# Singleton
+stock_import_service = StockImportService()

@@ -1,5 +1,4 @@
 import logging
-import os
 from io import BytesIO
 from typing import Any, Dict, Optional
 
@@ -14,9 +13,9 @@ class WhatsappApiGateway:
     Decouples the application logic from HTTP transport and API specifics.
     """
 
-    def __init__(self):
-        self.token = os.getenv("WHATSAPP_BUSINESS_API_TOKEN", "")
-        self.phone_id = os.getenv("WHATSAPP_PHONE_ID", "880275461842101")
+    def __init__(self, token: str, phone_id: str):
+        self.token = token
+        self.phone_id = phone_id
         self.base_url = "https://graph.facebook.com/v19.0"
 
     def _get_headers(

@@ -3,7 +3,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
-from src.infrastructure.repositories.sales_repository import SalesRepository
+from src.infrastructure.repositories.user_repository import UserRepository
 
 logger = logging.getLogger("OmniCore.UserManagementUseCase")
 
@@ -16,7 +16,7 @@ class UserManagementUseCase:
     def __init__(self, session: Session, context: CoreContext):
         self.session = session
         self.context = context
-        self.repo = SalesRepository(session)
+        self.repo = UserRepository(session)
 
     def create_employee(
         self, username: str, password: str, role: str = "employee"

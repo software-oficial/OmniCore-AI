@@ -2,7 +2,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from src.core.dispatcher.core_types import ServiceResponse
+from src.core.dispatcher.core_types import CoreContext, ServiceResponse
 from src.infrastructure.gateways.whatsapp_api_gateway import WhatsappApiGateway
 from src.infrastructure.repositories.whatsapp_repository import WhatsappRepository
 
@@ -14,9 +14,14 @@ class MessageDeliveryUseCase:
     Application Layer: Orchestrates the sending of messages and their auditing.
     """
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, context: CoreContext):
         self.repo = WhatsappRepository(session)
-        self.api = WhatsappApiGateway()
+
+        # Extract dynamic credentials from CoreContext
+        token = context.settings.get("whatsapp_api_token", "")
+        phone_id = context.settings.get("whatsapp_phone_id", "")
+
+        self.api = WhatsappApiGateway(token=token, phone_id=phone_id)
 
     def send_text_message(
         self, to: str, body: str, sender_type: str = "bot"

@@ -9,6 +9,7 @@ from src.core.dispatcher.validator import RequestValidator
 from src.core.governance.governance_service import governance_service
 from src.core.module_loader import module_loader
 from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.core.settings_service import settings_service
 from src.infrastructure.db.db_manager import db_manager
 from src.infrastructure.validation.sanitizer import sanitizer
 
@@ -133,6 +134,11 @@ class CommandDispatcher:
                 async with db_manager.get_session(
                     ctx.app_id, ctx.db_config, ctx.tier
                 ) as session:
+                    # Inject Dynamic Business Settings with Cache
+                    ctx.settings = settings_service.get_all_settings(
+                        session, ctx.app_id
+                    )
+
                     if asyncio.iscoroutinefunction(handler):
                         result = await handler(
                             session=session, context=ctx, **filtered_params
