@@ -1,8 +1,15 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from src.core.auth.auth_service import auth_service
 from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.domains.sales.sales_service import sales_service
+from src.domains.stock.stock_service import stock_service
+
+# Added for Injection Endpoints
+from src.domains.system.user_service import user_service
 from src.infrastructure.db.core_db_manager import core_db_manager
 from src.infrastructure.logging.omni_logger import logger
 
@@ -61,6 +68,26 @@ class MapCommandPlanRequest(BaseModel):
         json_schema_extra={"example": "PLAN_ORO"},
         description="The minimum tier required to execute this command",
     )
+
+
+class InjectUserRequest(BaseModel):
+    username: str = Field(..., example="admin_test")
+    password: str = Field(..., example="password123")
+    role: str = Field("employee", example="manager")
+
+
+class InjectProductRequest(BaseModel):
+    code: str = Field(..., example="PROD-001")
+    name: str = Field(..., example="Product Test")
+    price: float = Field(..., example=10.5)
+    quantity: int = Field(..., example=100)
+    category: Optional[str] = Field(None, example="General")
+    is_weight: bool = Field(False)
+
+
+class InjectAliasRequest(BaseModel):
+    nombre: str = Field(..., example="AliasTest")
+    limite: float = Field(..., example=5000.0)
 
 
 class GenerateClientTokenRequest(BaseModel):
@@ -310,3 +337,99 @@ async def list_command_requirements():
         .all()
     )
     return {"success": True, "data": [dict(r) for r in reqs]}
+
+
+# --- Data Injection Endpoints (For Testing Flow) ---
+
+
+@router.post("/clients/{app_id}/inject/user", dependencies=[Depends(verify_dev_access)])
+async def inject_user(app_id: str, payload: InjectUserRequest):
+    """Injects a user directly into the client's business DB."""
+    from src.core.dispatcher.core_types import CoreContext
+    from src.infrastructure.db.db_manager import db_manager
+
+    app_info = infrastructure_registry.get_app_by_id(app_id)
+    if not app_info:
+        raise HTTPException(status_code=404, detail="App not found")
+
+    ctx = CoreContext(
+        agent_id="dev_inject",
+        app_id=app_id,
+        dev_id="SYSTEM",
+        mode="TEST",
+        db_config=app_info["db_config"],
+        tier=app_info["tier"],
+    )
+
+    async with db_manager.get_session(
+        app_id, app_info["db_config"], app_info["tier"]
+    ) as session:
+        res = user_service.create_user(
+            session, ctx, payload.username, payload.password, payload.role
+        )
+        return res.to_dict()
+
+
+@router.post(
+    "/clients/{app_id}/inject/product", dependencies=[Depends(verify_dev_access)]
+)
+async def inject_product(app_id: str, payload: InjectProductRequest):
+    """Injects a product/variant directly into the client's business DB."""
+    from src.core.dispatcher.core_types import CoreContext
+    from src.infrastructure.db.db_manager import db_manager
+
+    app_info = infrastructure_registry.get_app_by_id(app_id)
+    if not app_info:
+        raise HTTPException(status_code=404, detail="App not found")
+
+    ctx = CoreContext(
+        agent_id="dev_inject",
+        app_id=app_id,
+        dev_id="SYSTEM",
+        mode="TEST",
+        db_config=app_info["db_config"],
+        tier=app_info["tier"],
+    )
+
+    async with db_manager.get_session(
+        app_id, app_info["db_config"], app_info["tier"]
+    ) as session:
+        res = stock_service.add_product(
+            session,
+            ctx,
+            code=payload.code,
+            name=payload.name,
+            price=payload.price,
+            quantity=payload.quantity,
+            category=payload.category,
+            is_weight=payload.is_weight,
+        )
+        return res.to_dict()
+
+
+@router.post(
+    "/clients/{app_id}/inject/alias", dependencies=[Depends(verify_dev_access)]
+)
+async def inject_alias(app_id: str, payload: InjectAliasRequest):
+    """Injects a payment alias directly into the client's business DB."""
+    from src.core.dispatcher.core_types import CoreContext
+    from src.infrastructure.db.db_manager import db_manager
+
+    app_info = infrastructure_registry.get_app_by_id(app_id)
+    if not app_info:
+        raise HTTPException(status_code=404, detail="App not found")
+
+    ctx = CoreContext(
+        agent_id="dev_inject",
+        app_id=app_id,
+        dev_id="SYSTEM",
+        mode="TEST",
+        db_config=app_info["db_config"],
+        tier=app_info["tier"],
+    )
+
+    async with db_manager.get_session(
+        app_id, app_info["db_config"], app_info["tier"]
+    ) as session:
+        res = sales_service.add_alias(session, ctx, payload.nombre, payload.limite)
+        return res.to_dict()
