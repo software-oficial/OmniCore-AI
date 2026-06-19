@@ -56,6 +56,70 @@ async def update_business_setting(
 # --- Resource: Team Management ---
 
 
+@router.get("/credentials")
+async def list_credentials(
+    request: Request,
+    response: Response,
+    token: str = Depends(get_token),
+    service_type: Optional[str] = None,
+):
+    """
+    GET /api/business/credentials
+    Lists all service credentials for the business.
+    Supports filtering by service_type (e.g., ?service_type=WHATSAPP).
+    """
+    response.headers["Cache-Control"] = "no-cache"
+
+    params = {"service_type": service_type}
+    result = await ai_gateway.execute("system.credentials.list", token, params, request)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+    return result.to_dict()
+
+
+@router.post("/credentials")
+async def create_credential(
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    token: str = Depends(get_token),
+):
+    """
+    POST /api/business/credentials
+    Creates a new service credential.
+    Payload: {label, service_type, provider_id, config}
+    """
+    result = await ai_gateway.execute(
+        "system.credentials.create", token, payload, request
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+    return result.to_dict()
+
+
+@router.patch("/credentials/{credential_id}/status")
+async def update_credential_status(
+    credential_id: str,
+    request: Request,
+    payload: Dict[str, Any] = Body(...),
+    token: str = Depends(get_token),
+):
+    """
+    PATCH /api/business/credentials/{credential_id}/status
+    Updates the active status of a credential.
+    Payload: {is_active: boolean}
+    """
+    params = {"credential_id": credential_id, **payload}
+    result = await ai_gateway.execute(
+        "system.credentials.update_status", token, params, request
+    )
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+    return result.to_dict()
+
+
+# --- Resource: Team Management ---
+
+
 @router.get("/team")
 async def list_team(
     request: Request, response: Response, token: str = Depends(get_token)
