@@ -21,6 +21,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <Link to="/pagos" className="p-2 hover:bg-slate-700 rounded-lg transition flex items-center gap-3">
             <span>💳</span> Pasarela de Pagos
           </Link>
+          <Link to="/accounts" className="p-2 hover:bg-slate-700 rounded-lg transition flex items-center gap-3">
+            <span>🔑</span> Cuentas de Servicio
+          </Link>
           
           <div className="my-4 border-t border-slate-700"></div>
           <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Administración</p>
