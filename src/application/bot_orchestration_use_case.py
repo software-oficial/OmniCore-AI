@@ -27,18 +27,25 @@ class BotOrchestrationUseCase:
     ) -> ServiceResponse:
         try:
             text_clean = text.strip().lower()
+            cid = context.credential_id
+
+            if not cid:
+                return ServiceResponse.error_res(
+                    "credential_id is required for bot orchestration.",
+                    "CREDENTIAL_REQUIRED",
+                )
 
             # 1. Resolve and Validate Conversation
-            conv = self.repo.get_conversation(phone_number)
+            conv = self.repo.get_conversation(phone_number, cid)
             if not conv:
-                self.repo.create_conversation(phone_number)
-                conv = self.repo.get_conversation(phone_number)
+                self.repo.create_conversation(phone_number, cid)
+                conv = self.repo.get_conversation(phone_number, cid)
                 if not conv:
                     return ServiceResponse.error_res(
                         "Could not initialize conversation", "CONV_INIT_ERROR"
                     )
 
-            if conv["is_human_intervening"]:
+            if conv["status"] == "PENDING_HUMAN":
                 return ServiceResponse.success_res(
                     message="Human mode active", data={"silence": True}
                 )
@@ -53,46 +60,54 @@ class BotOrchestrationUseCase:
                 "volver",
                 "menú",
             ]:
-                self.repo.update_conversation_menu(phone_number, "main")
+                self.repo.update_conversation_node(phone_number, cid, "main")
                 return self.menu_mgmt.get_formatted_menu("main")
 
-            # 3. Menu Navigation
-            current_menu_name = conv["current_menu"]
-            menu_struct = self.menu_mgmt.get_menu_structure(current_menu_name)
+            # 3. Menu Navigation (Bot Flows)
+            current_node = conv["current_node"]
+            node_struct = self.repo.get_flow_node(current_node, cid)
 
-            if menu_struct:
-                options = menu_struct.get("options", [])
+            if node_struct:
+                options = node_struct.get("options", [])
                 chosen_opt = None
 
-                # Flexible Resolution: Match by Index, Technical Key, or Visible Label
+                # Resolve options (similar logic to before, but based on flow options)
+                # Note: In a real scenario, options would be parsed from JSON
+                import json
+
+                try:
+                    if isinstance(options, str):
+                        options = json.loads(options)
+                except:
+                    pass
+
                 for idx, opt in enumerate(options, 1):
-                    # 1. Match by Index (e.g., "1")
                     if text_clean == str(idx):
                         chosen_opt = opt
                         break
-                    # 2. Match by Technical Key (e.g., "soporte")
                     if (
                         "option_key" in opt
                         and text_clean == str(opt["option_key"]).lower()
                     ):
                         chosen_opt = opt
                         break
-                    # 3. Match by Visible Label (e.g., "Hablar con un asesor")
-                    label = opt.get("label", "")
-                    if text_clean == str(label).lower():
+                    if text_clean == str(opt.get("label", "")).lower():
                         chosen_opt = opt
                         break
 
                 if chosen_opt:
-                    action_type = chosen_opt["action_type"]
-                    action_value = chosen_opt["value"]
+                    action_type = chosen_opt.get("action_type")
+                    action_value = chosen_opt.get("value")
 
                     if action_type == "NAVIGATE":
-                        self.repo.update_conversation_menu(phone_number, action_value)
+                        self.repo.update_conversation_node(
+                            phone_number, cid, action_value
+                        )
+                        # We reuse menu_mgmt to format the response for the new node
                         return self.menu_mgmt.get_formatted_menu(action_value)
 
                     if action_type == "HUMAN":
-                        self.conv_mgmt.toggle_human_mode(phone_number, True)
+                        self.conv_mgmt.toggle_human_mode(phone_number, True, cid)
                         return ServiceResponse.success_res(
                             message="Transferring to a human agent..."
                         )
@@ -101,24 +116,26 @@ class BotOrchestrationUseCase:
                         return ServiceResponse.success_res(
                             data={
                                 "action": "EXECUTE_COMMAND",
-                                "command": chosen_opt["command_name"],
+                                "command": chosen_opt.get("command_name"),
                             },
-                            message=f"Executing action: {chosen_opt['command_name']}",
+                            message=f"Executing action: {chosen_opt.get('command_name')}",
                         )
 
-            # 4. Category Switching (Direct menu name match)
-            all_menus = self.repo.list_all_menus()
-            for m in all_menus:
-                if text_clean == m["menu_name"].lower():
-                    self.repo.update_conversation_menu(phone_number, m["menu_name"])
-                    return self.menu_mgmt.get_formatted_menu(m["menu_name"])
+            # 4. Node Switching (Direct node name match)
+            all_nodes = self.repo.list_all_nodes(cid)
+            for node in all_nodes:
+                if text_clean == node["node_id"].lower():
+                    self.repo.update_conversation_node(
+                        phone_number, cid, node["node_id"]
+                    )
+                    return self.menu_mgmt.get_formatted_menu(node["node_id"])
 
             # 5. Fallback
-            fallback = (
-                self.repo.get_setting("fallback_message")
+            fallback_msg = (
+                context.settings.get("fallback_message")
                 or "No he entendido. Escribe 'menu' para opciones."
             )
-            return ServiceResponse.success_res(message=fallback)
+            return ServiceResponse.success_res(message=fallback_msg)
 
         except Exception as e:
             logger.error(f"Orchestration error for {phone_number}: {e}")

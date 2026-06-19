@@ -1,44 +1,52 @@
--- OmniCore-AI Sales & Payments Blueprint
--- This SQL should be executed by the developer in their external database.
+-- PAYMENTS SECTOR: MULTI-ACCOUNT FINANCIAL ARCHITECTURE
 
--- Sales Table
+-- 1. Transactions (The "Money Trail" linked to a specific credential)
+CREATE TABLE IF NOT EXISTS transactions (
+    transaction_id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id),
+    credential_id TEXT REFERENCES service_credentials(id),
+    amount DECIMAL(12,2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'USD',
+    status VARCHAR(20) NOT NULL, -- 'PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'
+    gateway_ref TEXT, -- MP Payment ID
+    payment_method VARCHAR(50), -- 'MercadoPago', 'Transfer', 'Cash'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Sales (The "Business Deal")
 CREATE TABLE IF NOT EXISTS sales (
     id SERIAL PRIMARY KEY,
-    client_name VARCHAR(255) NOT NULL,
-    client_email VARCHAR(255),
-    total_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- PENDING, PAID, CANCELLED, COMPLETED
-    payment_method VARCHAR(50), -- CASH, CREDIT_CARD, TRANSFER, MP
-    payment_reference VARCHAR(255),
-    paga_con DECIMAL(12, 2) DEFAULT 0.00,
-    vuelto DECIMAL(12, 2) DEFAULT 0.00,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    transaction_id TEXT REFERENCES transactions(transaction_id),
+    client_name VARCHAR(255),
+    total_amount DECIMAL(12,2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'COMPLETED',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sale Items Table
+-- 3. Sale Items (The "What was sold")
 CREATE TABLE IF NOT EXISTS sale_items (
     id SERIAL PRIMARY KEY,
-    sale_id INTEGER REFERENCES sales(id) ON DELETE CASCADE,
-    product_code VARCHAR(50) NOT NULL,
-    quantity INTEGER NOT NULL,
-    unit_price DECIMAL(12, 2) NOT NULL,
-    subtotal DECIMAL(12, 2) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    sale_id INT REFERENCES sales(id) ON DELETE CASCADE,
+    sku TEXT, -- Link to product_variants
+    quantity INT NOT NULL,
+    unit_price DECIMAL(12,2) NOT NULL,
+    subtotal DECIMAL(12,2) NOT NULL
 );
 
--- Cash Box Table (For Physical Store Management)
+-- 4. Cash Box (The "Daily Control" per credential/store)
 CREATE TABLE IF NOT EXISTS cash_box (
     id SERIAL PRIMARY KEY,
+    credential_id TEXT REFERENCES service_credentials(id),
     abierta BOOLEAN DEFAULT FALSE,
-    efectivo_inicial DECIMAL(12, 2) DEFAULT 0.00,
-    ventas_efectivo DECIMAL(12, 2) DEFAULT 0.00,
-    ventas_digital DECIMAL(12, 2) DEFAULT 0.00,
-    monto_cierre_real DECIMAL(12, 2),
-    hora_apertura TIMESTAMP WITH TIME ZONE,
-    hora_cierre TIMESTAMP WITH TIME ZONE
+    efectivo_inicial DECIMAL(12,2) DEFAULT 0,
+    ventas_efectivo DECIMAL(12,2) DEFAULT 0,
+    ventas_digital DECIMAL(12,2) DEFAULT 0,
+    hora_apertura TIMESTAMP,
+    hora_cierre TIMESTAMP,
+    monto_cierre_real DECIMAL(12,2),
+    last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status);
-CREATE INDEX IF NOT EXISTS idx_sales_client ON sales(client_name);
-CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
+CREATE INDEX IF NOT EXISTS idx_trans_cred ON transactions(credential_id);
+CREATE INDEX IF NOT EXISTS idx_cash_cred ON cash_box(credential_id);

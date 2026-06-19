@@ -17,8 +17,8 @@ logger = logging.getLogger("OmniCore.StockService")
 class ProductImportItem(BaseModel):
     """Strict model for a product import item."""
 
-    code: str = Field(..., description="Unique SKU/code of the product")
-    name: str = Field(..., description="Full name of the product")
+    code: str = Field(..., description="Unique SKU/code of the variant")
+    name: str = Field(..., description="Name of the product")
     price: float = Field(..., gt=0, description="Unit price must be positive")
     quantity: int = Field(..., ge=0, description="Initial quantity")
     category: Optional[str] = Field(None, description="Product category")
@@ -36,7 +36,7 @@ class StockImportModel(BaseModel):
 class StockAuditItem(BaseModel):
     """Strict model for an audit entry."""
 
-    code: str = Field(..., description="Unique SKU/code of the product")
+    code: str = Field(..., description="Unique SKU/code of the variant")
     physical_count: int = Field(
         ..., ge=0, description="Actual count found during audit"
     )
@@ -52,13 +52,13 @@ class StockAuditModel(BaseModel):
 
 class StockService:
     """
-    Thin Delegate for Stock Management.
-    Orchestrates the execution of Use Cases.
+    Professional Stock Management Service.
+    Handles the relation between Products and Variants with a full Ledger audit trail.
     """
 
     @command(
         name="stock.sync_delta",
-        description="Retrieves only the products that have changed since a given timestamp. Optimized for mobile app synchronization.",
+        description="Retrieves variants that have changed since a timestamp. Optimized for sync.",
         params_model={"since": "string"},
     )
     def get_sync_delta(
@@ -68,7 +68,7 @@ class StockService:
 
     @command(
         name="stock.import_validated",
-        description="Imports products from a list, performing a pre-validation check to avoid partial corruption.",
+        description="Imports products and variants with pre-validation.",
         params_model=StockImportModel,
     )
     def import_validated(
@@ -77,22 +77,8 @@ class StockService:
         return StockImportUseCase(session).execute_validated_import(context, products)
 
     @command(
-        name="stock.import_with_mapping",
-        description="Imports products using a dynamic mapping definition. Translates user-defined column names to internal fields.",
-        params_model={"data": "list[dict]", "mapping": "dict"},
-    )
-    def import_with_mapping(
-        self,
-        session: Session,
-        context: CoreContext,
-        data: List[Dict[str, Any]],
-        mapping: Dict[str, str],
-    ) -> ServiceResponse:
-        return StockImportUseCase(session).execute_mapped_import(context, data, mapping)
-
-    @command(
         name="stock.add",
-        description="Adds a new product and records the initial movement in the ledger. Upserts if code exists.",
+        description="Adds a product and its primary variant. Upserts if SKU exists.",
         params_model={
             "code": "string",
             "name": "string",
@@ -119,7 +105,7 @@ class StockService:
 
     @command(
         name="stock.get",
-        description="Retrieves a single product by its unique code.",
+        description="Retrieves a variant and its parent product data.",
         params_model={"code": "string"},
     )
     def get_product(
@@ -129,7 +115,7 @@ class StockService:
 
     @command(
         name="stock.update",
-        description="Updates the quantity of a product using atomic transactions. Prevents negative stock.",
+        description="Updates variant quantity and records the movement in the ledger.",
         params_model={"code": "string", "quantity": "int", "reason": "string"},
     )
     def update_stock(
@@ -146,7 +132,7 @@ class StockService:
 
     @command(
         name="stock.list",
-        description="Lists products, optionally filtered by category or text search.",
+        description="Lists variants, optionally filtered by parent category.",
         params_model={"category": "string", "filter_text": "string"},
     )
     def list_products(
@@ -162,7 +148,7 @@ class StockService:
 
     @command(
         name="stock.history",
-        description="Retrieves the movement history for a specific product.",
+        description="Retrieves the full ledger history for a specific SKU.",
         params_model={"code": "string"},
     )
     def get_stock_history(
@@ -172,7 +158,7 @@ class StockService:
 
     @command(
         name="stock.low",
-        description="Lists products that are below the critical threshold.",
+        description="Lists variants below their specific min_threshold.",
         params_model={"threshold": "float"},
     )
     def get_low_stock(
@@ -182,7 +168,7 @@ class StockService:
 
     @command(
         name="stock.delete",
-        description="Deletes a product from the inventory.",
+        description="Deletes a variant and its stock records.",
         params_model={"code": "string"},
     )
     def delete_product(
@@ -192,7 +178,7 @@ class StockService:
 
     @command(
         name="stock.bulk_add",
-        description="Adds multiple products in a single transaction. Optimized for large imports.",
+        description="Adds multiple variants in a single transaction.",
         params_model=StockImportModel,
     )
     def bulk_add_products(
@@ -202,7 +188,7 @@ class StockService:
 
     @command(
         name="stock.audit_inventory",
-        description="Performs a full inventory audit by comparing recorded stock with a physical count. Records discrepancies in the ledger.",
+        description="Performs a full audit and records discrepancies in the ledger.",
         params_model=StockAuditModel,
     )
     def audit_inventory(
@@ -212,7 +198,7 @@ class StockService:
 
     @command(
         name="stock.transfer",
-        description="Transfers stock between different warehouse locations or zones.",
+        description="Transfers stock between zones, recording ledger movements.",
         params_model={
             "code": "string",
             "amount": "int",

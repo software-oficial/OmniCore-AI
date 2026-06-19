@@ -1,6 +1,4 @@
-# Initial schema for the internal registry
-# This file acts as the source of truth for the core database structure.
-
+-- CORE IDENTITY SECTOR
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -8,6 +6,39 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    full_name VARCHAR(255),
+    phone VARCHAR(50),
+    address TEXT,
+    avatar_url TEXT,
+    timezone VARCHAR(50) DEFAULT 'UTC'
+);
+
+CREATE TABLE IF NOT EXISTS user_permissions (
+    user_id TEXT REFERENCES users(id),
+    permission_key TEXT,
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, permission_key)
+);
+
+-- SERVICE VARIANTS SECTOR (Multi-Account Management)
+CREATE TABLE IF NOT EXISTS service_credentials (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    service_type VARCHAR(50) NOT NULL, -- 'WHATSAPP', 'MERCADOPAGO', 'STRIPE', 'PAYPAL', etc.
+    provider_id VARCHAR(255), -- External ID from the provider
+    config JSONB NOT NULL, -- Store tokens, secrets, keys here
+    label VARCHAR(255), -- e.g., "Store North", "Support Bot"
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_credentials_user ON service_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_credentials_type ON service_credentials(service_type);
+
+-- INFRASTRUCTURE REGISTRY
 CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,

@@ -20,9 +20,11 @@ class ConversationManagementUseCase:
         self.repo = WhatsappRepository(session)
         self.cache = cache_manager
 
-    def toggle_human_mode(self, phone_number: str, status: bool) -> ServiceResponse:
+    def toggle_human_mode(
+        self, phone_number: str, status: bool, credential_id: str
+    ) -> ServiceResponse:
         try:
-            self.repo.set_human_mode(phone_number, status)
+            self.repo.set_human_mode(phone_number, credential_id, status)
             return ServiceResponse.success_res(
                 message=f"Conversation mode updated to {'Human' if status else 'Bot'}."
             )
@@ -30,9 +32,11 @@ class ConversationManagementUseCase:
             logger.error(f"Error updating human mode for {phone_number}: {e}")
             return ServiceResponse.error_res(f"Update failed: {str(e)}", "DB_ERROR")
 
-    def get_conversation_status(self, phone_number: str) -> ServiceResponse:
+    def get_conversation_status(
+        self, phone_number: str, credential_id: str
+    ) -> ServiceResponse:
         try:
-            conv = self.repo.get_conversation(phone_number)
+            conv = self.repo.get_conversation(phone_number, credential_id)
             if not conv:
                 return ServiceResponse.error_res("Conversation not found", "NOT_FOUND")
 
@@ -45,13 +49,15 @@ class ConversationManagementUseCase:
 
     def get_state(self, context: CoreContext, sender: str) -> Dict[str, Any]:
         """Hybrid state recovery: Redis L1 -> DB L2."""
-        cache_key = f"bot_state:{context.app_id}:{sender}"
+        # Use credential_id in cache key to isolate states per instance
+        cid = context.credential_id or "default"
+        cache_key = f"bot_state:{context.app_id}:{cid}:{sender}"
         try:
             cached_state = self.cache.get_session_context(cache_key)
             if cached_state:
                 return cached_state
 
-            state_json = self.repo.get_state(sender)
+            state_json = self.repo.get_state(sender, cid)
             if state_json:
                 state_data = json.loads(state_json)
                 self.cache.set_session_context(cache_key, state_data, ttl=3600)
@@ -67,10 +73,11 @@ class ConversationManagementUseCase:
     ) -> ServiceResponse:
         """Hybrid state persistence: Redis L1 + DB L2."""
         try:
-            cache_key = f"bot_state:{context.app_id}:{sender}"
+            cid = context.credential_id or "default"
+            cache_key = f"bot_state:{context.app_id}:{cid}:{sender}"
             self.cache.set_session_context(cache_key, state, ttl=3600)
 
-            self.repo.save_state(sender, json.dumps(state))
+            self.repo.save_state(sender, cid, json.dumps(state))
             return ServiceResponse.success_res(message="State updated and persisted.")
         except Exception as e:
             logger.error(f"Error saving state for {sender}: {e}")
@@ -80,11 +87,12 @@ class ConversationManagementUseCase:
 
     def clear_state(self, context: CoreContext, sender: str) -> ServiceResponse:
         try:
-            cache_key = f"bot_state:{context.app_id}:{sender}"
+            cid = context.credential_id or "default"
+            cache_key = f"bot_state:{context.app_id}:{cid}:{sender}"
             if self.cache.client:
                 self.cache.client.delete(cache_key)
 
-            self.repo.delete_state(sender)
+            self.repo.delete_state(sender, cid)
             return ServiceResponse.success_res(message="State cleared.")
         except Exception as e:
             logger.error(f"Error clearing state for {sender}: {e}")

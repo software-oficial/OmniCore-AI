@@ -294,27 +294,36 @@ class SalesService:
     @command(
         name="cash.open",
         description="Opens a physical cash box for the day with an initial amount.",
-        params_model={"monto_inicial": "float"},
+        params_model={"monto_inicial": "float", "credential_id": "string"},
     )
     def open_cash_box(
         self, session: Session, context: CoreContext, monto_inicial: float
     ) -> ServiceResponse:
         """Opens a physical cash box for the day."""
+        if not context.credential_id:
+            return ServiceResponse.error_res(
+                "credential_id is required for cash box operations.",
+                "CREDENTIAL_REQUIRED",
+            )
         try:
             query = text(
                 """
                 UPDATE cash_box 
                 SET abierta = true, efectivo_inicial = :monto, ventas_efectivo = 0, ventas_digital = 0, hora_apertura = CURRENT_TIMESTAMP 
-                WHERE id = 1
+                WHERE credential_id = :cid
             """
             )
             result = cast(
-                CursorResult, session.execute(query, {"monto": monto_inicial})
+                CursorResult,
+                session.execute(
+                    query, {"monto": monto_inicial, "cid": context.credential_id}
+                ),
             )
 
             if result.rowcount == 0:
                 return ServiceResponse.error_res(
-                    "Cash box not found", "CASH_BOX_NOT_FOUND"
+                    "Cash box not found for the specified credential",
+                    "CASH_BOX_NOT_FOUND",
                 )
 
             return ServiceResponse.success_res(

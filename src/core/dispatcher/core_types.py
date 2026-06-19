@@ -103,3 +103,4 @@ class CoreContext:
         self.entity = entity
         self.execution_strategy = execution_strategy
         self.settings = settings or {}
+        self.credential_id: Optional[str] = None

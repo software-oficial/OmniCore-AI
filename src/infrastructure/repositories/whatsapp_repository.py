@@ -10,176 +10,187 @@ logger = logging.getLogger("OmniCore.WhatsappRepository")
 class WhatsappRepository:
     """
     Infrastructure Layer: Encapsulates all SQL operations for the WhatsApp domain.
-    Standardizes access to conversations, menus, settings and states.
+    Aligned with Multi-Account Architecture.
     """
 
     def __init__(self, session: Session):
         self.session = session
 
-    # --- Configuration & Settings ---
-    def update_setting(self, key: str, value: str) -> None:
-        self.session.execute(
-            text(
-                "INSERT INTO bot_settings (key, value) VALUES (:key, :value) ON CONFLICT(key) DO UPDATE SET value = :value"
-            ),
-            {"key": key, "value": value},
-        )
-
-    def get_all_settings(self) -> Dict[str, str]:
-        result = (
-            self.session.execute(text("SELECT key, value FROM bot_settings"))
-            .mappings()
-            .all()
-        )
-        return {row["key"]: row["value"] for row in result}
-
-    def get_setting(self, key: str) -> Optional[str]:
-        return self.session.execute(
-            text("SELECT value FROM bot_settings WHERE key = :key"), {"key": key}
-        ).scalar()
-
     # --- Conversation Management ---
-    def get_conversation(self, phone_number: str) -> Optional[Dict[str, Any]]:
+    def get_conversation(
+        self, phone_number: str, credential_id: str
+    ) -> Optional[Dict[str, Any]]:
         return (
             self.session.execute(
                 text(
-                    "SELECT * FROM whatsapp_conversations WHERE phone_number = :phone"
+                    "SELECT * FROM chat_sessions WHERE phone = :phone AND credential_id = :cid"
                 ),
-                {"phone": phone_number},
+                {"phone": phone_number, "cid": credential_id},
             )
             .mappings()
             .first()
         )
 
     def create_conversation(
-        self, phone_number: str, current_menu: str = "main"
+        self, phone_number: str, credential_id: str, current_node: str = "main"
+    ) -> None:
+        # Ensure contact exists first
+        self.session.execute(
+            text(
+                "INSERT INTO contacts (phone) VALUES (:phone) ON CONFLICT (phone) DO NOTHING"
+            ),
+            {"phone": phone_number},
+        )
+
+        self.session.execute(
+            text(
+                """
+                INSERT INTO chat_sessions (session_id, phone, credential_id, current_node, status) 
+                VALUES (:sid, :phone, :cid, :node, 'ACTIVE') 
+                ON CONFLICT (session_id) DO NOTHING
+                """
+            ),
+            {
+                "sid": f"sess_{phone_number}_{credential_id}",
+                "phone": phone_number,
+                "cid": credential_id,
+                "node": current_node,
+            },
+        )
+
+    def update_conversation_node(
+        self, phone_number: str, credential_id: str, node_name: str
     ) -> None:
         self.session.execute(
             text(
-                "INSERT INTO whatsapp_conversations (phone_number, current_menu) VALUES (:phone, :menu) ON CONFLICT DO NOTHING"
+                """
+                UPDATE chat_sessions 
+                SET current_node = :node, updated_at = CURRENT_TIMESTAMP 
+                WHERE phone = :phone AND credential_id = :cid
+                """
             ),
-            {"phone": phone_number, "menu": current_menu},
+            {"node": node_name, "phone": phone_number, "cid": credential_id},
         )
 
-    def update_conversation_menu(self, phone_number: str, menu_name: str) -> None:
+    def set_human_mode(
+        self, phone_number: str, credential_id: str, status: bool
+    ) -> None:
+        # In blueprint, status is 'ACTIVE', 'COMPLETED', 'PENDING_HUMAN'
+        status_val = "PENDING_HUMAN" if status else "ACTIVE"
         self.session.execute(
             text(
-                "UPDATE whatsapp_conversations SET current_menu = :menu, last_interaction = CURRENT_TIMESTAMP WHERE phone_number = :phone"
+                """
+                UPDATE chat_sessions 
+                SET status = :status, updated_at = CURRENT_TIMESTAMP 
+                WHERE phone = :phone AND credential_id = :cid
+                """
             ),
-            {"menu": menu_name, "phone": phone_number},
+            {"status": status_val, "phone": phone_number, "cid": credential_id},
         )
 
-    def set_human_mode(self, phone_number: str, status: bool) -> None:
-        self.session.execute(
-            text(
-                "UPDATE whatsapp_conversations SET is_human_intervening = :status, last_interaction = CURRENT_TIMESTAMP WHERE phone_number = :phone"
-            ),
-            {"status": status, "phone": phone_number},
-        )
+    # --- Bot Flow Management ---
+    def get_flow_node(
+        self, node_id: str, credential_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        # If credential_id is provided, look for specific flow, else look for global (NULL)
+        query = "SELECT * FROM bot_flows WHERE node_id = :nid"
+        params = {"nid": node_id}
 
-    # --- Menu Management ---
-    def get_menu_by_name(self, name: str) -> Optional[Dict[str, Any]]:
-        # Using ILIKE for flexibility as per previous implementation
-        menu = (
-            self.session.execute(
-                text("SELECT * FROM whatsapp_menus WHERE menu_name ILIKE :name"),
-                {"name": name},
-            )
-            .mappings()
-            .first()
-        )
+        if credential_id:
+            query += " AND (credential_id = :cid OR credential_id IS NULL)"
+            params["cid"] = credential_id
+        else:
+            query += " AND credential_id IS NULL"
 
-        if not menu:
-            return None
+        res = self.session.execute(text(query), params).mappings().first()
+        return dict(res) if res else None
 
-        options = (
+    def list_all_nodes(self, credential_id: str) -> List[Dict[str, Any]]:
+        res = (
             self.session.execute(
                 text(
-                    "SELECT * FROM whatsapp_menu_options WHERE menu_id = :id ORDER BY sort_order"
+                    "SELECT * FROM bot_flows WHERE credential_id = :cid OR credential_id IS NULL"
                 ),
-                {"id": menu["menu_id"]},
+                {"cid": credential_id},
             )
             .mappings()
             .all()
         )
-
-        menu_dict = dict(menu)
-        menu_dict["options"] = [dict(o) for o in options]
-        return menu_dict
-
-    def list_all_menus(self) -> List[Dict[str, Any]]:
-        menus = (
-            self.session.execute(text("SELECT * FROM whatsapp_menus")).mappings().all()
-        )
-        full_menus = []
-        for m in menus:
-            options = (
-                self.session.execute(
-                    text(
-                        "SELECT * FROM whatsapp_menu_options WHERE menu_id = :id ORDER BY sort_order"
-                    ),
-                    {"id": m["menu_id"]},
-                )
-                .mappings()
-                .all()
-            )
-            m_dict = dict(m)
-            m_dict["options"] = [dict(o) for o in options]
-            full_menus.append(m_dict)
-        return full_menus
+        return [dict(r) for r in res]
 
     # --- Messaging Logs ---
     def log_interaction(
-        self, phone_number: str, sender: str, content: str, message_type: str
+        self,
+        phone_number: str,
+        credential_id: str,
+        sender: str,
+        content: str,
+        message_type: str,
     ) -> None:
-        # Ensure contact exists
+        # 1. Ensure contact exists
         self.session.execute(
             text(
-                "INSERT INTO whatsapp_contacts (phone_number) VALUES (:phone) ON CONFLICT (phone_number) DO NOTHING"
+                "INSERT INTO contacts (phone) VALUES (:phone) ON CONFLICT (phone) DO NOTHING"
             ),
             {"phone": phone_number},
         )
-        # Ensure conversation exists
+
+        # 2. Get or create session
+        session_id = f"sess_{phone_number}_{credential_id}"
         self.session.execute(
             text(
-                "INSERT INTO whatsapp_conversations (phone_number) VALUES (:phone) ON CONFLICT (phone_number) DO NOTHING"
+                """
+                INSERT INTO chat_sessions (session_id, phone, credential_id, current_node) 
+                VALUES (:sid, :phone, :cid, 'main') 
+                ON CONFLICT (session_id) DO NOTHING
+                """
             ),
-            {"phone": phone_number},
+            {"sid": session_id, "phone": phone_number, "cid": credential_id},
         )
-        # Log message
+
+        # 3. Log message
         self.session.execute(
             text(
-                "INSERT INTO whatsapp_messages (phone_number, sender, message_type, content, timestamp) VALUES (:phone, :sender, :type, :content, CURRENT_TIMESTAMP)"
+                """
+                INSERT INTO messages (session_id, credential_id, sender, content, status) 
+                VALUES (:sid, :cid, :sender, :content, 'sent')
+                """
             ),
             {
-                "phone": phone_number,
+                "sid": session_id,
+                "cid": credential_id,
                 "sender": sender,
-                "type": message_type,
                 "content": content,
             },
         )
 
     # --- State Persistence ---
-    def save_state(self, sender: str, state_json: str) -> None:
+    def save_state(
+        self, phone_number: str, credential_id: str, state_json: str
+    ) -> None:
         self.session.execute(
             text(
                 """
-                INSERT INTO bot_states (sender, state_data, updated_at) 
-                VALUES (:sender, :data, CURRENT_TIMESTAMP)
-                ON CONFLICT (sender) DO UPDATE SET state_data = excluded.state_data, updated_at = CURRENT_TIMESTAMP
-            """
+                UPDATE chat_sessions 
+                SET context_data = :data, updated_at = CURRENT_TIMESTAMP 
+                WHERE phone = :phone AND credential_id = :cid
+                """
             ),
-            {"sender": sender, "data": state_json},
+            {"data": state_json, "phone": phone_number, "cid": credential_id},
         )
 
-    def get_state(self, sender: str) -> Optional[str]:
+    def get_state(self, phone_number: str, credential_id: str) -> Optional[str]:
         return self.session.execute(
-            text("SELECT state_data FROM bot_states WHERE sender = :sender"),
-            {"sender": sender},
+            text(
+                "SELECT context_data FROM chat_sessions WHERE phone = :phone AND credential_id = :cid"
+            ),
+            {"phone": phone_number, "cid": credential_id},
         ).scalar()
 
-    def delete_state(self, sender: str) -> None:
+    def delete_state(self, phone_number: str, credential_id: str) -> None:
         self.session.execute(
-            text("DELETE FROM bot_states WHERE sender = :sender"),
-            {"sender": sender},
+            text(
+                "UPDATE chat_sessions SET context_data = NULL WHERE phone = :phone AND credential_id = :cid"
+            ),
+            {"phone": phone_number, "cid": credential_id},
         )

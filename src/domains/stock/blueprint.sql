@@ -1,28 +1,47 @@
--- OmniCore-AI Stock Module Blueprint
--- This SQL should be executed by the developer in their external database.
+-- STOCK SECTOR: PROFESSIONAL ARCHITECTURE
 
+-- 1. General Product Data (The "Concept")
 CREATE TABLE IF NOT EXISTS products (
-    id SERIAL PRIMARY KEY,
-    code VARCHAR(50) UNIQUE NOT NULL,
+    id TEXT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    price DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    quantity INTEGER NOT NULL DEFAULT 0,
     category VARCHAR(100),
-    is_weight BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    brand VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS stock_movements (
+-- 2. Product Variants (The "Physical Item")
+CREATE TABLE IF NOT EXISTS product_variants (
+    sku TEXT PRIMARY KEY,
+    product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
+    color VARCHAR(50),
+    size VARCHAR(50),
+    material VARCHAR(50),
+    price DECIMAL(12,2) NOT NULL,
+    weight DECIMAL(10,3),
+    is_weight_based BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Inventory Levels (Current Balance)
+CREATE TABLE IF NOT EXISTS stock_levels (
+    sku TEXT PRIMARY KEY REFERENCES product_variants(sku) ON DELETE CASCADE,
+    quantity INT NOT NULL DEFAULT 0,
+    min_threshold INT DEFAULT 5,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Inventory Ledger (The "Truth" - Every single movement)
+CREATE TABLE IF NOT EXISTS inventory_ledger (
     id SERIAL PRIMARY KEY,
-    product_code VARCHAR(50) NOT NULL,
-    amount INTEGER NOT NULL,
-    reason VARCHAR(100) DEFAULT 'MANUAL',
-    user_id VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    sku TEXT REFERENCES product_variants(sku),
+    quantity_change INT NOT NULL,
+    type VARCHAR(50), -- 'SALE', 'RESTOCK', 'RETURN', 'ADJUSTMENT'
+    reason TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    user_id TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_products_code ON products(code);
-CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
-CREATE INDEX IF NOT EXISTS idx_movements_product ON stock_movements(product_code);
+CREATE INDEX IF NOT EXISTS idx_stock_variants_prod ON product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_sku ON inventory_ledger(sku);
