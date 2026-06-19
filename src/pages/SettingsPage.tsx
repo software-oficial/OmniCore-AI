@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 
-interface Setting {
-  setting_key: string;
-  setting_value: string;
-  description?: string;
-}
-
 const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
