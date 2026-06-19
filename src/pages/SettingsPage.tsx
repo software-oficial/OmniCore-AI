@@ -46,9 +46,9 @@ const SettingsPage: React.FC = () => {
   if (loading) return <div className="p-8 text-center">Cargando configuraciones...</div>;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto text-slate-100">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Configuración del Negocio</h1>
+        <h1 className="text-2xl font-bold text-white">Configuración del Negocio</h1>
         <button 
           onClick={() => setEditingKey(null)} 
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
@@ -57,26 +57,26 @@ const SettingsPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-white shadow-md rounded-xl overflow-hidden border border-gray-200">
+      <div className="bg-slate-800 shadow-md rounded-xl overflow-hidden border border-slate-700">
         <table className="w-full text-left border-collapse">
-          <thead className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold">
+          <thead className="bg-slate-900 text-slate-400 uppercase text-xs font-semibold">
             <tr>
-              <th className="px-6 py-3 border-b">Llave</th>
-              <th className="px-6 py-3 border-b">Valor</th>
-              <th className="px-6 py-3 border-b">Descripción</th>
-              <th className="px-6 py-3 border-b text-right">Acciones</th>
+              <th className="px-6 py-3 border-b border-slate-700">Llave</th>
+              <th className="px-6 py-3 border-b border-slate-700">Valor</th>
+              <th className="px-6 py-3 border-b border-slate-700">Descripción</th>
+              <th className="px-6 py-3 border-b border-slate-700 text-right">Acciones</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-slate-700">
             {Object.entries(settings).map(([key, value]) => (
-              <tr key={key} className="hover:bg-gray-50 transition">
-                <td className="px-6 py-4 font-mono text-sm text-blue-600">{key}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{value}</td>
-                <td className="px-6 py-4 text-sm text-gray-500 italic">No provista</td>
+              <tr key={key} className="hover:bg-slate-700/50 transition">
+                <td className="px-6 py-4 font-mono text-sm text-cyan-400">{key}</td>
+                <td className="px-6 py-4 text-sm text-slate-300">{value}</td>
+                <td className="px-6 py-4 text-sm text-slate-500 italic">No provista</td>
                 <td className="px-6 py-4 text-right">
                   <button 
                     onClick={() => setEditingKey(key)}
-                    className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+                    className="text-blue-400 hover:text-blue-300 text-sm font-medium"
                   >
                     Editar
                   </button>
@@ -85,7 +85,7 @@ const SettingsPage: React.FC = () => {
             ))}
             {Object.keys(settings).length === 0 && (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
+                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
                   No hay configuraciones definidas aún.
                 </td>
               </tr>
@@ -96,39 +96,39 @@ const SettingsPage: React.FC = () => {
 
       {/* Basic Modal for Adding/Editing */}
       { (editingKey || newSetting.key) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-bold mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-700">
+            <h2 className="text-xl font-bold mb-4 text-white">
               {editingKey ? `Editar ${editingKey}` : 'Nueva Variable'}
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Llave (Key)</label>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Llave (Key)</label>
                 <input 
                   type="text" 
                   disabled={!!editingKey}
                   value={editingKey || newSetting.key}
                   onChange={(e) => setNewSetting({...newSetting, key: e.target.value})}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border border-slate-700 rounded-lg bg-slate-900 text-white focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="ej. whatsapp_api_token"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Valor (Value)</label>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Valor (Value)</label>
                 <input 
                   type="text" 
                   value={newSetting.value}
                   onChange={(e) => setNewSetting({...newSetting, value: e.target.value})}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border border-slate-700 rounded-lg bg-slate-900 text-white focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Valor de la configuración"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                <label className="block text-sm font-medium text-slate-400 mb-1">Descripción</label>
                 <textarea 
                   value={newSetting.description}
                   onChange={(e) => setNewSetting({...newSetting, description: e.target.value})}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full p-2 border border-slate-700 rounded-lg bg-slate-900 text-white focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Para qué sirve esta variable..."
                 />
               </div>
@@ -136,7 +136,7 @@ const SettingsPage: React.FC = () => {
             <div className="flex justify-end space-x-3 mt-6">
               <button 
                 onClick={() => {setEditingKey(null); setNewSetting({key:'', value:'', description:''})}}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                className="px-4 py-2 text-slate-400 hover:bg-slate-700 rounded-lg transition"
               >
                 Cancelar
               </button>
