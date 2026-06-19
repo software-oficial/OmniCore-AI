@@ -18,7 +18,7 @@ const InventoryImportPage: React.FC = () => {
     setLoading(true);
     setResult(null);
     try {
-      const response = await api[cmd.method.toLowerCase() as 'get' | 'post'](cmd.endpoint, cmd.method === 'POST' ? {} : null);
+      const response = await api[cmd.method.toLowerCase() as 'get' | 'post'](cmd.endpoint, cmd.method === 'POST' ? {} : undefined);
       setResult({ success: true, message: response.data.message || 'Comando ejecutado exitosamente' });
     } catch (error: any) {
       const msg = error.response?.data?.detail || error.response?.data?.message || 'Error al ejecutar el comando';
