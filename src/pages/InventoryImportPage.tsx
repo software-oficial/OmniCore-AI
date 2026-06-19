@@ -30,8 +30,7 @@ const InventoryImportPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const rows = text.split('
-').filter(row => row.trim());
+      const rows = text.split('\\n').filter(row => row.trim());
       const headers = rows[0].split(',').map(h => h.trim());
       
       const data = rows.slice(1).map(row => {

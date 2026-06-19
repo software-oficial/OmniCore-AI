@@ -6,7 +6,6 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-// Interceptor for JWT injection
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('omnicore_token');
   if (token) {
