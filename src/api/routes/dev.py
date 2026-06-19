@@ -216,7 +216,7 @@ async def deploy_client_schema(app_id: str):
     async with db_manager.get_session(
         app_id, app_info["db_config"], app_info["tier"]
     ) as session:
-        result = await system_service.deploy_schema(session, ctx)
+        result = system_service.deploy_schema(session, ctx)
         return result.to_dict()
 
 
