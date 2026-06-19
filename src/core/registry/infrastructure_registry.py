@@ -181,11 +181,18 @@ class InfrastructureRegistry:
     ) -> str:
         """
         Onboards a new SaaS instance and maps it to an agent.
+        Automatically ensures the agent exists in the internal registry.
         """
         import uuid
 
         app_id = str(uuid.uuid4())
         try:
+            # 0. Ensure Agent exists to avoid ForeignKeyViolation
+            core_db_manager.execute_raw(
+                "INSERT INTO agents (id, created_at) VALUES (:id, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING",
+                {"id": agent_id},
+            )
+
             # 1. Create the app
             app_sql = (
                 "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner_id)"
