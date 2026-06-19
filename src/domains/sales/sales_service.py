@@ -638,6 +638,7 @@ class SalesService:
         name="venta.create_link",
         description="Creates a pending sale and generates a MercadoPago payment link.",
         params_model={"codigo": "string", "cantidad": "int", "cliente": "string"},
+        api_provider="mercadopago",
     )
     def create_payment_link(
         self,
@@ -680,19 +681,11 @@ class SalesService:
             )
 
             # 2. Generate MP Link
-            from src.core.system_service import system_service
-
-            token_res = system_service.get_setting(
-                session=session, context=context, key="mp_access_token"
-            )
-            if not token_res.success:
-                return token_res
-
-            mp_token = token_res.data.get("value")
+            mp_token = context.active_credentials.get("mercadopago", {}).get("api_key")
 
             if not mp_token:
                 return ServiceResponse.error_res(
-                    "MP Token not configured in system settings.", "CONFIG_MISSING"
+                    "MP Token not found in active credentials.", "CONFIG_MISSING"
                 )
 
             from typing import cast

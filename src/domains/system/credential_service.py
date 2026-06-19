@@ -1,4 +1,6 @@
+import json
 import logging
+import uuid
 from typing import Any, Dict, Optional
 
 from sqlalchemy import text
@@ -16,22 +18,81 @@ class CredentialService:
     Enables Multi-Instance architecture by allowing multiple provider accounts per user.
     """
 
+    # --- Internal Helpers (Used by Dispatcher) ---
+
+    def has_provider_configured(
+        self, session: Session, user_id: str, provider: str
+    ) -> bool:
+        """Checks if the user has at least one active credential for the given provider."""
+        try:
+            query = text(
+                "SELECT 1 FROM user_credentials WHERE user_id = :uid AND provider = :provider LIMIT 1"
+            )
+            result = session.execute(
+                query, {"uid": user_id, "provider": provider}
+            ).fetchone()
+            return result is not None
+        except Exception as e:
+            logger.error(f"Error checking provider configuration for {user_id}: {e}")
+            return False
+
+    def get_credential(
+        self,
+        session: Session,
+        user_id: str,
+        provider: str,
+        account_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a specific credential or the default one for the provider.
+        """
+        try:
+            if account_id:
+                query = text(
+                    "SELECT * FROM user_credentials WHERE id = :cid AND user_id = :uid"
+                )
+                params = {"cid": account_id, "uid": user_id}
+            else:
+                # Try to find the default one first
+                query = text(
+                    "SELECT * FROM user_credentials WHERE user_id = :uid AND provider = :provider AND is_default = 1 LIMIT 1"
+                )
+                params = {"uid": user_id, "provider": provider}
+
+                # Fallback to any credential for that provider if no default is set
+                result = session.execute(query, params).mappings().fetchone()
+                if not result:
+                    query = text(
+                        "SELECT * FROM user_credentials WHERE user_id = :uid AND provider = :provider LIMIT 1"
+                    )
+                    result = session.execute(query, params).mappings().fetchone()
+
+                return dict(result) if result else None
+
+            result = session.execute(query, params).mappings().fetchone()
+            return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Error retrieving credential for {user_id} [{provider}]: {e}")
+            return None
+
+    # --- API Commands ---
+
     @command(
         name="system.credentials.list",
         description="Lists all service credentials for the current user/business.",
-        params_model={"service_type": "string"},
+        params_model={"provider": "string"},
     )
     def list_credentials(
-        self, session: Session, context: CoreContext, service_type: Optional[str] = None
+        self, session: Session, context: CoreContext, provider: Optional[str] = None
     ) -> ServiceResponse:
-        """Retrieves active credentials, optionally filtered by type."""
+        """Retrieves active credentials, optionally filtered by provider."""
         try:
-            query = "SELECT id, user_id, service_type, provider_id, config, label, is_active FROM service_credentials WHERE user_id = :uid"
+            query = "SELECT id, user_id, provider, account_name, is_default, created_at FROM user_credentials WHERE user_id = :uid"
             params = {"uid": context.user_id}
 
-            if service_type:
-                query += " AND service_type = :stype"
-                params["stype"] = service_type
+            if provider:
+                query += " AND provider = :provider"
+                params["provider"] = provider
 
             result = session.execute(text(query), params).mappings().all()
             return ServiceResponse.success_res(
@@ -47,31 +108,42 @@ class CredentialService:
         name="system.credentials.create",
         description="Creates a new service credential for the user.",
         params_model={
-            "label": "string",
-            "service_type": "string",
-            "provider_id": "string",
-            "config": "json",
+            "account_name": "string",
+            "provider": "string",
+            "api_key": "string",
+            "secret": "string",
+            "metadata": "json",
+            "is_default": "boolean",
         },
     )
     def create_credential(
         self,
         session: Session,
         context: CoreContext,
-        label: str,
-        service_type: str,
-        provider_id: str,
-        config: Dict[str, Any],
+        account_name: str,
+        provider: str,
+        api_key: str,
+        secret: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        is_default: bool = False,
     ) -> ServiceResponse:
         """Creates a new credential entry."""
         try:
-            import uuid
-
             credential_id = str(uuid.uuid4())[:12]
+
+            # If this is set as default, unset others for the same provider
+            if is_default:
+                session.execute(
+                    text(
+                        "UPDATE user_credentials SET is_default = 0 WHERE user_id = :uid AND provider = :provider"
+                    ),
+                    {"uid": context.user_id, "provider": provider},
+                )
 
             query = text(
                 """
-                INSERT INTO service_credentials (id, user_id, service_type, provider_id, config, label) 
-                VALUES (:id, :uid, :stype, :pid, :config, :label)
+                INSERT INTO user_credentials (id, user_id, provider, account_name, api_key, secret, metadata, is_default) 
+                VALUES (:id, :uid, :provider, :account_name, :api_key, :secret, :metadata, :is_default)
                 """
             )
             session.execute(
@@ -79,10 +151,12 @@ class CredentialService:
                 {
                     "id": credential_id,
                     "uid": context.user_id,
-                    "stype": service_type,
-                    "pid": provider_id,
-                    "config": config,
-                    "label": label,
+                    "provider": provider,
+                    "account_name": account_name,
+                    "api_key": api_key,
+                    "secret": secret,
+                    "metadata": json.dumps(metadata) if metadata else None,
+                    "is_default": is_default,
                 },
             )
             return ServiceResponse.success_res(
@@ -95,26 +169,23 @@ class CredentialService:
             )
 
     @command(
-        name="system.credentials.update_status",
-        description="Updates the active status of a specific credential.",
-        params_model={"credential_id": "string", "is_active": "boolean"},
+        name="system.credentials.delete",
+        description="Deletes a specific credential.",
+        params_model={"credential_id": "string"},
     )
-    def update_credential_status(
+    def delete_credential(
         self,
         session: Session,
         context: CoreContext,
         credential_id: str,
-        is_active: bool,
     ) -> ServiceResponse:
-        """Toggles the is_active flag for a credential."""
+        """Deletes a credential if owned by the user."""
         try:
-            # Verify ownership before updating
             query = text(
-                "UPDATE service_credentials SET is_active = :active WHERE id = :cid AND user_id = :uid"
+                "DELETE FROM user_credentials WHERE id = :cid AND user_id = :uid"
             )
             result = session.execute(
-                query,
-                {"active": is_active, "cid": credential_id, "uid": context.user_id},
+                query, {"cid": credential_id, "uid": context.user_id}
             )
 
             if result.rowcount == 0:
@@ -122,11 +193,13 @@ class CredentialService:
                     "Credential not found or access denied", "CRED_NOT_FOUND"
                 )
 
-            return ServiceResponse.success_res(message="Credential status updated.")
+            return ServiceResponse.success_res(message="Credential deleted.")
         except Exception as e:
-            logger.error(f"Error updating status for {credential_id}: {e}")
+            logger.error(
+                f"Error deleting credential {credential_id} for {context.user_id}: {e}"
+            )
             return ServiceResponse.error_res(
-                f"Failed to update status: {str(e)}", "CRED_STATUS_ERROR"
+                f"Failed to delete credential: {str(e)}", "CRED_DELETE_ERROR"
             )
 
 

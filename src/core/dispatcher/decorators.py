@@ -13,6 +13,7 @@ def command(
     params_model: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None,
     example: Optional[Dict[str, Any]] = None,
     is_system: bool = False,
+    api_provider: Optional[str] = None,
 ):
     """
     Decorates a function to mark it as an OmniCore-AI API command.
@@ -30,6 +31,7 @@ def command(
         f._command_params_model = params_model
         f._command_example = example
         f._command_is_system = is_system
+        f._command_api_provider = api_provider
         return wraps(func)(func)
 
     return decorator

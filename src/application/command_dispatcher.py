@@ -105,6 +105,29 @@ class CommandDispatcher:
         if not is_allowed:
             return cast(ServiceResponse, gov_error)
 
+        # 4b. API Credential Validation (NEW)
+        api_provider = cmd_metadata.get("api_provider")
+        if api_provider:
+            from src.domains.system.credential_service import credential_service
+            from src.infrastructure.db.core_db_manager import core_db_manager
+
+            with core_db_manager.get_session() as session:
+                if not credential_service.has_provider_configured(
+                    session, ctx.user_id, api_provider
+                ):
+                    return ServiceResponse.error_res(
+                        f"Falta configurar API de {api_provider}. Por favor, añade tus credenciales en el panel de configuración.",
+                        "API_NOT_CONFIGURED",
+                    )
+
+                # Inject the default credential into the context for the handler
+                cred = credential_service.get_credential(
+                    session, ctx.user_id, api_provider
+                )
+                if cred:
+                    ctx.active_credentials = ctx.active_credentials or {}
+                    ctx.active_credentials[api_provider] = cred
+
         # 5. Execution
         handler = self.loader.get_handler(effective_command)
         if not handler:

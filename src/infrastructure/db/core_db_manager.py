@@ -62,6 +62,20 @@ class CoreDbManager:
             id TEXT PRIMARY KEY,
             email VARCHAR(255) UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
+            tier VARCHAR(50) DEFAULT 'FREE',
+            role VARCHAR(50) DEFAULT 'USER',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS user_credentials (
+            id TEXT PRIMARY KEY,
+            user_id TEXT REFERENCES users(id),
+            provider VARCHAR(100) NOT NULL,
+            account_name VARCHAR(255),
+            api_key TEXT,
+            secret TEXT,
+            metadata TEXT,
+            is_default BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 

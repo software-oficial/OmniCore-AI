@@ -53,7 +53,7 @@ async def update_business_setting(
     return result.to_dict()
 
 
-# --- Resource: Team Management ---
+# --- Resource: Credentials Management ---
 
 
 @router.get("/credentials")
@@ -61,16 +61,16 @@ async def list_credentials(
     request: Request,
     response: Response,
     token: str = Depends(get_token),
-    service_type: Optional[str] = None,
+    provider: Optional[str] = None,
 ):
     """
     GET /api/business/credentials
     Lists all service credentials for the business.
-    Supports filtering by service_type (e.g., ?service_type=WHATSAPP).
+    Supports filtering by provider (e.g., ?provider=mercadopago).
     """
     response.headers["Cache-Control"] = "no-cache"
 
-    params = {"service_type": service_type}
+    params = {"provider": provider}
     result = await ai_gateway.execute("system.credentials.list", token, params, request)
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
@@ -86,7 +86,7 @@ async def create_credential(
     """
     POST /api/business/credentials
     Creates a new service credential.
-    Payload: {label, service_type, provider_id, config}
+    Payload: {account_name, provider, api_key, secret, metadata, is_default}
     """
     result = await ai_gateway.execute(
         "system.credentials.create", token, payload, request
@@ -96,21 +96,19 @@ async def create_credential(
     return result.to_dict()
 
 
-@router.patch("/credentials/{credential_id}/status")
-async def update_credential_status(
+@router.delete("/credentials/{credential_id}")
+async def delete_credential(
     credential_id: str,
     request: Request,
-    payload: Dict[str, Any] = Body(...),
     token: str = Depends(get_token),
 ):
     """
-    PATCH /api/business/credentials/{credential_id}/status
-    Updates the active status of a credential.
-    Payload: {is_active: boolean}
+    DELETE /api/business/credentials/{credential_id}
+    Removes a service credential.
     """
-    params = {"credential_id": credential_id, **payload}
+    params = {"credential_id": credential_id}
     result = await ai_gateway.execute(
-        "system.credentials.update_status", token, params, request
+        "system.credentials.delete", token, params, request
     )
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)

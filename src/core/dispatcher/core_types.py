@@ -103,4 +103,5 @@ class CoreContext:
         self.entity = entity
         self.execution_strategy = execution_strategy
         self.settings = settings or {}
+        self.active_credentials: Dict[str, Any] = {}
         self.credential_id: Optional[str] = None

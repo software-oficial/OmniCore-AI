@@ -20,8 +20,23 @@ class MessageDeliveryUseCase:
         self.repo = WhatsappRepository(session)
 
         # Extract dynamic credentials from CoreContext
-        token = context.settings.get("whatsapp_api_token", "")
-        phone_id = context.settings.get("whatsapp_phone_id", "")
+        whatsapp_cred = context.active_credentials.get("whatsapp", {})
+        token = whatsapp_cred.get("api_key", "")
+        phone_id = (
+            whatsapp_cred.get("metadata", {}).get("phone_id", "")
+            if isinstance(whatsapp_cred.get("metadata"), dict)
+            else None
+        )
+
+        # Support for JSON-encoded metadata in DB
+        if not phone_id and whatsapp_cred.get("metadata"):
+            try:
+                import json
+
+                meta = json.loads(whatsapp_cred.get("metadata"))
+                phone_id = meta.get("phone_id")
+            except Exception:
+                pass
 
         self.api = WhatsappApiGateway(token=token, phone_id=phone_id)
 

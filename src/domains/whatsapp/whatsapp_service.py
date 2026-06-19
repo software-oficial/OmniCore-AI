@@ -28,6 +28,7 @@ class WhatsappService:
             "sender_type": "string",
             "credential_id": "string",
         },
+        api_provider="whatsapp",
     )
     def send_text(
         self,
@@ -50,6 +51,7 @@ class WhatsappService:
             "file_content": "bytes",
             "credential_id": "string",
         },
+        api_provider="whatsapp",
     )
     def upload_media(
         self,
@@ -74,6 +76,7 @@ class WhatsappService:
             "filename": "string",
             "credential_id": "string",
         },
+        api_provider="whatsapp",
     )
     def send_media(
         self,
