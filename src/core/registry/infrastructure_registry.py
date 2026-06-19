@@ -189,10 +189,9 @@ class InfrastructureRegistry:
         try:
             # 0. Ensure Agent exists to avoid ForeignKeyViolation
             core_db_manager.execute_raw(
-                "INSERT INTO agents (id, created_at) VALUES (:id, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING",
-                {"id": agent_id},
+                "INSERT INTO agents (id, name, created_at) VALUES (:id, :name, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING",
+                {"id": agent_id, "name": app_name},
             )
-
             # 1. Create the app
             app_sql = (
                 "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner_id)"
