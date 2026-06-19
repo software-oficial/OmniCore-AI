@@ -171,7 +171,7 @@ async def fast_onboard(payload: FastOnboardRequest):
             async with db_manager.get_session(
                 app_id, payload.db_config.model_dump(), payload.tier
             ) as session:
-                deploy_res = await system_service.deploy_schema(session, ctx)
+                deploy_res = system_service.deploy_schema(session, ctx)
                 if not deploy_res.success:
                     return {
                         "success": False,
