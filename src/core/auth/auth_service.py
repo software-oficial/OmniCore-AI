@@ -119,14 +119,13 @@ class AuthService:
 
             session.execute(
                 text(
-                    "INSERT INTO user_tokens (id, user_id, agent_id, token, token_name, mode) VALUES (gen_random_uuid(), :uid, :aid, :token, :name, :mode)"
+                    "INSERT INTO api_tokens (token_hash, user_id, agent_id, token_name, created_at) VALUES (:token, :uid, :aid, :name, CURRENT_TIMESTAMP)"
                 ),
                 {
                     "uid": user_id,
                     "aid": agent_id,
                     "token": token,
                     "name": token_name,
-                    "mode": mode,
                 },
             )
             session.commit()
@@ -146,7 +145,7 @@ class AuthService:
             tokens = (
                 session.execute(
                     text(
-                        "SELECT token_name, agent_id, mode FROM user_tokens WHERE user_id = :uid"
+                        "SELECT token_name, agent_id FROM api_tokens WHERE user_id = :uid"
                     ),
                     {"uid": user_id},
                 )
@@ -166,7 +165,8 @@ class AuthService:
         """Revokes an API token."""
         try:
             session.execute(
-                text("DELETE FROM user_tokens WHERE id = :tid"), {"tid": token_id}
+                text("DELETE FROM api_tokens WHERE token_hash = :tid"),
+                {"tid": token_id},
             )
             session.commit()
             return ServiceResponse.success_res(message="Token revoked.")
