@@ -112,7 +112,11 @@ class WhatsappService:
     ) -> ServiceResponse:
         try:
             WhatsappRepository(session).log_interaction(
-                phone_number, context.credential_id, sender, content, message_type
+                phone_number,
+                context.credential_id or "default",
+                sender,
+                content,
+                message_type,
             )
             return ServiceResponse.success_res(message="Message logged successfully.")
         except Exception as e:
@@ -131,7 +135,7 @@ class WhatsappService:
         self, session: Session, context: CoreContext, phone_number: str, status: bool
     ) -> ServiceResponse:
         return ConversationManagementUseCase(session).toggle_human_mode(
-            phone_number, status, context.credential_id
+            phone_number, status, context.credential_id or "default"
         )
 
     @command(
@@ -143,7 +147,7 @@ class WhatsappService:
         self, session: Session, context: CoreContext, phone_number: str
     ) -> ServiceResponse:
         return ConversationManagementUseCase(session).get_conversation_status(
-            phone_number, context.credential_id
+            phone_number, context.credential_id or "default"
         )
 
     @command(

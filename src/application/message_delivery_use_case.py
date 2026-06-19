@@ -15,6 +15,8 @@ class MessageDeliveryUseCase:
     """
 
     def __init__(self, session: Session, context: CoreContext):
+        self.session = session
+        self.context = context
         self.repo = WhatsappRepository(session)
 
         # Extract dynamic credentials from CoreContext
@@ -28,7 +30,9 @@ class MessageDeliveryUseCase:
     ) -> ServiceResponse:
         try:
             self.api.send_text(to, body)
-            self.repo.log_interaction(to, sender_type, body, "text")
+            self.repo.log_interaction(
+                to, self.context.credential_id or "default", sender_type, body, "text"
+            )
             return ServiceResponse.success_res(
                 data={"to": to, "status": "sent"}, message="Message sent."
             )
@@ -50,7 +54,13 @@ class MessageDeliveryUseCase:
         try:
             self.api.send_media(to, media_id, media_type, caption, filename)
             log_text = f"📎 [Archivo: {media_type}] {caption}".strip()
-            self.repo.log_interaction(to, sender_type, log_text, "media")
+            self.repo.log_interaction(
+                to,
+                self.context.credential_id or "default",
+                sender_type,
+                log_text,
+                "media",
+            )
             return ServiceResponse.success_res(
                 data={"to": to, "status": "sent"}, message="Media sent."
             )

@@ -78,7 +78,7 @@ class BotOrchestrationUseCase:
                 try:
                     if isinstance(options, str):
                         options = json.loads(options)
-                except:
+                except (json.JSONDecodeError, TypeError):
                     pass
 
                 for idx, opt in enumerate(options, 1):
@@ -128,7 +128,7 @@ class BotOrchestrationUseCase:
                     self.repo.update_conversation_node(
                         phone_number, cid, node["node_id"]
                     )
-                    return self.menu_mgmt.get_formatted_menu(node["node_id"])
+                    return self.menu_mgmt.get_formatted_menu(node["node_id"], cid)
 
             # 5. Fallback
             fallback_msg = (

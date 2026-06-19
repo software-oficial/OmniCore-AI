@@ -3,8 +3,6 @@ import logging
 import time
 from typing import Any, Dict, Optional, cast
 
-from sqlalchemy import text
-
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
 from src.core.dispatcher.normalizer import CommandNormalizer
 from src.core.dispatcher.validator import RequestValidator
