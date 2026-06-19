@@ -90,6 +90,12 @@ class InjectAliasRequest(BaseModel):
     limite: float = Field(..., example=5000.0)
 
 
+class StoreSetupRequest(BaseModel):
+    store_name: str = Field(..., example="Mi Supermercado")
+    owner_email: str = Field(..., example="owner@email.com")
+    owner_password: str = Field(..., example="admin123")
+
+
 class GenerateClientTokenRequest(BaseModel):
     token_name: str = Field(
         ...,
@@ -337,6 +343,90 @@ async def list_command_requirements():
         .all()
     )
     return {"success": True, "data": [dict(r) for r in reqs]}
+
+
+@router.post("/store-setup", dependencies=[Depends(verify_dev_access)])
+async def store_setup(payload: StoreSetupRequest):
+    """
+    COMPLETE BOOTSTRAP FOR FINAL CLIENT:
+    1. Registers App in Sandbox.
+    2. Deploys DB Schema.
+    3. Creates Owner User.
+    4. Generates Access Token.
+    """
+    from src.core.dispatcher.core_types import CoreContext
+    from src.infrastructure.db.db_manager import db_manager
+
+    try:
+        # 1. Register as Hosted (Sandbox)
+        app_id = infrastructure_registry.register_app(
+            agent_id="system_owner",
+            app_name=payload.store_name,
+            db_config={
+                "host": "sandbox.omnicore.internal",
+                "port": 5432,
+                "user": "postgres",
+                "password": "password",
+                "dbname": f"db_{payload.store_name.lower().replace(' ', '_')}",
+            },
+            tier="GOLD",
+        )
+
+        # 2. Deploy Schema
+        ctx = CoreContext(
+            agent_id="system_owner",
+            app_id=app_id,
+            dev_id="SYSTEM",
+            mode="PRODUCTION",
+            db_config={
+                "host": "sandbox.omnicore.internal",
+                "port": 5432,
+                "user": "postgres",
+                "password": "password",
+                "dbname": f"db_{payload.store_name.lower().replace(' ', '_')}",
+            },
+            tier="GOLD",
+        )
+
+        if ctx.db_config is None:
+            raise HTTPException(
+                status_code=500, detail="Failed to initialize DB config"
+            )
+
+        async with db_manager.get_session(app_id, ctx.db_config, ctx.tier) as session:
+            from src.core.system_service import system_service
+
+            system_service.deploy_schema(session, ctx)
+
+            # 3. Create Owner User
+            user_service.create_user(
+                session, ctx, payload.owner_email, payload.owner_password, "owner"
+            )
+
+        # 4. Generate Token
+        with core_db_manager.get_session() as session:
+            token_res = auth_service.create_api_token(
+                session=session,
+                user_id=payload.owner_email,
+                agent_id="system_owner",
+                token_name="Store-Main-Token",
+            )
+
+        token_value = None
+        if token_res.success and token_res.data:
+            token_value = token_res.data.get("token")
+
+        return {
+            "success": True,
+            "app_id": app_id,
+            "token": token_value,
+            "message": f"Store {payload.store_name} is now fully operational.",
+            "instructions": "Use the provided token in the Authorization header to call /api/gateway",
+        }
+
+    except Exception as e:
+        logger.error(f"Store setup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Setup failed: {str(e)}")
 
 
 # --- Data Injection Endpoints (For Testing Flow) ---
