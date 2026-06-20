@@ -222,14 +222,14 @@ def find_static_dir():
 
     if root_path:
         # Use debug logger for diagnostics
-        logger.debug(f"Project root identified at: {root_path}")
+        logger.debug("LOG_SYSTEM", f"Project root identified at: {root_path}")
         static_candidate = os.path.join(root_path, "static")
-        logger.debug(f"Checking static candidate: {static_candidate}")
+        logger.debug("LOG_SYSTEM", f"Checking static candidate: {static_candidate}")
         if os.path.isdir(static_candidate):
             return static_candidate
 
     # 2. Fallback: Exhaustive search in immediate parents
-    logger.debug("Root markers not found, attempting fallback search...")
+    logger.debug("LOG_SYSTEM", "Root markers not found, attempting fallback search...")
     current_dir = os.path.dirname(os.path.abspath(__file__))
     paths_to_check = [
         os.path.join(
@@ -243,7 +243,7 @@ def find_static_dir():
 
     for path in paths_to_check:
         abs_path = os.path.abspath(path)
-        logger.debug(f"Checking fallback path: {abs_path}")
+        logger.debug("LOG_SYSTEM", f"Checking fallback path: {abs_path}")
         if os.path.isdir(abs_path):
             return abs_path
 
