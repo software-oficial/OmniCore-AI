@@ -4,17 +4,19 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from src.infrastructure.repositories.base_repository import BaseRepository
+
 logger = logging.getLogger("OmniCore.StockRepository")
 
 
-class StockRepository:
+class StockRepository(BaseRepository):
     """
     Infrastructure Layer: Encapsulates all SQL operations for the Stock domain.
     Ensures that the application layer remains agnostic of the database schema.
     """
 
     def __init__(self, session: Session):
-        self.session = session
+        super().__init__(session)
 
     def get_sync_delta(self, since: str) -> List[Dict[str, Any]]:
         """Retrieves products updated after the specified timestamp."""
@@ -29,7 +31,6 @@ class StockRepository:
 
     def upsert_product(
         self,
-        app_id: str,
         code: str,
         name: str,
         price: float,
@@ -51,7 +52,7 @@ class StockRepository:
         result = self.session.execute(
             query,
             {
-                "app_id": app_id,
+                "app_id": self.app_id,
                 "code": code,
                 "name": name,
                 "price": price,
