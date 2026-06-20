@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS contacts (
 -- 2. Chat Sessions (The "Conversation State" linked to a specific credential)
 CREATE TABLE IF NOT EXISTS chat_sessions (
     session_id TEXT PRIMARY KEY,
-    credential_id TEXT REFERENCES service_credentials(id) ON DELETE CASCADE,
+    credential_id TEXT REFERENCES user_credentials(id) ON DELETE CASCADE,
     phone VARCHAR(20) REFERENCES contacts(phone),
     current_node TEXT, -- Current state in the bot flow
     context_data JSONB, -- Temporary variables during the chat
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
 CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
     session_id TEXT REFERENCES chat_sessions(session_id),
-    credential_id TEXT REFERENCES service_credentials(id),
+    credential_id TEXT REFERENCES user_credentials(id),
     sender VARCHAR(10) NOT NULL, -- 'BOT' or 'USER'
     content TEXT NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS messages (
 -- 4. Bot Flow Definitions (The "Logic" tied to a credential or global)
 CREATE TABLE IF NOT EXISTS bot_flows (
     node_id TEXT PRIMARY KEY,
-    credential_id TEXT REFERENCES service_credentials(id), -- NULL if global flow
+    credential_id TEXT REFERENCES user_credentials(id), -- NULL if global flow
     prompt TEXT NOT NULL,
     options JSONB, -- Possible responses and their destination nodes
     required_permission TEXT,
