@@ -128,7 +128,7 @@ async def list_team(
     """
     response.headers["Cache-Control"] = "no-cache"
 
-    result = await ai_gateway.execute("system.users.list", token, {}, request)
+    result = await ai_gateway.execute("user.list", token, {}, request)
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
     return result.to_dict()
@@ -145,7 +145,7 @@ async def create_employee(
     Adds a new employee to the business.
     Payload: {username, password, role}
     """
-    result = await ai_gateway.execute("system.users.create", token, payload, request)
+    result = await ai_gateway.execute("user.create_employee", token, payload, request)
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
     return result.to_dict()
@@ -164,9 +164,7 @@ async def update_employee_role(
     Payload: {role}
     """
     params = {"username": username, **payload}
-    result = await ai_gateway.execute(
-        "system.users.update_role", token, params, request
-    )
+    result = await ai_gateway.execute("user.change_role", token, params, request)
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
     return result.to_dict()
