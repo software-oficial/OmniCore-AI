@@ -16,24 +16,26 @@ class UserRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_user(self, username: str, password: str) -> None:
+    def create_user(self, email: str, password_hash: str) -> None:
         self.session.execute(
-            text("INSERT INTO users (username, password) VALUES (:user, :pass)"),
-            {"user": username, "pass": password},
+            text(
+                "INSERT INTO users (email, password_hash) VALUES (:email, :password_hash)"
+            ),
+            {"email": email, "password_hash": password_hash},
         )
 
-    def update_user_role(self, username: str, role: str) -> int:
+    def update_user_role(self, email: str, role: str) -> int:
         result = self.session.execute(
-            text("UPDATE users SET role = :role WHERE username = :user"),
-            {"role": role, "user": username},
+            text("UPDATE users SET role = :role WHERE email = :email"),
+            {"role": role, "email": email},
         )
         return result.rowcount
 
-    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+    def get_user_by_username(self, email: str) -> Optional[Dict[str, Any]]:
         return (
             self.session.execute(
-                text("SELECT id, username, role FROM users WHERE username = :u"),
-                {"u": username},
+                text("SELECT id, email, role FROM users WHERE email = :email"),
+                {"email": email},
             )
             .mappings()
             .first()
@@ -60,7 +62,7 @@ class UserRepository:
         Retrieves all users with their current roles.
         """
         return (
-            self.session.execute(text("SELECT id, username, role FROM users"))
+            self.session.execute(text("SELECT id, email, role FROM users"))
             .mappings()
             .all()
         )

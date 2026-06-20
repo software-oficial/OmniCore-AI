@@ -143,7 +143,7 @@ async def create_employee(
     """
     POST /api/business/team
     Adds a new employee to the business.
-    Payload: {username, password, role}
+    Payload: {email, password, role}
     """
     result = await ai_gateway.execute("user.create_employee", token, payload, request)
     if not result.success:
