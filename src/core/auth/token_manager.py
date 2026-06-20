@@ -92,9 +92,9 @@ class TokenManager:
                 logger.error(f"Token validation error: {e}")
                 return False, None, None
 
-        # If it's not a JWT, treat it as a raw identity ID (User ID or Agent ID)
-        # This supports the dual-identity pattern used in the system.
-        return True, {"raw_id": token}, None
+        # If it's not a JWT, treat it as a raw identity ID (Agent ID)
+        # Assuming the token passed as raw_id is actually the agent_id
+        return True, {"agent_id": token}, None
 
 
 token_manager = TokenManager()
