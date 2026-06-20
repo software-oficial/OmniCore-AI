@@ -30,7 +30,7 @@ class InventoryManagementUseCase:
     ) -> ServiceResponse:
         try:
             product_id = self.repo.upsert_product(
-                code, name, price, quantity, category, is_weight
+                context.app_id, code, name, price, quantity, category, is_weight
             )
 
             # Record initial load or update in ledger

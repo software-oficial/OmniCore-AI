@@ -29,6 +29,7 @@ class StockRepository:
 
     def upsert_product(
         self,
+        app_id: str,
         code: str,
         name: str,
         price: float,
@@ -39,8 +40,8 @@ class StockRepository:
         """Inserts a product or updates it if the code already exists. Returns the product ID."""
         query = text(
             """
-            INSERT INTO products (code, name, price, quantity, category, is_weight) 
-            VALUES (:code, :name, :price, :quantity, :category, :is_weight) 
+            INSERT INTO products (app_id, code, name, price, quantity, category, is_weight) 
+            VALUES (:app_id, :code, :name, :price, :quantity, :category, :is_weight) 
             ON CONFLICT(code) DO UPDATE SET 
                 name=excluded.name, price=excluded.price, quantity=excluded.quantity, 
                 category=excluded.category, is_weight=excluded.is_weight, updated_at=CURRENT_TIMESTAMP
@@ -50,6 +51,7 @@ class StockRepository:
         result = self.session.execute(
             query,
             {
+                "app_id": app_id,
                 "code": code,
                 "name": name,
                 "price": price,
