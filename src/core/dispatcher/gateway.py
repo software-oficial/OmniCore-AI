@@ -487,6 +487,16 @@ class AIGateway:
                         )
                     )
 
+                # Ensure app_id is present
+                if not ctx.app_id:
+                    logger.error(
+                        f"❌ Security Block: Operation attempted without app_id. Agent={ctx.agent_id}"
+                    )
+                    return ServiceResponse.error_res(
+                        "Context isolation failure: No application context found.",
+                        "SECURITY_ISOLATION_FAILURE",
+                    )
+
                 # Execute in Worker Pool to not block Event Loop
                 result = await asyncio.get_event_loop().run_in_executor(
                     self.executor,
