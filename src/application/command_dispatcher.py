@@ -90,74 +90,77 @@ class CommandDispatcher:
             agent_id=agent_id,
             app_id=app_context["app_id"],
             dev_id="SYSTEM",
-            mode="PRODUCTION",  # Default
+            mode="PRODUCTION",
             db_config=app_context["db_config"],
             tier=jwt_tier or app_context.get("tier", "FREE"),
             entity="DISPATCHER",
             execution_strategy="DIRECT",
         )
 
-        # 4. Governance (PBAC)
-        # All commands must pass through GovernanceService
-        is_allowed, gov_error = governance_service.validate_access(
-            effective_command, ctx, None  # Session will be provided by the handler/repo
+        # Inyectar contexto en las ContextVars para repositorios
+        from src.core.dispatcher.context_middleware import (
+            current_app_id,
+            current_user_id,
         )
-        if not is_allowed:
-            return cast(ServiceResponse, gov_error)
 
-        # 4b. API Credential Validation (NEW)
-        api_provider = cmd_metadata.get("api_provider")
-        if api_provider:
-            from src.domains.system.credential_service import credential_service
-            from src.infrastructure.db.core_db_manager import core_db_manager
-
-            with core_db_manager.get_session() as session:
-                if not credential_service.has_provider_configured(
-                    session, ctx.user_id, api_provider
-                ):
-                    return ServiceResponse.error_res(
-                        f"Falta configurar API de {api_provider}. Por favor, añade tus credenciales en el panel de configuración.",
-                        "API_NOT_CONFIGURED",
-                    )
-
-                # Inject the default credential into the context for the handler
-                cred = credential_service.get_credential(
-                    session, ctx.user_id, api_provider
-                )
-                if cred:
-                    ctx.active_credentials = ctx.active_credentials or {}
-                    ctx.active_credentials[api_provider] = cred
-
-        # 5. Execution
-        handler = self.loader.get_handler(effective_command)
-        if not handler:
-            return ServiceResponse.error_res("Handler missing", "HANDLER_MISSING")
+        token_app = current_app_id.set(ctx.app_id)
+        token_user = current_user_id.set(ctx.agent_id)
 
         try:
+            # 4. Governance (PBAC)
+            is_allowed, gov_error = governance_service.validate_access(
+                effective_command, ctx, None
+            )
+            if not is_allowed:
+                return cast(ServiceResponse, gov_error)
+
+            # 4b. API Credential Validation
+            api_provider = cmd_metadata.get("api_provider")
+            if api_provider:
+                from src.domains.system.credential_service import credential_service
+                from src.infrastructure.db.core_db_manager import core_db_manager
+
+                with core_db_manager.get_session() as session:
+                    if not credential_service.has_provider_configured(
+                        session, ctx.user_id, api_provider
+                    ):
+                        return ServiceResponse.error_res(
+                            f"Falta configurar API de {api_provider}.",
+                            "API_NOT_CONFIGURED",
+                        )
+
+                    cred = credential_service.get_credential(
+                        session, ctx.user_id, api_provider
+                    )
+                    if cred:
+                        ctx.active_credentials = ctx.active_credentials or {}
+                        ctx.active_credentials[api_provider] = cred
+
+            # 5. Execution
+            handler = self.loader.get_handler(effective_command)
+            if not handler:
+                return ServiceResponse.error_res("Handler missing", "HANDLER_MISSING")
+
             # Handle both async and sync handlers
             if cmd_metadata.get("is_system", False):
-                # System commands don't need a business DB session
                 if asyncio.iscoroutinefunction(handler):
                     result = await handler(session=None, context=ctx, **filtered_params)
                 else:
-
                     loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(
                         None,
                         lambda: handler(session=None, context=ctx, **filtered_params),
                     )
             else:
-                # Business commands REQUIRE an injected session from the client's DB
                 if ctx.db_config is None:
                     return ServiceResponse.error_res(
-                        "Database configuration is missing for this application.",
+                        "Database configuration is missing.",
                         "INFRA_CONFIG_MISSING",
                     )
 
                 async with db_manager.get_session(
                     ctx.app_id, ctx.db_config, ctx.tier
                 ) as session:
-                    # Inject Dynamic Business Settings with Cache
                     ctx.settings = settings_service.get_all_settings(
                         session, ctx.app_id
                     )
@@ -167,7 +170,6 @@ class CommandDispatcher:
                             session=session, context=ctx, **filtered_params
                         )
                     else:
-
                         loop = asyncio.get_running_loop()
                         result = await loop.run_in_executor(
                             None,
@@ -184,8 +186,11 @@ class CommandDispatcher:
 
             result = handle_omnicore_exception(e)
 
-        # 6. Audit Trail (Mandatory)
-        self._log_audit(ctx, effective_command, result)
+        finally:
+            current_app_id.reset(token_app)
+            current_user_id.reset(token_user)
+            # 6. Audit Trail
+            self._log_audit(ctx, effective_command, result)
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         result.latency_ms = duration_ms
