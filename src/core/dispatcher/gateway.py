@@ -492,12 +492,22 @@ class AIGateway:
                     self.executor,
                     lambda: handler(session=session, context=ctx, **params),
                 )
+
+                # Commit or Rollback transaction
+                if isinstance(result, ServiceResponse) and result.success:
+                    session.commit()
+                else:
+                    session.rollback()
+
                 return (
                     result
                     if isinstance(result, ServiceResponse)
                     else ServiceResponse.success_res(data=result)
                 )
         except Exception as e:
+            # Rollback on exception
+            if "session" in locals():
+                session.rollback()
             # ODDS Pilar 3: Smart Error Feedback for DB errors
             if "column" in str(e).lower() and "does not exist" in str(e).lower():
                 import re
