@@ -501,7 +501,7 @@ class SalesService:
                 )
 
             # 2. Alias Limit Validation (Transfers)
-            if payment_method == "Transferencia" and alias:
+            if metodo_pago == "Transferencia" and alias:
                 alias_query = text(
                     "SELECT acumulado, limite FROM aliases WHERE nombre = :nombre"
                 )
@@ -521,7 +521,7 @@ class SalesService:
 
             # 3. Cash Payment Validation
             vuelto = 0.0
-            if payment_method == "Efectivo":
+            if metodo_pago == "Efectivo":
                 if paga_con < total_amount:
                     return ServiceResponse.error_res(
                         "Insufficient cash amount.", "CASH_INSUFFICIENT"
@@ -541,7 +541,7 @@ class SalesService:
                 {
                     "name": cliente,
                     "total": total_amount,
-                    "method": payment_method,
+                    "method": metodo_pago,
                     "paga_con": paga_con,
                     "vuelto": vuelto,
                 },
@@ -566,16 +566,14 @@ class SalesService:
                 )
 
             # 5. Update Cash Box
-            col = (
-                "ventas_efectivo" if payment_method == "Efectivo" else "ventas_digital"
-            )
+            col = "ventas_efectivo" if metodo_pago == "Efectivo" else "ventas_digital"
             cash_query = text(
                 f"UPDATE cash_box SET {col} = {col} + :total WHERE id = 1"
             )
             session.execute(cash_query, {"total": total_amount})
 
             # 6. Update Alias Accumulator
-            if payment_method == "Transferencia" and alias:
+            if metodo_pago == "Transferencia" and alias:
                 alias_update = text(
                     "UPDATE aliases SET acumulado = acumulado + :total WHERE nombre = :nombre"
                 )
