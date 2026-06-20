@@ -363,9 +363,7 @@ async def create_project(
 @router.post("/register", response_model=RegisterResponse)
 async def register_agent(request: RegisterRequest):
     """
-    Registers a new AI Agent.
-    The developer will need to create a project and provide their own database
-    credentials to start using the API.
+    Registers a new AI Agent and auto-provisions infrastructure.
     """
     agent_id = str(uuid.uuid4())
     app_id = str(uuid.uuid4())
@@ -390,7 +388,48 @@ async def register_agent(request: RegisterRequest):
             {"agent_id": agent_id, "app_id": app_id},
         )
 
-        # Generate initial Learning token
+        # 4. Auto-provision Infrastructure (Using default configuration)
+        from config.settings import config
+        db_config = {
+            "host": config.DB_HOST,
+            "port": config.DB_PORT,
+            "user": config.DB_USER,
+            "password": config.DB_PASSWORD,
+            "dbname": config.DB_NAME,
+        }
+
+        core_db_manager.execute_raw(
+            "INSERT INTO app_infrastructure (app_id, db_host, db_port, db_user, db_password, db_name, tier) "
+            "VALUES (:app_id, :host, :port, :user, :pass, :db, :tier)",
+            {
+                "app_id": app_id,
+                "host": db_config["host"],
+                "port": db_config["port"],
+                "user": db_config["user"],
+                "pass": db_config["password"],
+                "db": db_config["dbname"],
+                "tier": "FREE",
+            },
+        )
+
+        # 5. Schema Deployment
+        from src.core.dispatcher.core_types import CoreContext
+        from src.core.system_service import system_service
+        from src.infrastructure.db.db_manager import db_manager
+
+        ctx = CoreContext(
+            agent_id=agent_id,
+            app_id=app_id,
+            dev_id="SYSTEM",
+            mode="PRODUCTION",
+            db_config=db_config,
+            tier="FREE",
+        )
+
+        async with db_manager.get_session(app_id, db_config, "FREE") as session:
+            system_service.deploy_schema(session, ctx)
+
+        # Generate initial token
         token = token_manager.generate_token(
             agent_id=agent_id, app_id=app_id, dev_id="SYSTEM"
         )
@@ -406,7 +445,7 @@ async def register_agent(request: RegisterRequest):
         agent_id=agent_id,
         app_id=app_id,
         token=token,
-        message="Welcome to OmniCore-AI! Please create a project and link your database to get started.",
+        message="Welcome to OmniCore-AI! Infrastructure provisioned and ready.",
     )
 
 
