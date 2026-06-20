@@ -3,6 +3,7 @@
 -- 1. General Product Data (The "Concept")
 CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
     app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
