@@ -2,7 +2,7 @@
 
 -- 1. General Product Data
 CREATE TABLE IF NOT EXISTS products (
-    id SERIAL PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
     app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
     code TEXT UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,

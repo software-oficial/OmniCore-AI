@@ -31,7 +31,7 @@ class AuditService:
             # Using core_db_manager for internal registry persistence
             audit_query = """
                 INSERT INTO system_audit_log 
-                (agent_id, app_id, command, status, message, params, created_at) 
+                (agent_id, app_id, command, status, message, params, timestamp) 
                 VALUES (:agent_id, :app_id, :command, :status, :message, :params, CURRENT_TIMESTAMP)
             """
             import json
