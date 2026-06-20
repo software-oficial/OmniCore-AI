@@ -3,6 +3,7 @@
 -- 1. General Product Data (The "Concept")
 CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
+    app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     category VARCHAR(100),
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS products (
 -- 2. Product Variants (The "Physical Item")
 CREATE TABLE IF NOT EXISTS product_variants (
     sku TEXT PRIMARY KEY,
+    app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
     product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
     color VARCHAR(50),
     size VARCHAR(50),
@@ -27,6 +29,7 @@ CREATE TABLE IF NOT EXISTS product_variants (
 -- 3. Inventory Levels (Current Balance)
 CREATE TABLE IF NOT EXISTS stock_levels (
     sku TEXT PRIMARY KEY REFERENCES product_variants(sku) ON DELETE CASCADE,
+    app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
     quantity INT NOT NULL DEFAULT 0,
     min_threshold INT DEFAULT 5,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -35,6 +38,7 @@ CREATE TABLE IF NOT EXISTS stock_levels (
 -- 4. Inventory Ledger (The "Truth" - Every single movement)
 CREATE TABLE IF NOT EXISTS inventory_ledger (
     id SERIAL PRIMARY KEY,
+    app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
     sku TEXT REFERENCES product_variants(sku),
     quantity_change INT NOT NULL,
     type VARCHAR(50), -- 'SALE', 'RESTOCK', 'RETURN', 'ADJUSTMENT'
@@ -43,5 +47,9 @@ CREATE TABLE IF NOT EXISTS inventory_ledger (
     user_id TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_products_app ON products(app_id);
+CREATE INDEX IF NOT EXISTS idx_variants_app ON product_variants(app_id);
+CREATE INDEX IF NOT EXISTS idx_stock_levels_app ON stock_levels(app_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_app ON inventory_ledger(app_id);
 CREATE INDEX IF NOT EXISTS idx_stock_variants_prod ON product_variants(product_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_sku ON inventory_ledger(sku);
