@@ -1,13 +1,13 @@
 from sqlalchemy.orm import Session
 
-from src.core.dispatcher.context_middleware import current_app_id
 from src.core.dispatcher.exceptions import InfrastructureException
+from src.core.tenant_manager import TenantContext
 
 
 class BaseRepository:
     """
     Base Repository for multi-tenant isolation.
-    Automatically injects app_id into queries.
+    Automatically injects app_id from TenantContext.
     """
 
     def __init__(self, session: Session):
@@ -15,8 +15,9 @@ class BaseRepository:
 
     @property
     def app_id(self) -> str:
-        app_id = current_app_id.get()
-        if not app_id:
+        ctx = TenantContext.get()
+        app_id = ctx["app_id"]
+        if app_id == "SYSTEM":
             raise InfrastructureException(
                 "No application context found. Ensure middleware is configured.",
                 "CONTEXT_MISSING",
