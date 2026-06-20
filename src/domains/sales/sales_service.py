@@ -531,8 +531,8 @@ class SalesService:
             # 4. Atomic Persistence
             sale_query = text(
                 """
-                INSERT INTO sales (client_name, total_amount, status, payment_method, paga_con, vuelto) 
-                VALUES (:name, :total, 'COMPLETED', :method, :paga_con, :vuelto) 
+                INSERT INTO sales (client_name, total_amount, status) 
+                VALUES (:name, :total, 'COMPLETED') 
                 RETURNING id
             """
             )
@@ -541,9 +541,6 @@ class SalesService:
                 {
                     "name": cliente,
                     "total": total_amount,
-                    "method": metodo_pago,
-                    "paga_con": paga_con,
-                    "vuelto": vuelto,
                 },
             ).scalar()
 
