@@ -507,6 +507,9 @@ class AIGateway:
                 if isinstance(result, ServiceResponse) and result.success:
                     session.commit()
                 else:
+                    logger.warning(
+                        f"Command {command_name} failed for app {ctx.app_id}: {result.message if isinstance(result, ServiceResponse) else 'Unknown'}"
+                    )
                     session.rollback()
 
                 return (
@@ -518,6 +521,11 @@ class AIGateway:
             # Rollback on exception
             if "session" in locals():
                 session.rollback()
+
+            error_logger.exception(
+                f"Critical execution error for command {command_name} in app {ctx.app_id}: {str(e)}"
+            )
+
             # ODDS Pilar 3: Smart Error Feedback for DB errors
             if "column" in str(e).lower() and "does not exist" in str(e).lower():
                 import re
