@@ -220,22 +220,34 @@ async def list_projects(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    # Extract user_id from token
+    # Extract identity from token
     token = authorization.replace("Bearer ", "")
     try:
         payload = token_manager.decode_token(token)
-        user_id = payload.get("user_id") if payload else token
+        # Handle potential None from decode_token
+        data = payload if payload is not None else {}
+        user_id = data.get("user_id")
+        agent_id_from_token = data.get("agent_id")
     except Exception:
-        user_id = token
+        user_id = None
+        agent_id_from_token = None
 
     try:
-        # 1. Find the agent associated with this user
-        agent_res = core_db_manager.execute_raw(
-            "SELECT id FROM agents WHERE owner_user_id = :uid LIMIT 1", {"uid": user_id}
-        ).fetchone()
+        # Find the agent
+        if user_id:
+            agent_res = core_db_manager.execute_raw(
+                "SELECT id FROM agents WHERE owner_user_id = :uid LIMIT 1",
+                {"uid": user_id},
+            ).fetchone()
+        elif agent_id_from_token:
+            agent_res = core_db_manager.execute_raw(
+                "SELECT id FROM agents WHERE id = :aid LIMIT 1",
+                {"aid": agent_id_from_token},
+            ).fetchone()
+        else:
+            return []
 
         if not agent_res:
-            # If no agent exists, we return an empty list (or could trigger auto-provisioning)
             return []
 
         agent_id = agent_res[0]
@@ -390,6 +402,7 @@ async def register_agent(request: RegisterRequest):
 
         # 4. Auto-provision Infrastructure (Using default configuration)
         from config.settings import config
+
         db_config = {
             "host": config.DB_HOST,
             "port": config.DB_PORT,
