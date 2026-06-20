@@ -117,7 +117,21 @@ class AIGateway:
 
         # Extract agent_id from payload
         agent_id = payload.get("agent_id") if payload else None
-        assert agent_id is not None
+        if agent_id is None:
+            logger.warning(
+                f"⚠️ Auth Failed: Token valid but agent_id missing from payload: {payload}"
+            )
+            res = ServiceResponse.error_res(
+                "Invalid token payload: agent_id missing", "AUTH_PAYLOAD_INVALID"
+            )
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            res.latency_ms = duration_ms
+            from src.core.telemetry.telemetry_service import telemetry_service
+
+            telemetry_service.track_request(
+                "unknown", "unknown", "gateway.execute", duration_ms / 1000, False
+            )
+            return res
 
         # 3. Context Retrieval
         t_infra_start = time.perf_counter()
@@ -139,7 +153,19 @@ class AIGateway:
             return res
 
         # Mypy: app_context is now dict
-        assert app_context is not None
+        if app_context is None:
+            logger.warning("⚠️ Infrastructure not found for agent")
+            res = ServiceResponse.error_res(
+                "No associated business infrastructure found.", "INFRA_NOT_FOUND"
+            )
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            res.latency_ms = duration_ms
+            from src.core.telemetry.telemetry_service import telemetry_service
+
+            telemetry_service.track_request(
+                agent_id, "unknown", "gateway.execute", duration_ms / 1000, False
+            )
+            return res
 
         # Resolve Mode: Header -> Default PRODUCTION
         mode = requested_mode.upper() if requested_mode else "PRODUCTION"

@@ -317,7 +317,7 @@ async def process_sale(
     POST /api/business/sales
     Processes a complete sale.
     """
-    result = await ai_gateway.execute("sales.process", token, payload, request)
+    result = await ai_gateway.execute("venta.cobrar", token, payload, request)
     if not result.success:
         raise HTTPException(status_code=400, detail=result.message)
     return result.to_dict()

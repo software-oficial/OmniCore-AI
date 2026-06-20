@@ -44,7 +44,14 @@ class TokenManager:
         """
         try:
             return jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
-        except Exception:
+        except jwt.ExpiredSignatureError:
+            logger.warning("Token expired during decoding")
+            return None
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid JWT token during decoding: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error during token decoding: {e}")
             return None
 
     @staticmethod

@@ -19,7 +19,7 @@ class AuditService:
     @command(
         name="system.audit.get_logs",
         description="Retrieves the audit trail for a specific business application.",
-        params_model={"limit": "integer", "offset": "integer", "command": "string"},
+        params_model={"limit": "int", "offset": "int", "command": "str"},
     )
     def get_logs(
         self,

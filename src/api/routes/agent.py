@@ -152,7 +152,7 @@ async def onboard_agent(request: OnboardRequest, authorization: str = Header(Non
         )
 
     except Exception as e:
-        engine_logger.error(f"Zero-to-Hero Onboarding critical error: {e}")
+        engine_logger.exception("Zero-to-Hero Onboarding critical error")
         raise HTTPException(
             status_code=500,
             detail=f"Onboarding failed: {str(e)}",
@@ -204,8 +204,8 @@ async def get_my_agent(authorization: str = Header(None)):
         return {"agent_id": agent[0], "name": agent[1]}
     except HTTPException:
         raise
-    except Exception as e:
-        engine_logger.error(f"Error in get_my_agent: {e}")
+    except Exception:
+        engine_logger.exception("Error in get_my_agent")
         raise HTTPException(
             status_code=500,
             detail="An internal server error occurred. Please contact support.",
@@ -257,8 +257,8 @@ async def list_projects(authorization: str = Header(None)):
         ).fetchall()
 
         return [{"id": a[0], "name": a[1]} for a in apps]
-    except Exception as e:
-        engine_logger.error(f"Error retrieving projects: {e}")
+    except Exception:
+        engine_logger.exception("Error retrieving projects")
         raise HTTPException(
             status_code=500,
             detail="An internal server error occurred while retrieving projects.",
@@ -355,8 +355,8 @@ async def create_project(
             "app_id": app_id,
             "message": f"Project {request.name} created successfully. Your database configuration has been linked. Please ensure your DB is accessible from OmniCore-AI.",
         }
-    except Exception as e:
-        engine_logger.error(f"Project creation error: {e}")
+    except Exception:
+        engine_logger.exception("Project creation error")
         raise HTTPException(status_code=500, detail="Failed to create project.")
 
 
@@ -395,8 +395,8 @@ async def register_agent(request: RegisterRequest):
             agent_id=agent_id, app_id=app_id, dev_id="SYSTEM"
         )
 
-    except Exception as e:
-        engine_logger.error(f"Registration error: {e}")
+    except Exception:
+        engine_logger.exception("Registration error")
         raise HTTPException(
             status_code=500,
             detail="Registration failed due to an internal server error.",
