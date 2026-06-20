@@ -21,6 +21,7 @@ from src.api.routes import (
     sdk,
 )
 from src.core.admin_service import admin_service
+from src.core.dispatcher.context_middleware import context_middleware
 from src.core.dispatcher.gateway import ai_gateway
 from src.core.module_loader import module_loader
 from src.core.system_service import system_service
@@ -32,6 +33,7 @@ app = FastAPI(
     description="The AI-Ready Business OS Gateway",
     version=config.VERSION,
 )
+app.middleware("http")(context_middleware)
 
 # Hybrid CORS Configuration
 # Allows both internal (same-origin) and external (SaaS frontend) requests
