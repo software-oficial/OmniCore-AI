@@ -547,7 +547,7 @@ class SalesService:
             for pi in processed_items:
                 item_query = text(
                     """
-                    INSERT INTO sale_items (sale_id, product_code, quantity, unit_price, subtotal) 
+                    INSERT INTO sale_items (sale_id, sku, quantity, unit_price, subtotal) 
                     VALUES (:sale_id, :code, :qty, :price, :sub)
                 """
                 )
