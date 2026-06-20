@@ -137,6 +137,7 @@ class CoreDbManager:
             command TEXT,
             status TEXT,
             message TEXT,
+            params TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 

@@ -458,7 +458,7 @@ class SalesService:
         context: CoreContext,
         cliente: str,
         items: List[Dict[str, Any]],
-        payment_method: str,
+        metodo_pago: str,
         paga_con: float = 0.0,
         alias: Optional[str] = None,
     ) -> ServiceResponse:
