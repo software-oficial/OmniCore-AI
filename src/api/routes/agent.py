@@ -430,6 +430,13 @@ async def register_agent(request: RegisterRequest):
         from src.core.system_service import system_service
         from src.infrastructure.db.db_manager import db_manager
 
+        # --- FIX: Asignar permiso MASTER ---
+        core_db_manager.execute_raw(
+            "INSERT INTO permissions (tenant_id, user_id, permission_key, granted) VALUES (:tid, :uid, 'MASTER', true)",
+            {"tid": app_id, "uid": agent_id},
+        )
+        # -----------------------------------
+
         ctx = CoreContext(
             agent_id=agent_id,
             app_id=app_id,
