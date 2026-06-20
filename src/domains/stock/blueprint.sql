@@ -1,56 +1,31 @@
 -- STOCK SECTOR: PROFESSIONAL ARCHITECTURE
 
--- 1. General Product Data (The "Concept")
+-- 1. General Product Data
 CREATE TABLE IF NOT EXISTS products (
-    id TEXT PRIMARY KEY,
-    code TEXT UNIQUE NOT NULL,
+    id SERIAL PRIMARY KEY,
     app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
+    code TEXT UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
+    price DECIMAL(12,2) NOT NULL DEFAULT 0.0,
+    quantity INT NOT NULL DEFAULT 0,
     category VARCHAR(100),
-    brand VARCHAR(100),
+    is_weight BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Product Variants (The "Physical Item")
-CREATE TABLE IF NOT EXISTS product_variants (
-    sku TEXT PRIMARY KEY,
+-- 2. Stock Movements Ledger
+CREATE TABLE IF NOT EXISTS stock_movements (
+    id SERIAL PRIMARY KEY,
     app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
-    product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
-    color VARCHAR(50),
-    size VARCHAR(50),
-    material VARCHAR(50),
-    price DECIMAL(12,2) NOT NULL,
-    weight DECIMAL(10,3),
-    is_weight_based BOOLEAN DEFAULT FALSE,
+    product_code TEXT NOT NULL REFERENCES products(code),
+    amount INT NOT NULL,
+    reason TEXT,
+    user_id TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Inventory Levels (Current Balance)
-CREATE TABLE IF NOT EXISTS stock_levels (
-    sku TEXT PRIMARY KEY REFERENCES product_variants(sku) ON DELETE CASCADE,
-    app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
-    quantity INT NOT NULL DEFAULT 0,
-    min_threshold INT DEFAULT 5,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 4. Inventory Ledger (The "Truth" - Every single movement)
-CREATE TABLE IF NOT EXISTS inventory_ledger (
-    id SERIAL PRIMARY KEY,
-    app_id TEXT REFERENCES apps(id) ON DELETE CASCADE,
-    sku TEXT REFERENCES product_variants(sku),
-    quantity_change INT NOT NULL,
-    type VARCHAR(50), -- 'SALE', 'RESTOCK', 'RETURN', 'ADJUSTMENT'
-    reason TEXT,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    user_id TEXT
-);
-
 CREATE INDEX IF NOT EXISTS idx_products_app ON products(app_id);
-CREATE INDEX IF NOT EXISTS idx_variants_app ON product_variants(app_id);
-CREATE INDEX IF NOT EXISTS idx_stock_levels_app ON stock_levels(app_id);
-CREATE INDEX IF NOT EXISTS idx_ledger_app ON inventory_ledger(app_id);
-CREATE INDEX IF NOT EXISTS idx_stock_variants_prod ON product_variants(product_id);
-CREATE INDEX IF NOT EXISTS idx_ledger_sku ON inventory_ledger(sku);
+CREATE INDEX IF NOT EXISTS idx_products_code ON products(code);
+CREATE INDEX IF NOT EXISTS idx_movements_app ON stock_movements(app_id);
+CREATE INDEX IF NOT EXISTS idx_movements_code ON stock_movements(product_code);
