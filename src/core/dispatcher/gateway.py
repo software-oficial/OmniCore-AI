@@ -187,7 +187,7 @@ class AIGateway:
 
         ctx = CoreContext(
             agent_id=agent_id,
-            app_id=app_context["app_id"],
+            app_id=app_context["business_id"],
             dev_id="SYSTEM",
             mode=mode,
             db_config=app_context["db_config"],
