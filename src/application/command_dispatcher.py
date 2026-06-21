@@ -8,7 +8,7 @@ from src.core.dispatcher.normalizer import CommandNormalizer
 from src.core.dispatcher.validator import RequestValidator
 from src.core.governance.governance_service import governance_service
 from src.core.module_loader import module_loader
-from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.core.registry.infrastructure_registry import business_registry
 from src.core.settings_service import settings_service
 from src.infrastructure.db.db_manager import db_manager
 from src.infrastructure.validation.sanitizer import sanitizer
@@ -20,14 +20,6 @@ class CommandDispatcher:
     """
     The Orchestrator of the Enterprise Core.
     Implements the Dispatcher Pattern to decouple interfaces from execution.
-
-    Responsibility:
-    1. Normalize command name.
-    2. Validate request payload.
-    3. Resolve client context and infrastructure.
-    4. Enforce PBAC via GovernanceService.
-    5. Dispatch to the correct handler.
-    6. Log the execution in the Audit trail.
     """
 
     def __init__(self):
@@ -69,26 +61,26 @@ class CommandDispatcher:
         is_valid_token, payload, jwt_tier = token_manager.validate_token(token)
         if not is_valid_token or not payload:
             return ServiceResponse.error_res(
-                "Invalid token or missing agent identity", "AUTH_TOKEN_INVALID"
+                "Invalid token or missing user identity", "AUTH_TOKEN_INVALID"
             )
 
-        agent_id = payload.get("agent_id")
-        if not agent_id:
+        user_id = payload.get("user_id") or payload.get("agent_id")
+        if not user_id:
             return ServiceResponse.error_res(
-                "Invalid token or missing agent identity", "AUTH_TOKEN_INVALID"
+                "Invalid token or missing user identity", "AUTH_TOKEN_INVALID"
             )
 
-        app_context = infrastructure_registry.get_app_context(agent_id)
+        app_context = business_registry.get_business_context(user_id)
         if not app_context:
             return ServiceResponse.error_res(
-                "No business database linked to this agent. Please use POST /api/dev/fast-onboard to link your infrastructure and deploy the required schema.",
+                "No business database linked to this user.",
                 "INFRA_NOT_FOUND",
             )
 
         # Build Enterprise CoreContext
         ctx = ctx_override or CoreContext(
-            agent_id=agent_id,
-            app_id=app_context["app_id"],
+            agent_id=user_id,
+            app_id=app_context["business_id"],
             dev_id="SYSTEM",
             mode="PRODUCTION",
             db_config=app_context["db_config"],
@@ -96,15 +88,6 @@ class CommandDispatcher:
             entity="DISPATCHER",
             execution_strategy="DIRECT",
         )
-
-        # Inyectar contexto en las ContextVars para repositorios
-        from src.core.dispatcher.context_middleware import (
-            current_app_id,
-            current_user_id,
-        )
-
-        token_app = current_app_id.set(ctx.app_id)
-        token_user = current_user_id.set(ctx.agent_id)
 
         try:
             # 4. Governance (PBAC)
@@ -187,8 +170,6 @@ class CommandDispatcher:
             result = handle_omnicore_exception(e)
 
         finally:
-            current_app_id.reset(token_app)
-            current_user_id.reset(token_user)
             # 6. Audit Trail
             self._log_audit(ctx, effective_command, result)
 

@@ -13,7 +13,7 @@ from src.core.dispatcher.core_types import CoreContext, ServiceResponse
 from src.core.dispatcher.normalizer import CommandNormalizer
 from src.core.dispatcher.validator import RequestValidator
 from src.core.governance.governance_service import governance_service
-from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.core.registry.infrastructure_registry import business_registry
 from src.infrastructure.db.db_manager import db_manager
 from src.infrastructure.validation.sanitizer import sanitizer
 
@@ -135,7 +135,7 @@ class AIGateway:
 
         # 3. Context Retrieval
         t_infra_start = time.perf_counter()
-        app_context = infrastructure_registry.get_app_context(agent_id)
+        app_context = business_registry.get_business_context(agent_id)
         traces["infra_ms"] = (time.perf_counter() - t_infra_start) * 1000
 
         if not app_context:
