@@ -15,8 +15,8 @@ class StockRepository(BaseRepository):
     Ensures that the application layer remains agnostic of the database schema.
     """
 
-    def __init__(self, session: Session):
-        super().__init__(session)
+    def __init__(self, session: Session, business_id: str):
+        super().__init__(session, business_id)
 
     def get_sync_delta(self, since: str) -> List[Dict[str, Any]]:
         """Retrieves products updated after the specified timestamp."""

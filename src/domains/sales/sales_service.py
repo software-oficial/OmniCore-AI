@@ -47,28 +47,33 @@ class SalesService:
     @command(
         name="user.create_employee",
         description="Creates a new employee user for the business with a specific role.",
-        params_model={"username": "string", "password": "string", "role": "string"},
+        params_model={"email": "string", "password": "string", "role": "string"},
     )
     def create_employee(
         self,
         session: Session,
         context: CoreContext,
-        username: str,
+        email: str,
         password: str,
         role: str = "employee",
     ) -> ServiceResponse:
         """Creates an employee user in the business database."""
         try:
-            # In a real scenario, password would be hashed
+            import uuid
+
+            # Generar hash simple (en producción debería ser hashing real)
+            user_id = str(uuid.uuid4())
             session.execute(
-                text("INSERT INTO users (username, password) VALUES (:user, :pass)"),
-                {"user": username, "pass": password},
+                text(
+                    "INSERT INTO users (id, email, password_hash) VALUES (:id, :email, :pass)"
+                ),
+                {"id": user_id, "email": email, "pass": password},
             )
             return ServiceResponse.success_res(
-                message=f"Employee {username} created successfully."
+                message=f"Employee {email} created successfully."
             )
         except Exception as e:
-            logger.error(f"Error creating employee {username}: {e}")
+            logger.error(f"Error creating employee {email}: {e}")
             return ServiceResponse.error_res(
                 f"User creation failed: {str(e)}", "USER_CREATE_ERROR"
             )

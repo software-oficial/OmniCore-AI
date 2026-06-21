@@ -15,8 +15,8 @@ class InventoryManagementUseCase:
     Ensures business rules (like non-negative stock) are enforced before persistence.
     """
 
-    def __init__(self, session: Session):
-        self.repo = StockRepository(session)
+    def __init__(self, session: Session, business_id: str):
+        self.repo = StockRepository(session, business_id)
 
     def execute_add_product(
         self,

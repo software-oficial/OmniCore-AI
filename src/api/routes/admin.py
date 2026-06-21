@@ -17,7 +17,9 @@ async def get_system_metrics():
     """
     metrics = telemetry_service.get_realtime_metrics()
     infra_status = {
-        "active_db_pools": len(core_db_manager._engines) if hasattr(core_db_manager, "_engines") else 0,
+        "active_db_pools": (
+            len(core_db_manager._engines) if hasattr(core_db_manager, "_engines") else 0
+        ),
         "system_status": "HEALTHY",
     }
     return {"telemetry": metrics, "infrastructure": infra_status}

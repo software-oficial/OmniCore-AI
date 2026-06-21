@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Frontend Hub | Mobile</title>
+    <link rel="stylesheet" href="css/common.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+      body {
+        background-color: var(--bg-body);
+        margin: 0;
+        overflow: hidden;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .mobile-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 2rem 1rem 120px 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .hero-section {
+        text-align: center;
+        margin-bottom: 2rem;
+        animation: fadeInDown 0.8s ease;
+      }
+      .hero-section h1 {
+        font-size: 2.2rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(to right, #000, #64748b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .module-card {
+        width: 100%;
+        max-width: 400px;
+        background: white;
+        border-radius: 24px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        text-decoration: none;
+        color: inherit;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-color);
+        transition: var(--transition-base);
+      }
+      .module-card:active {
+        transform: scale(0.96);
+        background: var(--neutral-100);
+      }
+      .module-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+      }
+      @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mobile-container">
+      <header class="hero-section">
+        <h1>Frontend Hub</h1>
+        <p class="text-slate-500 text-sm">Selecciona un módulo para comenzar</p>
+      </header>
+
+      <div class="w-full flex flex-col items-center gap-4">
+        <a href="/mercado-pago/" class="module-card">
+          <div class="module-icon bg-blue-500">💳</div>
+          <div class="flex-1">
+            <h3 class="font-bold">Pasarela de Pagos</h3>
+            <p class="text-xs text-slate-400">Gestión de cobros y clientes</p>
+          </div>
+          <i class="fa-solid fa-chevron-right text-slate-300"></i>
+        </a>
+
+        <a href="/stock/" class="module-card">
+          <div class="module-icon bg-emerald-500">📦</div>
+          <div class="flex-1">
+            <h3 class="font-bold">Stock System</h3>
+            <p class="text-xs text-slate-400">Inventario y Ventas</p>
+          </div>
+          <i class="fa-solid fa-chevron-right text-slate-300"></i>
+        </a>
+
+        <a href="/whatsapp/" class="module-card">
+          <div class="module-icon bg-green-500">💬</div>
+          <div class="flex-1">
+            <h3 class="font-bold">WhatsApp Hub</h3>
+            <p class="text-xs text-slate-400">Mensajería e Integraciones</p>
+          </div>
+          <i class="fa-solid fa-chevron-right text-slate-300"></i>
+        </a>
+      </div>
+    </div>
+
+    <!-- 🍏 Mac Dock -->
+    <div class="mac-dock-container">
+      <div class="mac-dock">
+        <div class="dock-item active" data-label="Inicio" onclick="location.reload()">
+          <i class="fa-solid fa-house"></i>
+        </div>
+        <div class="dock-item" data-label="Pagos" onclick="location.href='/mercado-pago/'">
+          <i class="fa-solid fa-credit-card"></i>
+        </div>
+        <div class="dock-item" data-label="Stock" onclick="location.href='/stock/'">
+          <i class="fa-solid fa-box"></i>
+        </div>
+        <div class="dock-item" data-label="WhatsApp" onclick="location.href='/whatsapp/'">
+          <i class="fa-brands fa-whatsapp"></i>
+        </div>
+        <div class="dock-item" data-label="Ajustes" onclick="toggleAdvancedMenu()">
+          <i class="fa-solid fa-gear"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⚙️ Menú Avanzado -->
+    <div id="advanced-menu" class="advanced-menu-overlay hidden" onclick="toggleAdvancedMenu()">
+      <div class="advanced-menu-sheet" onclick="event.stopPropagation()">
+        <div class="menu-handle" onclick="toggleAdvancedMenu()"></div>
+        <h3 class="text-lg font-bold mb-4 text-center">Configuración Avanzada</h3>
+        <div class="flex flex-col gap-2">
+          <div class="menu-item" onclick="alert('Cambiando Tema...')">
+            <i class="fa-solid fa-palette"></i>
+            <span>Cambiar Tema Visual</span>
+          </div>
+          <div class="menu-item" onclick="alert('Cambiando Idioma...')">
+            <i class="fa-solid fa-language"></i>
+            <span>Idioma del Sistema</span>
+          </div>
+          <div class="menu-item" onclick="alert('Limpiando Caché...')">
+            <i class="fa-solid fa-broom"></i>
+            <span>Limpiar Caché Local</span>
+          </div>
+          <div class="menu-item text-red-500" onclick="alert('Cerrando Sesión...')">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span>Cerrar Sesión Global</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/dock.js"></script>
+    <script type="module" src="js/toast.js"></script>
+  </body>
+</html>

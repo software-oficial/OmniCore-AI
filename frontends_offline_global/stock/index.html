@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Pro | Dashboard</title>
+    <link rel="stylesheet" href="../css/common.css" />
+    <link rel="stylesheet" href="appweb/css/style.css" />
+    <style>
+      .view { display: none !important; height: 100%; overflow-y: auto; }
+      .view.active { display: block !important; }
+    </style>
+  </head>
+  <body class="app-root">
+    <main class="app-content">
+      <div id="view-login" class="view active"><h3>Login</h3></div>
+      <div id="view-stock" class="view">
+        <div id="stock-table-body"></div>
+      </div>
+      <div id="view-cash" class="view"><div id="cash-status"></div></div>
+      <div id="view-reports" class="view"><div id="report-summary"></div><div id="report-alerts"></div></div>
+      <div id="view-personnel" class="view"><table class="table"><tbody id="personnel-table-body"></tbody></table></div>
+    </main>
+    <script src="/js/init-dock.js" defer></script>
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

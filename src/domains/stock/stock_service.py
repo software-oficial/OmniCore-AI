@@ -99,7 +99,7 @@ class StockService:
         category: Optional[str] = None,
         is_weight: bool = False,
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_add_product(
+        return InventoryManagementUseCase(session, context.app_id).execute_add_product(
             context, code, name, price, quantity, category, is_weight
         )
 
@@ -111,7 +111,9 @@ class StockService:
     def get_product(
         self, session: Session, context: CoreContext, code: str
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_get_product(code)
+        return InventoryManagementUseCase(session, context.app_id).execute_get_product(
+            code
+        )
 
     @command(
         name="stock.update",
@@ -126,7 +128,7 @@ class StockService:
         quantity: int,
         reason: str = "MANUAL",
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_update_stock(
+        return InventoryManagementUseCase(session, context.app_id).execute_update_stock(
             context, code, quantity, reason
         )
 
@@ -142,9 +144,9 @@ class StockService:
         category: Optional[str] = None,
         filter_text: Optional[str] = None,
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_list_products(
-            category, filter_text
-        )
+        return InventoryManagementUseCase(
+            session, context.app_id
+        ).execute_list_products(category, filter_text)
 
     @command(
         name="stock.history",
@@ -154,7 +156,9 @@ class StockService:
     def get_stock_history(
         self, session: Session, context: CoreContext, code: str
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_get_history(code)
+        return InventoryManagementUseCase(session, context.app_id).execute_get_history(
+            code
+        )
 
     @command(
         name="stock.low",
@@ -164,7 +168,9 @@ class StockService:
     def get_low_stock(
         self, session: Session, context: CoreContext, threshold: float = 5.0
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_get_low_stock(threshold)
+        return InventoryManagementUseCase(
+            session, context.app_id
+        ).execute_get_low_stock(threshold)
 
     @command(
         name="stock.delete",
@@ -174,7 +180,9 @@ class StockService:
     def delete_product(
         self, session: Session, context: CoreContext, code: str
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_delete_product(code)
+        return InventoryManagementUseCase(
+            session, context.app_id
+        ).execute_delete_product(code)
 
     @command(
         name="stock.bulk_add",
@@ -215,7 +223,7 @@ class StockService:
         from_zone: str,
         to_zone: str,
     ) -> ServiceResponse:
-        return InventoryManagementUseCase(session).execute_transfer(
+        return InventoryManagementUseCase(session, context.app_id).execute_transfer(
             context, code, amount, from_zone, to_zone
         )
 

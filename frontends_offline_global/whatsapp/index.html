@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatsApp Hub | Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="../css/common.css" />
+    <style>
+      .hidden { display: none !important; }
+      .view-container { height: 100%; overflow-y: auto; }
+      .message { padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; max-width: 80%; }
+      .message.sent { background-color: #d9fdd3; align-self: flex-end; }
+      .message.received { background-color: #ffffff; align-self: flex-start; }
+    </style>
+  </head>
+  <body class="app-root">
+    <main class="app-content">
+      <header class="h-16 flex items-center justify-between px-4 border-b mb-4">
+        <h2 id="main-title" class="text-xl font-bold">Gestión de Chats</h2>
+      </header>
+      
+      <!-- CHATS VIEW -->
+      <div id="view-chats" class="view-container">
+        <div class="flex h-full">
+            <aside class="w-1/3 border-r pr-4"><ul id="chat-list" class="space-y-2"></ul></aside>
+            <main class="w-2/3 pl-4 flex flex-col">
+                <div id="welcome-view" class="flex-1 flex items-center justify-center">Elige un chat</div>
+                <div id="chat-view" class="hidden flex-1 flex flex-col h-full bg-[#efeae2]">
+                    <div class="p-4 bg-white border-b flex justify-between items-center">
+                        <div class="flex items-center space-x-3">
+                            <h3 id="chat-header-name" class="font-bold">Nombre</h3>
+                            <span id="chat-header-phone" class="text-xs text-slate-500">Teléfono</span>
+                        </div>
+                        <button id="delete-chat-btn" class="text-red-500">🗑️</button>
+                    </div>
+                    <div id="messages-container" class="flex-1 overflow-y-auto p-4 flex flex-col"></div>
+                    <div class="p-4 bg-slate-100 flex items-center gap-2">
+                        <button id="attach-btn" class="text-2xl">+</button>
+                        <input type="text" id="message-input-text" class="flex-1 p-2 rounded-lg border" placeholder="Escribe un mensaje..." />
+                        <button id="send-message-btn" class="bg-green-500 text-white px-4 py-2 rounded-lg">Enviar</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+      </div>
+
+      <!-- BOTS VIEW -->
+      <div id="view-bots" class="view-container hidden">
+        <h3 class="text-lg font-bold mb-6">Gestión de Bots</h3>
+        <div id="bots-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+      </div>
+
+      <!-- FLOWS VIEW -->
+      <div id="view-flows" class="view-container hidden">
+        <h3 class="text-lg font-bold mb-6">Constructor de Flujos</h3>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border">
+            <button onclick="window.addOption()" class="bg-blue-600 text-white px-4 py-2 rounded-lg mb-6">Añadir Opción</button>
+            <div id="flow-options" class="space-y-4"></div>
+            <button onclick="window.saveFlow()" class="bg-green-600 text-white px-6 py-2 rounded-lg mt-6">Guardar</button>
+        </div>
+      </div>
+
+      <!-- BOT CONFIG VIEW -->
+      <div id="view-bot-config" class="view-container hidden">
+         <div id="bot-config-content"></div>
+      </div>
+
+      <!-- CONFIG VIEW -->
+      <div id="view-config" class="view-container hidden">
+        <h3 class="text-lg font-bold mb-6">Configuración</h3>
+        <div class="space-y-8">
+            <div>
+                <h4 class="font-bold mb-4">Tokens de API</h4>
+                <div id="tokens-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+            </div>
+            <div>
+                <h4 class="font-bold mb-4">Webhooks</h4>
+                <div id="webhooks-list" class="space-y-4"></div>
+            </div>
+        </div>
+      </div>
+    </main>
+    <script src="/js/init-dock.js" defer></script>
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
