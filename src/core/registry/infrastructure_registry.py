@@ -2,7 +2,6 @@ import logging
 import time
 from typing import Any, Dict, Optional, Tuple
 
-from config.settings import config
 from src.infrastructure.cache.redis_manager import cache_manager
 from src.infrastructure.db.core_db_manager import core_db_manager
 
@@ -21,53 +20,47 @@ class InfrastructureRegistry:
         self._l1_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self.L1_TTL = 300  # 5 minutes
 
-    def get_app_context(self, agent_id: str) -> Optional[Dict[str, Any]]:
+    def get_app_context(self, owner_id: str) -> Optional[Dict[str, Any]]:
         """
-        Resolves the primary application associated with an agent.
+        Resolves the primary application associated with a user (owner).
         Returns the app_id, db_config, and tier.
         """
         now = time.time()
 
-        # 1. Try L1 Cache (Local Memory)
-        if agent_id in self._l1_cache:
-            timestamp, context = self._l1_cache[agent_id]
+        # 1. Try L1 Cache
+        if owner_id in self._l1_cache:
+            timestamp, context = self._l1_cache[owner_id]
             if now - timestamp < self.L1_TTL:
                 return context
 
-        # 2. Try L2 Cache (Redis)
-        cached_context = cache_manager.get_session_context(agent_id)
+        # 2. Try L2 Cache
+        cached_context = cache_manager.get_session_context(owner_id)
         if cached_context:
-            self._l1_cache[agent_id] = (now, cached_context)
+            self._l1_cache[owner_id] = (now, cached_context)
             return cached_context
 
         query = """
             SELECT 
                 a.id as app_id, 
                 ai.db_host, ai.db_port, ai.db_user, ai.db_password, ai.db_name, ai.tier
-            FROM agent_app_mapping aam
-            JOIN apps a ON aam.app_id = a.id
+            FROM apps a
             JOIN app_infrastructure ai ON a.id = ai.app_id
-            WHERE aam.agent_id = :agent_id
+            WHERE a.owner_id = :owner_id
             LIMIT 1
         """
 
         try:
             result = core_db_manager.execute_raw(
-                query, {"agent_id": agent_id}
+                query, {"owner_id": owner_id}
             ).fetchone()
             if not result:
-                logger.warning(f"No infrastructure mapping found for agent: {agent_id}")
+                logger.warning(f"No infrastructure mapping found for user: {owner_id}")
                 return None
-
-            # Format the DB config for the DynamicDbManager
-            db_host = result.db_host
-            if db_host == "sandbox.omnicore.internal":
-                db_host = config.SANDBOX_DB_HOST
 
             config_ctx = {
                 "app_id": result.app_id,
                 "db_config": {
-                    "host": db_host,
+                    "host": result.db_host,
                     "port": result.db_port,
                     "user": result.db_user,
                     "password": result.db_password,
@@ -76,12 +69,11 @@ class InfrastructureRegistry:
                 "tier": result.tier,
             }
 
-            # Store in Redis (L2) and Local Memory (L1)
-            cache_manager.set_session_context(agent_id, config_ctx, ttl=3600)
-            self._l1_cache[agent_id] = (now, config_ctx)
+            cache_manager.set_session_context(owner_id, config_ctx, ttl=3600)
+            self._l1_cache[owner_id] = (now, config_ctx)
             return config_ctx
         except Exception as e:
-            logger.error(f"Error resolving app context for agent {agent_id}: {e}")
+            logger.error(f"Error resolving app context for user {owner_id}: {e}")
             return None
 
     def get_all_apps(self) -> Dict[str, Dict[str, Any]]:
@@ -174,25 +166,33 @@ class InfrastructureRegistry:
 
     def register_app(
         self,
-        agent_id: str,
+        owner_id: str,
         app_name: str,
         db_config: Dict[str, Any],
         tier: str = "FREE",
     ) -> str:
         """
-        Onboards a new SaaS instance and maps it to an agent.
-        Automatically ensures the agent exists in the internal registry.
+        Onboards a new SaaS instance directly for a user.
+        Automatically provisions a placeholder agent to satisfy DB constraints.
         """
         import uuid
 
         app_id = str(uuid.uuid4())
+        # Usamos el user_id como base para el ID del agente para mantener consistencia
+        agent_id = owner_id
+
         try:
             # 0. Ensure Agent exists to avoid ForeignKeyViolation
             core_db_manager.execute_raw(
-                "INSERT INTO agents (id, name, created_at) VALUES (:id, :name, CURRENT_TIMESTAMP) ON CONFLICT(id) DO NOTHING",
-                {"id": agent_id, "name": app_name},
+                "INSERT INTO agents (id, name, api_key) VALUES (:id, :name, :key) ON CONFLICT(id) DO NOTHING",
+                {
+                    "id": agent_id,
+                    "name": f"Agent_{owner_id[:8]}",
+                    "key": str(uuid.uuid4()),
+                },
             )
-            # 1. Create the app
+
+            # 1. Create the app linked to the agent (which is the user)
             app_sql = (
                 "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner_id)"
             )
@@ -218,18 +218,8 @@ class InfrastructureRegistry:
                 },
             )
 
-            # 3. Map agent to app
-            mapping_sql = "INSERT INTO agent_app_mapping (agent_id, app_id) VALUES (:agent_id, :app_id)"
-            core_db_manager.execute_raw(
-                mapping_sql, {"agent_id": agent_id, "app_id": app_id}
-            )
-
-            # Invalidate existing cache for this agent since infra has changed
-            if cache_manager.client:
-                cache_manager.client.delete(f"session:{agent_id}")
-
             logger.info(
-                f"Successfully registered app {app_name} for agent {agent_id} with ID {app_id}"
+                f"Successfully registered app {app_name} for user {owner_id} with ID {app_id}"
             )
             return app_id
         except Exception as e:
