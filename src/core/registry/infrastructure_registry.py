@@ -114,6 +114,49 @@ class BusinessRegistry:
             logger.error(f"Failed to register business: {e}")
             raise e
 
+    def get_app_by_id(self, app_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves the configuration of a specific app by its ID."""
+        query = """
+            SELECT a.name, ai.db_host, ai.db_port, ai.db_user, ai.db_password, ai.db_name, ai.tier
+            FROM apps a
+            JOIN app_infrastructure ai ON a.id = ai.app_id
+            WHERE a.id = :app_id
+        """
+        try:
+            result = (
+                core_db_manager.execute_raw(query, {"app_id": app_id})
+                .mappings()
+                .first()
+            )
+            if not result:
+                return None
+
+            return {
+                "name": result.name,
+                "tier": result.tier,
+                "db_config": {
+                    "host": result.db_host,
+                    "port": result.db_port,
+                    "user": result.db_user,
+                    "password": result.db_password,
+                    "dbname": result.db_name,
+                },
+            }
+        except Exception as e:
+            logger.error(f"Error fetching app {app_id}: {e}")
+            return None
+
+    def update_app_tier(self, app_id: str, new_tier: str) -> bool:
+        """Updates the tier of a SaaS instance."""
+        try:
+            sql = "UPDATE app_infrastructure SET tier = :tier WHERE app_id = :app_id"
+            core_db_manager.execute_raw(
+                sql, {"tier": new_tier.upper(), "app_id": app_id}
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update tier for app {app_id}: {e}")
+            return False
 
 # Singleton
 business_registry = BusinessRegistry()

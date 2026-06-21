@@ -2,9 +2,9 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
 
-from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.core.registry.infrastructure_registry import business_registry
 from src.core.telemetry.telemetry_service import telemetry_service
-from src.infrastructure.db.db_manager import db_manager
+from src.infrastructure.db.core_db_manager import core_db_manager
 
 router = APIRouter(prefix="/api/admin", tags=["System Administration"])
 
@@ -17,8 +17,8 @@ async def get_system_metrics():
     """
     metrics = telemetry_service.get_realtime_metrics()
     infra_status = {
-        "active_db_pools": len(db_manager._engines),
-        "system_status": "HEALTHY" if len(db_manager._engines) < 100 else "HIGH_LOAD",
+        "active_db_pools": len(core_db_manager._engines) if hasattr(core_db_manager, "_engines") else 0,
+        "system_status": "HEALTHY",
     }
     return {"telemetry": metrics, "infrastructure": infra_status}
 
@@ -27,19 +27,18 @@ async def get_system_metrics():
 async def onboard_app(payload: Dict[str, Any]):
     """
     Administrative endpoint to onboard a new SaaS client into OmniCore-AI.
-    Required payload: {agent_id, app_name, db_config: {host, port, user, password, dbname}, tier}
     """
     try:
-        app_id = infrastructure_registry.register_app(
-            agent_id=payload["agent_id"],
-            app_name=payload["app_name"],
+        business_id = business_registry.register_business(
+            owner_id=payload["owner_id"],
+            name=payload["app_name"],
             db_config=payload["db_config"],
             tier=payload.get("tier", "FREE"),
         )
         return {
             "success": True,
-            "app_id": app_id,
-            "message": f"App {payload['app_name']} onboarded successfully.",
+            "business_id": business_id,
+            "message": f"Business {payload['app_name']} onboarded successfully.",
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -49,9 +48,8 @@ async def onboard_app(payload: Dict[str, Any]):
 async def update_tier(app_id: str, tier: str):
     """
     Administrative endpoint to upgrade or downgrade a client's subscription tier.
-    Example: /api/admin/apps/uuid-123/tier?tier=PRO
     """
-    success = infrastructure_registry.update_app_tier(app_id, tier)
+    success = business_registry.update_app_tier(app_id, tier)
     if not success:
         raise HTTPException(
             status_code=500, detail="Failed to update application tier."
@@ -64,7 +62,7 @@ async def get_app_details(app_id: str):
     """
     Retrieves the full infrastructure and tier configuration for a specific app.
     """
-    app = infrastructure_registry.get_app_by_id(app_id)
+    app = business_registry.get_app_by_id(app_id)
     if not app:
         raise HTTPException(status_code=404, detail="Application not found.")
     return {"success": True, "data": app}
@@ -76,8 +74,6 @@ async def list_apps():
     Lists all onboarded SaaS instances in the system.
     """
     try:
-        from src.infrastructure.db.core_db_manager import core_db_manager
-
         apps = (
             core_db_manager.execute_raw("SELECT id, name, owner_id FROM apps")
             .mappings()
