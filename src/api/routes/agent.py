@@ -1,7 +1,8 @@
+
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.core.registry.infrastructure_registry import business_registry
 from src.infrastructure.logging.omni_logger import get_logger
 
 router = APIRouter(prefix="/api/business", tags=["Business"])
@@ -35,17 +36,17 @@ async def register_business(
             "dbname": config.DB_NAME,
         }
 
-        # Registrar negocio directamente mediante InfrastructureRegistry
-        app_id = infrastructure_registry.register_app(
-            owner_id=user_id, app_name=request.name, db_config=db_config
+        # Registrar negocio directamente mediante BusinessRegistry
+        business_id = business_registry.register_business(
+            owner_id=user_id, name=request.name, db_config=db_config
         )
 
         return {
             "success": True,
-            "app_id": app_id,
+            "business_id": business_id,
             "message": "Negocio creado exitosamente.",
         }
 
     except Exception:
-        engine_logger.error("Project creation error")
+        engine_logger.error("Project creation error", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create project.")
