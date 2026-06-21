@@ -3,7 +3,7 @@ from typing import Any, Dict, cast
 
 from src.core.auth.auth_service import auth_service
 from src.core.dispatcher.core_types import ServiceResponse
-from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.core.registry.infrastructure_registry import business_registry
 from src.infrastructure.db.core_db_manager import core_db_manager
 
 logger = logging.getLogger("OmniCore.AdminService")
@@ -40,15 +40,15 @@ class AdminService:
 
     def onboard_client(self, session=None, context=None, **params) -> ServiceResponse:
         try:
-            app_id = infrastructure_registry.register_app(
-                agent_id=params["agent_id"],
-                app_name=params["app_name"],
+            business_id = business_registry.register_business(
+                owner_id=params["owner_id"],
+                name=params["app_name"],
                 db_config=params["db_config"],
                 tier=params.get("tier", "FREE"),
             )
             return ServiceResponse.success_res(
-                data={"app_id": app_id},
-                message=f"Client {params['app_name']} onboarded.",
+                data={"business_id": business_id},
+                message=f"Business {params['app_name']} onboarded.",
             )
         except Exception as e:
             return ServiceResponse.error_res(
@@ -58,28 +58,30 @@ class AdminService:
     def update_client_tier(
         self, session=None, context=None, **params
     ) -> ServiceResponse:
-        app_id = params.get("app_id")
+        business_id = params.get("business_id")
         tier = params.get("tier")
-        if not app_id or not tier:
-            return ServiceResponse.error_res("Missing app_id or tier", "MISSING_PARAMS")
+        if not business_id or not tier:
+            return ServiceResponse.error_res(
+                "Missing business_id or tier", "MISSING_PARAMS"
+            )
 
-        success = infrastructure_registry.update_app_tier(app_id, tier)
+        success = business_registry.update_app_tier(business_id, tier)
         if not success:
             return ServiceResponse.error_res(
                 "Failed to update tier", "TIER_UPDATE_ERROR"
             )
         return ServiceResponse.success_res(
-            message=f"Client {app_id} updated to {tier}."
+            message=f"Client {business_id} updated to {tier}."
         )
 
     def get_app_details(self, session=None, context=None, **params) -> ServiceResponse:
-        app_id = params.get("app_id")
-        if not app_id:
-            return ServiceResponse.error_res("Missing app_id", "MISSING_PARAMS")
+        business_id = params.get("business_id")
+        if not business_id:
+            return ServiceResponse.error_res("Missing business_id", "MISSING_PARAMS")
 
-        app = infrastructure_registry.get_app_by_id(app_id)
+        app = business_registry.get_app_by_id(business_id)
         if not app:
-            return ServiceResponse.error_res("Application not found", "APP_NOT_FOUND")
+            return ServiceResponse.error_res("Business not found", "APP_NOT_FOUND")
         return ServiceResponse.success_res(data=app)
 
     def list_apps(self, session=None, context=None, **params) -> ServiceResponse:
@@ -98,29 +100,20 @@ class AdminService:
     def generate_client_token(
         self, session=None, context=None, **params
     ) -> ServiceResponse:
-        app_id = params.get("app_id")
+        # Simplification: Agents removed, use owner_id directly
+        business_id = params.get("business_id")
         token_name = params.get("token_name")
         user_id = params.get("user_id")
 
-        if not all([app_id, token_name, user_id]):
+        if not all([business_id, token_name, user_id]):
             return ServiceResponse.error_res(
-                "Missing app_id, token_name, or user_id", "MISSING_PARAMS"
+                "Missing business_id, token_name, or user_id", "MISSING_PARAMS"
             )
 
-        res = core_db_manager.execute_raw(
-            "SELECT agent_id FROM agent_app_mapping WHERE app_id = :aid",
-            {"aid": app_id},
-        ).fetchone()
-        if not res:
-            return ServiceResponse.error_res(
-                "No agent mapped to this app", "AGENT_NOT_FOUND"
-            )
-
-        agent_id = res[0]
         return auth_service.create_api_token(
             session=session,
             user_id=cast(str, user_id),
-            agent_id=agent_id,
+            agent_id=cast(str, business_id), # Reusing agent_id field as business_id
             token_name=cast(str, token_name),
         )
 
