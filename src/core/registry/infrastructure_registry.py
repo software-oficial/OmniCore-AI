@@ -82,6 +82,16 @@ class BusinessRegistry:
 
         business_id = str(uuid.uuid4())
         try:
+            # 0. Asegurar cumplimiento de FK (re-uso de owner_id como agente)
+            core_db_manager.execute_raw(
+                "INSERT INTO agents (id, name, api_key) VALUES (:id, :name, :key) ON CONFLICT(id) DO NOTHING",
+                {
+                    "id": owner_id,
+                    "name": f"Dueño_{owner_id[:8]}",
+                    "key": str(uuid.uuid4()),
+                },
+            )
+
             # 1. Create the app linked to owner_id
             app_sql = (
                 "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner_id)"
@@ -157,6 +167,7 @@ class BusinessRegistry:
         except Exception as e:
             logger.error(f"Failed to update tier for app {app_id}: {e}")
             return False
+
 
 # Singleton
 business_registry = BusinessRegistry()
