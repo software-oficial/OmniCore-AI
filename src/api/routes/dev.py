@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from src.core.auth.auth_service import auth_service
-from src.core.registry.infrastructure_registry import infrastructure_registry
+from src.core.registry.infrastructure_registry import business_registry
 from src.domains.sales.sales_service import sales_service
 from src.domains.stock.stock_service import stock_service
 
@@ -120,7 +120,9 @@ async def verify_dev_access(authorization: str = Header(None)):
     return True
 
 
-# --- Endpoints ---
+from src.core.registry.infrastructure_registry import business_registry
+
+# ...
 
 
 @router.post("/clients/onboard", dependencies=[Depends(verify_dev_access)])
@@ -129,15 +131,15 @@ async def onboard_client(payload: OnboardClientRequest):
     Onboards a new supermarket/client for the developer.
     """
     try:
-        app_id = infrastructure_registry.register_app(
-            agent_id=payload.agent_id,
-            app_name=payload.app_name,
+        business_id = business_registry.register_business(
+            owner_id=payload.agent_id,  # Usando agent_id como owner_id temporal para mantener consistencia
+            name=payload.app_name,
             db_config=payload.db_config.model_dump(),
             tier=payload.tier,
         )
         return {
             "success": True,
-            "app_id": app_id,
+            "business_id": business_id,
             "message": f"Client {payload.app_name} onboarded.",
         }
     except Exception as e:
