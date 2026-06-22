@@ -40,6 +40,22 @@ class UniversalAdminService:
                     },
                 )
 
+                # 1.5 Create App (Required by infrastructure)
+                try:
+                    session.execute(
+                        text(
+                            "INSERT INTO apps (id, name, owner_id) VALUES (:id, :name, :owner)"
+                        ),
+                        {
+                            "id": business_id,
+                            "name": business_name,
+                            "owner": user_id,
+                        },
+                    )
+                except Exception:
+                    # Ignore if already exists or schema differs
+                    pass
+
                 # 2. Create User
                 session.execute(
                     text(
@@ -56,7 +72,7 @@ class UniversalAdminService:
                 # 3. Initialize Cash Box
                 session.execute(
                     text(
-                        "INSERT INTO cash_box (business_id, abierta, efectivo_inicial) VALUES (:bid, false, 0)"
+                        "INSERT INTO cash_box (app_id, abierta, efectivo_inicial) VALUES (:bid, false, 0)"
                     ),
                     {"bid": business_id},
                 )

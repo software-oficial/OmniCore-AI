@@ -109,6 +109,18 @@ class CoreDbManager:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        -- 5.5 Caja
+        CREATE TABLE IF NOT EXISTS cash_box (
+            id SERIAL PRIMARY KEY,
+            business_id TEXT REFERENCES businesses(id),
+            abierta BOOLEAN DEFAULT false,
+            efectivo_inicial REAL DEFAULT 0,
+            ventas_efectivo REAL DEFAULT 0,
+            ventas_digital REAL DEFAULT 0,
+            hora_apertura TIMESTAMP,
+            hora_cierre TIMESTAMP
+        );
+
         -- 6. Gobernanza y Auditoría
         CREATE TABLE IF NOT EXISTS governance_tiers (
             tier_name TEXT PRIMARY KEY,
