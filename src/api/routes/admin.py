@@ -33,9 +33,8 @@ async def onboard_app(payload: Dict[str, Any]):
     try:
         business_id = business_registry.register_business(
             owner_id=payload["owner_id"],
-            name=payload["app_name"],
-            db_config=payload["db_config"],
-            tier=payload.get("tier", "FREE"),
+            business_name=payload["app_name"],
+            plan=payload.get("tier", "FREE"),
         )
         return {
             "success": True,

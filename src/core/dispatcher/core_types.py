@@ -77,31 +77,30 @@ class CoreContext:
     """
     The 'Passport' of every request.
     Carries the identity and infrastructure config across the system.
+    Simplified for Unified Universal Schema (UUS).
     """
 
     def __init__(
         self,
-        agent_id: str,
-        app_id: str,
-        dev_id: str,
-        mode: str,
-        db_config: Optional[Dict[str, Any]] = None,
+        user_id: str,
+        business_id: str,
+        role: str = "EMPLOYEE",
         tier: str = "FREE",
         permissions: Optional[List[str]] = None,
         entity: str = "API",
-        execution_strategy: str = "DIRECT",
+        mode: str = "PRODUCTION",
         settings: Optional[Dict[str, Any]] = None,
+        execution_strategy: str = "DIRECT",
     ):
-        self.agent_id = agent_id
-        self.user_id = agent_id  # Defaulting user_id to agent_id
-        self.app_id = app_id
-        self.dev_id = dev_id
-        self.mode = mode  # 'LEARNING' or 'PRODUCTION'
-        self.db_config = db_config  # Host, User, Pass, etc.
+        self.user_id = user_id
+        self.business_id = business_id
+        self.app_id = business_id  # Aliased for backward compatibility with domains
+        self.role = role
         self.tier = tier
         self.permissions = permissions or []
         self.entity = entity
-        self.execution_strategy = execution_strategy
+        self.mode = mode  # 'LEARNING' or 'PRODUCTION'
         self.settings = settings or {}
+        self.execution_strategy = execution_strategy
         self.active_credentials: Dict[str, Any] = {}
         self.credential_id: Optional[str] = None

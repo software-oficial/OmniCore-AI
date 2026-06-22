@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
@@ -26,19 +25,9 @@ async def register_business(
     user_id = authorization.replace("Bearer ", "")
 
     try:
-        from config.settings import config
-
-        db_config = {
-            "host": config.DB_HOST,
-            "port": config.DB_PORT,
-            "user": config.DB_USER,
-            "password": config.DB_PASSWORD,
-            "dbname": config.DB_NAME,
-        }
-
         # Registrar negocio directamente mediante BusinessRegistry
         business_id = business_registry.register_business(
-            owner_id=user_id, name=request.name, db_config=db_config
+            owner_id=user_id, business_name=request.name
         )
 
         return {

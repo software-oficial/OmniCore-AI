@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -18,16 +18,17 @@ class StockRepository(BaseRepository):
     def __init__(self, session: Session, business_id: str):
         super().__init__(session, business_id)
 
-    def get_sync_delta(self, since: str) -> List[Dict[str, Any]]:
+    def get_sync_delta(self, since: str) -> list[dict[str, Any]]:
         """Retrieves products updated after the specified timestamp."""
-        return (
-            self.session.execute(
-                text("SELECT * FROM products WHERE updated_at > :since"),
-                {"since": since},
-            )
-            .mappings()
-            .all()
-        )
+        return [
+            dict(row)
+            for row in self.session.execute(
+                text(
+                    "SELECT * FROM products WHERE updated_at > :since AND app_id = :app_id"
+                ),
+                {"since": since, "app_id": self.app_id},
+            ).mappings()
+        ]
 
     def upsert_product(
         self,
@@ -43,7 +44,7 @@ class StockRepository(BaseRepository):
             """
             INSERT INTO products (app_id, code, name, price, quantity, category, is_weight) 
             VALUES (:app_id, :code, :name, :price, :quantity, :category, :is_weight) 
-            ON CONFLICT(code) DO UPDATE SET 
+            ON CONFLICT(app_id, code) DO UPDATE SET 
                 name=excluded.name, price=excluded.price, quantity=excluded.quantity, 
                 category=excluded.category, is_weight=excluded.is_weight, updated_at=CURRENT_TIMESTAMP
             RETURNING id
@@ -61,32 +62,37 @@ class StockRepository(BaseRepository):
                 "is_weight": is_weight,
             },
         )
-        return result.scalar()
+        return int(result.scalar())
 
-    def get_product_by_code(self, code: str) -> Optional[Dict[str, Any]]:
+    def get_product_by_code(self, code: str) -> dict[str, Any] | None:
         """Retrieves a single product by its unique code."""
-        return (
+        row = (
             self.session.execute(
-                text("SELECT * FROM products WHERE code = :code"), {"code": code}
+                text("SELECT * FROM products WHERE code = :code AND app_id = :app_id"),
+                {"code": code, "app_id": self.app_id},
             )
             .mappings()
             .first()
         )
+        return dict(row) if row else None
 
     def get_product_quantity_for_update(self, code: str) -> Optional[int]:
         """Locks the product row and returns the current quantity to prevent race conditions."""
-        return self.session.execute(
-            text("SELECT quantity FROM products WHERE code = :code FOR UPDATE"),
-            {"code": code},
+        res = self.session.execute(
+            text(
+                "SELECT quantity FROM products WHERE code = :code AND app_id = :app_id FOR UPDATE"
+            ),
+            {"code": code, "app_id": self.app_id},
         ).scalar()
+        return int(res) if res is not None else None
 
     def update_product_quantity(self, code: str, new_qty: int) -> None:
         """Updates the product quantity and timestamp."""
         self.session.execute(
             text(
-                "UPDATE products SET quantity = :new_qty, updated_at = CURRENT_TIMESTAMP WHERE code = :code"
+                "UPDATE products SET quantity = :new_qty, updated_at = CURRENT_TIMESTAMP WHERE code = :code AND app_id = :app_id"
             ),
-            {"new_qty": new_qty, "code": code},
+            {"new_qty": new_qty, "code": code, "app_id": self.app_id},
         )
 
     def record_movement(
@@ -95,9 +101,10 @@ class StockRepository(BaseRepository):
         """Records a stock movement in the ledger."""
         self.session.execute(
             text(
-                "INSERT INTO stock_movements (product_code, amount, reason, user_id) VALUES (:code, :amount, :reason, :user_id)"
+                "INSERT INTO stock_movements (app_id, product_code, amount, reason, user_id) VALUES (:app_id, :code, :amount, :reason, :user_id)"
             ),
             {
+                "app_id": self.app_id,
                 "code": code,
                 "amount": amount,
                 "reason": reason,
@@ -107,10 +114,10 @@ class StockRepository(BaseRepository):
 
     def list_products(
         self, category: Optional[str] = None, filter_text: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Lists products with optional filtering."""
-        query_str = "SELECT * FROM products WHERE 1=1"
-        params = {}
+        query_str = "SELECT * FROM products WHERE app_id = :app_id"
+        params = {"app_id": self.app_id}
 
         if category:
             query_str += " AND category = :category"
@@ -120,37 +127,41 @@ class StockRepository(BaseRepository):
             query_str += " AND (name LIKE :filter OR code LIKE :filter)"
             params["filter"] = f"%{filter_text}%"
 
-        return self.session.execute(text(query_str), params).mappings().all()
+        return [
+            dict(row)
+            for row in self.session.execute(text(query_str), params).mappings()
+        ]
 
-    def get_movement_history(self, code: str) -> List[Dict[str, Any]]:
+    def get_movement_history(self, code: str) -> list[dict[str, Any]]:
         """Retrieves movement history for a specific product."""
-        return (
-            self.session.execute(
+        # Assuming stock_movements also has app_id, if not it should be added.
+        # Based on the prompt UUS schema requirement, it should be added.
+        return [
+            dict(row)
+            for row in self.session.execute(
                 text(
-                    "SELECT * FROM stock_movements WHERE product_code = :code ORDER BY created_at DESC"
+                    "SELECT * FROM stock_movements WHERE product_code = :code AND app_id = :app_id ORDER BY created_at DESC"
                 ),
-                {"code": code},
-            )
-            .mappings()
-            .all()
-        )
+                {"code": code, "app_id": self.app_id},
+            ).mappings()
+        ]
 
-    def get_low_stock(self, threshold: float) -> List[Dict[str, Any]]:
+    def get_low_stock(self, threshold: float) -> list[dict[str, Any]]:
         """Retrieves products below the critical threshold."""
-        return (
-            self.session.execute(
+        return [
+            dict(row)
+            for row in self.session.execute(
                 text(
-                    "SELECT * FROM products WHERE quantity < :threshold ORDER by quantity ASC"
+                    "SELECT * FROM products WHERE quantity < :threshold AND app_id = :app_id ORDER by quantity ASC"
                 ),
-                {"threshold": threshold},
-            )
-            .mappings()
-            .all()
-        )
+                {"threshold": threshold, "app_id": self.app_id},
+            ).mappings()
+        ]
 
     def delete_product(self, code: str) -> int:
         """Deletes a product. Returns the number of rows affected."""
         result = self.session.execute(
-            text("DELETE FROM products WHERE code = :code"), {"code": code}
+            text("DELETE FROM products WHERE code = :code AND app_id = :app_id"),
+            {"code": code, "app_id": self.app_id},
         )
-        return result.rowcount
+        return int(result.rowcount)

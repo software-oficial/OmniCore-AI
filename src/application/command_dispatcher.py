@@ -1,16 +1,18 @@
 import asyncio
+import json
 import logging
 import time
 from typing import Any, Dict, Optional, cast
 
+from src.core.auth.token_manager import token_manager
 from src.core.dispatcher.core_types import CoreContext, ServiceResponse
+from src.core.dispatcher.exceptions import handle_omnicore_exception
 from src.core.dispatcher.normalizer import CommandNormalizer
 from src.core.dispatcher.validator import RequestValidator
 from src.core.governance.governance_service import governance_service
 from src.core.module_loader import module_loader
 from src.core.registry.infrastructure_registry import business_registry
-from src.core.settings_service import settings_service
-from src.infrastructure.db.db_manager import db_manager
+from src.infrastructure.db.core_db_manager import core_db_manager
 from src.infrastructure.validation.sanitizer import sanitizer
 
 logger = logging.getLogger("OmniCore.Dispatcher")
@@ -18,7 +20,7 @@ logger = logging.getLogger("OmniCore.Dispatcher")
 
 class CommandDispatcher:
     """
-    The Orchestrator of the Enterprise Core.
+    The Orchestrator of the Enterprise Core (UUS).
     Implements the Dispatcher Pattern to decouple interfaces from execution.
     """
 
@@ -56,8 +58,6 @@ class CommandDispatcher:
         filtered_params = sanitizer.sanitize_params(filtered_params)
 
         # 3. Identity & Context Resolution
-        from src.core.auth.token_manager import token_manager
-
         is_valid_token, payload, jwt_tier = token_manager.validate_token(token)
         if not is_valid_token or not payload:
             return ServiceResponse.error_res(
@@ -73,100 +73,68 @@ class CommandDispatcher:
         app_context = business_registry.get_business_context(user_id)
         if not app_context:
             return ServiceResponse.error_res(
-                "No business database linked to this user.",
-                "INFRA_NOT_FOUND",
+                "No business linked to this user.",
+                "BUSINESS_NOT_FOUND",
             )
 
-        # Build Enterprise CoreContext
+        # Build Enterprise CoreContext (UUS)
         ctx = ctx_override or CoreContext(
-            agent_id=user_id,
-            app_id=app_context["business_id"],
-            dev_id="SYSTEM",
-            mode="PRODUCTION",
-            db_config=app_context["db_config"],
+            user_id=user_id,
+            business_id=app_context["business_id"],
+            role=app_context["role"],
             tier=jwt_tier or app_context.get("tier", "FREE"),
             entity="DISPATCHER",
-            execution_strategy="DIRECT",
+            mode="PRODUCTION",
         )
 
         try:
             # 4. Governance (PBAC)
+            # PBAC is still handled via governance service, which we'll need to adapt
             is_allowed, gov_error = governance_service.validate_access(
                 effective_command, ctx, None
             )
             if not is_allowed:
                 return cast(ServiceResponse, gov_error)
 
-            # 4b. API Credential Validation
-            api_provider = cmd_metadata.get("api_provider")
-            if api_provider:
-                from src.domains.system.credential_service import credential_service
-                from src.infrastructure.db.core_db_manager import core_db_manager
-
-                with core_db_manager.get_session() as session:
-                    if not credential_service.has_provider_configured(
-                        session, ctx.user_id, api_provider
-                    ):
-                        return ServiceResponse.error_res(
-                            f"Falta configurar API de {api_provider}.",
-                            "API_NOT_CONFIGURED",
-                        )
-
-                    cred = credential_service.get_credential(
-                        session, ctx.user_id, api_provider
-                    )
-                    if cred:
-                        ctx.active_credentials = ctx.active_credentials or {}
-                        ctx.active_credentials[api_provider] = cred
-
-            # 5. Execution
+            # 5. Execution (Always using Core DB)
             handler = self.loader.get_handler(effective_command)
             if not handler:
                 return ServiceResponse.error_res("Handler missing", "HANDLER_MISSING")
 
-            # Handle both async and sync handlers
-            if cmd_metadata.get("is_system", False):
+            # In UUS, we always provide the core session
+            with core_db_manager.get_session() as session:
+                # Load settings from business.settings (JSON)
+                business_data = (
+                    core_db_manager.execute_raw(
+                        "SELECT settings FROM businesses WHERE id = :bid",
+                        {"bid": ctx.business_id},
+                    )
+                    .mappings()
+                    .first()
+                )
+
+                try:
+                    ctx.settings = json.loads(business_data["settings"] or "{}")
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    ctx.settings = {}
+
                 if asyncio.iscoroutinefunction(handler):
-                    result = await handler(session=None, context=ctx, **filtered_params)
+                    result = await handler(
+                        session=session, context=ctx, **filtered_params
+                    )
                 else:
                     loop = asyncio.get_running_loop()
                     result = await loop.run_in_executor(
                         None,
-                        lambda: handler(session=None, context=ctx, **filtered_params),
-                    )
-            else:
-                if ctx.db_config is None:
-                    return ServiceResponse.error_res(
-                        "Database configuration is missing.",
-                        "INFRA_CONFIG_MISSING",
-                    )
-
-                async with db_manager.get_session(
-                    ctx.app_id, ctx.db_config, ctx.tier
-                ) as session:
-                    ctx.settings = settings_service.get_all_settings(
-                        session, ctx.app_id
-                    )
-
-                    if asyncio.iscoroutinefunction(handler):
-                        result = await handler(
+                        lambda: handler(
                             session=session, context=ctx, **filtered_params
-                        )
-                    else:
-                        loop = asyncio.get_running_loop()
-                        result = await loop.run_in_executor(
-                            None,
-                            lambda: handler(
-                                session=session, context=ctx, **filtered_params
-                            ),
-                        )
+                        ),
+                    )
 
             if not isinstance(result, ServiceResponse):
                 result = ServiceResponse.success_res(data=result)
 
         except Exception as e:
-            from src.core.dispatcher.exceptions import handle_omnicore_exception
-
             result = handle_omnicore_exception(e)
 
         finally:
@@ -180,26 +148,19 @@ class CommandDispatcher:
     def _log_audit(self, ctx: CoreContext, command: str, result: ServiceResponse):
         """Persistent audit log in the core database."""
         try:
-            from src.infrastructure.db.core_db_manager import core_db_manager
-
-            logger.info(
-                f"Logging audit for command: {command}, status: {result.success}, app_id: {ctx.app_id}"
-            )
-
-            audit_query = "INSERT INTO system_audit_log (agent_id, app_id, command, status, message) VALUES (:agent_id, :app_id, :command, :status, :message)"
+            audit_query = "INSERT INTO system_audit_log (user_id, business_id, command, status, message) VALUES (:uid, :bid, :cmd, :status, :msg)"
             core_db_manager.execute_raw(
                 audit_query,
                 {
-                    "agent_id": ctx.agent_id,
-                    "app_id": ctx.app_id,
-                    "command": command,
+                    "uid": ctx.user_id,
+                    "bid": ctx.business_id,
+                    "cmd": command,
                     "status": "SUCCESS" if result.success else "FAILED",
-                    "message": result.message[:255],
+                    "msg": result.message[:255],
                 },
             )
-            logger.info("Audit log successfully inserted.")
         except Exception as e:
-            logger.error(f"Audit log failure: {e}", exc_info=True)
+            logger.error(f"Audit log failure: {e}")
 
 
 # Singleton for the entire system

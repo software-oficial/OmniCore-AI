@@ -16,15 +16,13 @@ class UserManagementUseCase:
     def __init__(self, session: Session, context: CoreContext):
         self.session = session
         self.context = context
-        self.repo = UserRepository(session)
+        self.repo = UserRepository(session, context.business_id)
 
     def create_employee(
         self, email: str, password: str, role: str = "employee"
     ) -> ServiceResponse:
         try:
-            self.repo.create_user(
-                email, password, app_id=self.context.app_id, role=role
-            )
+            self.repo.create_user(email, password, role=role)
             return ServiceResponse.success_res(
                 message=f"Employee {email} created successfully."
             )

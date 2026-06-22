@@ -56,23 +56,19 @@ async def get_business_schema(authorization: str = Header(None)):
         if is_valid:
             agent_id = str(tid)
 
-    from src.core.registry.infrastructure_registry import infrastructure_registry
+    from src.core.registry.infrastructure_registry import business_registry
     from src.infrastructure.db.db_manager import db_manager
 
     # For SYSTEM_BLUEPRINT, we use a special internal context or the first available app
-    app_context = infrastructure_registry.get_app_context(agent_id)
+    app_context = business_registry.get_business_context(agent_id)
 
-    # Fallback: If we are in blueprint mode and no context exists, we can't query a real DB.
-    # In a real scenario, we'd have a 'blueprint' DB. For now, we'll attempt to find ANY active app
     # Fallback: If we are in blueprint mode and no context exists, we can't query a real DB.
     if not app_context:
         # Attempt to get any active app to show as a sample schema
-        all_apps = (
-            infrastructure_registry.get_all_apps()
-        )  # Assuming this method exists or we use a fallback
+        all_apps = business_registry.get_all_apps()
         if all_apps:
-            first_app = list(all_apps.values())[0]
-            app_context = first_app
+            first_app_id = list(all_apps.keys())[0]
+            app_context = business_registry.get_app_by_id(first_app_id)
         else:
             raise HTTPException(
                 status_code=503,

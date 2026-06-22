@@ -19,7 +19,7 @@ class ProcessSaleUseCase:
     def __init__(self, session: Session, context: CoreContext):
         self.session = session
         self.context = context
-        self.sales_repo = SalesRepository(session)
+        self.repo = SalesRepository(session, context.business_id)
 
     def execute(
         self,
@@ -68,7 +68,7 @@ class ProcessSaleUseCase:
 
             # 2. Alias Limit Validation
             if payment_method == "Transferencia" and alias:
-                alias_data = self.sales_repo.get_alias_by_name(alias)
+                alias_data = self.repo.get_alias_by_name(alias)
                 if not alias_data:
                     return ServiceResponse.error_res(
                         "Alias not registered.", "ALIAS_NOT_FOUND"
@@ -91,7 +91,7 @@ class ProcessSaleUseCase:
                 vuelto = paga_con - total_amount
 
             # 4. Atomic Persistence via Repository
-            sale_id = self.sales_repo.create_sale(
+            sale_id = self.repo.create_sale(
                 client_name=cliente,
                 total=total_amount,
                 method=payment_method,
@@ -100,7 +100,7 @@ class ProcessSaleUseCase:
             )
 
             for pi in processed_items:
-                self.sales_repo.add_sale_item(
+                self.repo.add_sale_item(
                     sale_id=sale_id,
                     product_code=pi["product_code"],
                     quantity=pi["qty"],
@@ -110,15 +110,11 @@ class ProcessSaleUseCase:
 
             # 5. Update Cash Box
             is_digital = payment_method != "Efectivo"
-            self.sales_repo.update_cash_box_totals(
-                amount=total_amount, is_digital=is_digital
-            )
+            self.repo.update_cash_box_totals(amount=total_amount, is_digital=is_digital)
 
             # 6. Update Alias Accumulator
             if payment_method == "Transferencia" and alias:
-                self.sales_repo.update_alias_accumulation(
-                    nombre=alias, amount=total_amount
-                )
+                self.repo.update_alias_accumulation(nombre=alias, amount=total_amount)
 
             # 7. Deduct Stock
             for pi in processed_items:

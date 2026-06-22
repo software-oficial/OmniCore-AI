@@ -18,7 +18,7 @@ class SaleManagementUseCase:
     def __init__(self, session: Session, context: CoreContext):
         self.session = session
         self.context = context
-        self.repo = SalesRepository(session)
+        self.repo = SalesRepository(session, context.business_id)
 
     def cancel_sale(self, sale_id: int) -> ServiceResponse:
         try:

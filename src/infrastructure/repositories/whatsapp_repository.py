@@ -20,7 +20,7 @@ class WhatsappRepository:
     def get_conversation(
         self, phone_number: str, credential_id: str
     ) -> Optional[Dict[str, Any]]:
-        return (
+        row = (
             self.session.execute(
                 text(
                     "SELECT * FROM chat_sessions WHERE phone = :phone AND credential_id = :cid"
@@ -30,6 +30,7 @@ class WhatsappRepository:
             .mappings()
             .first()
         )
+        return dict(row) if row else None
 
     def create_conversation(
         self, phone_number: str, credential_id: str, current_node: str = "main"
@@ -102,8 +103,8 @@ class WhatsappRepository:
         else:
             query += " AND credential_id IS NULL"
 
-        res = self.session.execute(text(query), params).mappings().first()
-        return dict(res) if res else None
+        row = self.session.execute(text(query), params).mappings().first()
+        return dict(row) if row else None
 
     def list_all_nodes(self, credential_id: str) -> List[Dict[str, Any]]:
         res = (

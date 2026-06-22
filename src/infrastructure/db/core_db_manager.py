@@ -1,7 +1,7 @@
 import logging
 import os
 from contextlib import contextmanager
-from typing import Generator, Optional
+from typing import Any, Generator, Optional
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -51,74 +51,65 @@ class CoreDbManager:
         finally:
             session.close()
 
-    def execute_raw(self, query: str, params: Optional[dict] = None):
-        """Executes a raw SQL query on the internal DB."""
+    def execute_raw(self, query: Any, params: Optional[dict] = None):
+        """Executes a query on the internal DB. Accepts string or SQLAlchemy text object."""
         with self.get_session() as session:
-            result = session.execute(text(query), params or {})
+            if isinstance(query, str):
+                query = text(query)
+            result = session.execute(query, params or {})
             return result
 
     SCHEMA_SQL = """
+        -- 1. Empresas / Negocios
+        CREATE TABLE IF NOT EXISTS businesses (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            owner_id TEXT, 
+            plan TEXT DEFAULT 'FREE',
+            settings TEXT DEFAULT '{}',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- 2. Usuarios y Personal
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
+            username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            tier VARCHAR(50) DEFAULT 'FREE',
-            role VARCHAR(50) DEFAULT 'USER',
+            business_id TEXT REFERENCES businesses(id),
+            role TEXT DEFAULT 'EMPLOYEE',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE IF NOT EXISTS user_credentials (
-            id TEXT PRIMARY KEY,
-            user_id TEXT REFERENCES users(id),
-            provider VARCHAR(100) NOT NULL,
-            account_name VARCHAR(255),
-            api_key TEXT,
-            secret TEXT,
-            metadata TEXT,
-            is_default BOOLEAN DEFAULT FALSE,
+        -- 3. Stock Flexible (Universal Schema)
+        CREATE TABLE IF NOT EXISTS stock (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            business_id TEXT REFERENCES businesses(id),
+            sku TEXT NOT NULL,
+            data TEXT DEFAULT '{}',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(business_id, sku)
+        );
+
+        -- 4. Credenciales Dinámicas (APIs Externas)
+        CREATE TABLE IF NOT EXISTS credentials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            business_id TEXT REFERENCES businesses(id),
+            provider TEXT NOT NULL,
+            data TEXT DEFAULT '{}',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE IF NOT EXISTS agents (
-            id TEXT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            api_key VARCHAR(255) UNIQUE NOT NULL,
-            owner_user_id TEXT REFERENCES users(id),
+        -- 5. Registro de Ventas Unificado
+        CREATE TABLE IF NOT EXISTS sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            business_id TEXT REFERENCES businesses(id),
+            client_name TEXT,
+            total_amount REAL,
+            data TEXT DEFAULT '{}', -- Detalles de items y pagos en JSON
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE IF NOT EXISTS api_tokens (
-            token_hash TEXT PRIMARY KEY,
-            user_id TEXT REFERENCES users(id),
-            agent_id TEXT,
-            token_name VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_used TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS apps (
-            id TEXT PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            owner_id TEXT REFERENCES agents(id),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS app_infrastructure (
-            app_id TEXT PRIMARY KEY REFERENCES apps(id),
-            db_host VARCHAR(255) NOT NULL,
-            db_port INTEGER NOT NULL,
-            db_user VARCHAR(255) NOT NULL,
-            db_password TEXT NOT NULL,
-            db_name VARCHAR(255) NOT NULL,
-            tier VARCHAR(50) DEFAULT 'FREE'
-        );
-
-        CREATE TABLE IF NOT EXISTS agent_app_mapping (
-            agent_id TEXT REFERENCES agents(id),
-            app_id TEXT REFERENCES apps(id),
-            PRIMARY KEY (agent_id, app_id)
-        );
-
+        -- 6. Gobernanza y Auditoría
         CREATE TABLE IF NOT EXISTS governance_tiers (
             tier_name TEXT PRIMARY KEY,
             level INTEGER NOT NULL
@@ -131,35 +122,12 @@ class CoreDbManager:
         );
 
         CREATE TABLE IF NOT EXISTS system_audit_log (
-            id SERIAL PRIMARY KEY,
-            agent_id TEXT,
-            app_id TEXT,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            business_id TEXT,
             command TEXT,
             status TEXT,
             message TEXT,
-            params TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS common_errors_kb (
-            id SERIAL PRIMARY KEY,
-            error_pattern TEXT UNIQUE,
-            solution_guide TEXT,
-            occurrence_count INTEGER DEFAULT 1,
-            impact_level TEXT DEFAULT 'LOW',
-            status TEXT DEFAULT 'OPEN',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS system_logs (
-            id SERIAL PRIMARY KEY,
-            level TEXT,
-            category TEXT,
-            message TEXT,
-            app_id TEXT,
-            agent_id TEXT,
-            payload TEXT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """

@@ -1,16 +1,19 @@
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from src.core.auth.auth_service import auth_service
+from src.core.dispatcher.core_types import CoreContext
+from src.core.governance.governance_service import governance_service
 from src.core.registry.infrastructure_registry import business_registry
+from src.core.system_service import system_service
 from src.domains.sales.sales_service import sales_service
 from src.domains.stock.stock_service import stock_service
-
-# Added for Injection Endpoints
 from src.domains.system.user_service import user_service
 from src.infrastructure.db.core_db_manager import core_db_manager
+from src.infrastructure.db.db_manager import db_manager
 from src.infrastructure.logging.omni_logger import logger
 
 router = APIRouter(prefix="/api/dev", tags=["Developer Control Plane"])
@@ -18,11 +21,11 @@ router = APIRouter(prefix="/api/dev", tags=["Developer Control Plane"])
 
 # --- Request Models ---
 class DBConfig(BaseModel):
-    host: str = Field(..., json_schema_extra={"example": "localhost"})
-    port: int = Field(..., json_schema_extra={"example": 5432})
-    user: str = Field(..., json_schema_extra={"example": "postgres"})
-    password: str = Field(..., json_schema_extra={"example": "password"})
-    dbname: str = Field(..., json_schema_extra={"example": "omnicore_biz"})
+    host: str = Field(..., json_schema_extra={"examples": ["localhost"]})
+    port: int = Field(..., json_schema_extra={"examples": [5432]})
+    user: str = Field(..., json_schema_extra={"examples": ["postgres"]})
+    password: str = Field(..., json_schema_extra={"examples": ["password"]})
+    dbname: str = Field(..., json_schema_extra={"examples": ["omnicore_biz"]})
 
 
 class OnboardClientRequest(BaseModel):
@@ -47,12 +50,12 @@ class FastOnboardRequest(OnboardClientRequest):
 class CreatePlanRequest(BaseModel):
     tier_name: str = Field(
         ...,
-        json_schema_extra={"example": "Plan Oro"},
+        json_schema_extra={"examples": ["Plan Oro"]},
         description="Name of the subscription plan",
     )
     level: int = Field(
         ...,
-        json_schema_extra={"example": 5},
+        json_schema_extra={"examples": [5]},
         description="Hierarchy level of the plan (higher = more privileges)",
     )
 
@@ -60,46 +63,46 @@ class CreatePlanRequest(BaseModel):
 class MapCommandPlanRequest(BaseModel):
     command_name: str = Field(
         ...,
-        json_schema_extra={"example": "stock.import.commit"},
+        json_schema_extra={"examples": ["stock.import.commit"]},
         description="The registered command name",
     )
     min_tier: str = Field(
         ...,
-        json_schema_extra={"example": "PLAN_ORO"},
+        json_schema_extra={"examples": ["PLAN_ORO"]},
         description="The minimum tier required to execute this command",
     )
 
 
 class InjectUserRequest(BaseModel):
-    username: str = Field(..., example="admin_test")
-    password: str = Field(..., example="password123")
-    role: str = Field("employee", example="manager")
+    username: str = Field(..., examples=["admin_test"])
+    password: str = Field(..., examples=["password123"])
+    role: str = Field("employee", examples=["manager"])
 
 
 class InjectProductRequest(BaseModel):
-    code: str = Field(..., example="PROD-001")
-    name: str = Field(..., example="Product Test")
-    price: float = Field(..., example=10.5)
-    quantity: int = Field(..., example=100)
-    category: Optional[str] = Field(None, example="General")
+    code: str = Field(..., examples=["PROD-001"])
+    name: str = Field(..., examples=["Product Test"])
+    price: float = Field(..., examples=[10.5])
+    quantity: int = Field(..., examples=[100])
+    category: Optional[str] = Field(None, examples=["General"])
     is_weight: bool = Field(False)
 
 
 class InjectAliasRequest(BaseModel):
-    nombre: str = Field(..., example="AliasTest")
-    limite: float = Field(..., example=5000.0)
+    nombre: str = Field(..., examples=["AliasTest"])
+    limite: float = Field(..., examples=[5000.0])
 
 
 class StoreSetupRequest(BaseModel):
-    store_name: str = Field(..., example="Mi Supermercado")
-    owner_email: str = Field(..., example="owner@email.com")
-    owner_password: str = Field(..., example="admin123")
+    store_name: str = Field(..., examples=["Mi Supermercado"])
+    owner_email: str = Field(..., examples=["owner@email.com"])
+    owner_password: str = Field(..., examples=["admin123"])
 
 
 class GenerateClientTokenRequest(BaseModel):
     token_name: str = Field(
         ...,
-        json_schema_extra={"example": "Production-Token-1"},
+        json_schema_extra={"examples": ["Production-Token-1"]},
         description="Name for the generated token",
     )
     user_id: str = Field(..., description="ID of the user who owns this token")
@@ -110,8 +113,6 @@ async def verify_dev_access(authorization: str = Header(None)):
     """
     Validates the Master Developer Key.
     """
-    import os
-
     master_key = os.getenv("OMNICORE_MASTER_KEY", "admin-secret-key")
     if authorization != master_key and authorization != f"Bearer {master_key}":
         raise HTTPException(
@@ -120,20 +121,15 @@ async def verify_dev_access(authorization: str = Header(None)):
     return True
 
 
-from src.core.registry.infrastructure_registry import business_registry
-
-# ...
-
-
 @router.post("/clients/onboard", dependencies=[Depends(verify_dev_access)])
 async def onboard_client(payload: OnboardClientRequest):
     """
     Onboards a new supermarket/client for the developer.
     """
     try:
-        business_id = business_registry.register_business(
-            owner_id=payload.agent_id,  # Usando agent_id como owner_id temporal para mantener consistencia
-            name=payload.app_name,
+        business_id = business_registry.register_app(
+            agent_id=payload.agent_id,
+            app_name=payload.app_name,
             db_config=payload.db_config.model_dump(),
             tier=payload.tier,
         )
@@ -154,7 +150,7 @@ async def fast_onboard(payload: FastOnboardRequest):
     """
     try:
         # 1. Register App and Link Agent
-        app_id = infrastructure_registry.register_app(
+        app_id = business_registry.register_app(
             agent_id=payload.agent_id,
             app_name=payload.app_name,
             db_config=payload.db_config.model_dump(),
@@ -163,17 +159,13 @@ async def fast_onboard(payload: FastOnboardRequest):
 
         # 2. Atomic Schema Deployment
         if payload.deploy_schema:
-            from src.core.dispatcher.core_types import CoreContext
-            from src.core.system_service import system_service
-            from src.infrastructure.db.db_manager import db_manager
-
             ctx = CoreContext(
-                agent_id=payload.agent_id,
-                app_id=app_id,
-                dev_id="SYSTEM",
-                mode="PRODUCTION",
-                db_config=payload.db_config.model_dump(),
+                user_id=payload.agent_id,
+                business_id=app_id,
+                role="OWNER",
                 tier=payload.tier,
+                mode="PRODUCTION",
+                settings=payload.db_config.model_dump(),
             )
 
             async with db_manager.get_session(
@@ -202,24 +194,18 @@ async def deploy_client_schema(app_id: str):
     """
     Triggers the deployment of blueprints to the client's DB.
     """
-    from src.core.dispatcher.core_types import CoreContext
-    from src.infrastructure.db.db_manager import db_manager
-
-    app_info = infrastructure_registry.get_app_by_id(app_id)
+    app_info = business_registry.get_app_by_id(app_id)
     if not app_info:
         raise HTTPException(status_code=404, detail="App not found")
 
     ctx = CoreContext(
-        agent_id="dev_admin",
-        app_id=app_id,
-        dev_id="SYSTEM",
-        mode="PRODUCTION",
-        db_config=app_info["db_config"],
+        user_id="dev_admin",
+        business_id=app_id,
+        role="OWNER",
         tier=app_info["tier"],
+        mode="PRODUCTION",
+        settings=app_info["db_config"],
     )
-
-    # Direct execution via system_service within a DB session
-    from src.core.system_service import system_service
 
     async with db_manager.get_session(
         app_id, app_info["db_config"], app_info["tier"]
@@ -233,7 +219,7 @@ async def update_client_tier(app_id: str, tier: str):
     """
     Updates the subscription tier for a specific client.
     """
-    success = infrastructure_registry.update_app_tier(app_id, tier)
+    success = business_registry.update_app_tier(app_id, tier)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update tier.")
     return {"success": True, "message": f"Client {app_id} updated to {tier}."}
@@ -279,7 +265,6 @@ async def create_plan(payload: CreatePlanRequest):
     """
     Creates a new subscription plan with a specific hierarchy level.
     """
-    from src.core.governance.governance_service import governance_service
 
     try:
         core_db_manager.execute_raw(
@@ -356,12 +341,10 @@ async def store_setup(payload: StoreSetupRequest):
     3. Creates Owner User.
     4. Generates Access Token.
     """
-    from src.core.dispatcher.core_types import CoreContext
-    from src.infrastructure.db.db_manager import db_manager
 
     try:
         # 1. Register as Hosted (Sandbox)
-        app_id = infrastructure_registry.register_app(
+        app_id = business_registry.register_app(
             agent_id="system_owner",
             app_name=payload.store_name,
             db_config={
@@ -376,28 +359,26 @@ async def store_setup(payload: StoreSetupRequest):
 
         # 2. Deploy Schema
         ctx = CoreContext(
-            agent_id="system_owner",
-            app_id=app_id,
-            dev_id="SYSTEM",
+            user_id="system_owner",
+            business_id=app_id,
+            role="OWNER",
+            tier="GOLD",
             mode="PRODUCTION",
-            db_config={
+            settings={
                 "host": "sandbox.omnicore.internal",
                 "port": 5432,
                 "user": "postgres",
                 "password": "password",
                 "dbname": f"db_{payload.store_name.lower().replace(' ', '_')}",
             },
-            tier="GOLD",
         )
 
-        if ctx.db_config is None:
+        if not ctx.settings:
             raise HTTPException(
                 status_code=500, detail="Failed to initialize DB config"
             )
 
-        async with db_manager.get_session(app_id, ctx.db_config, ctx.tier) as session:
-            from src.core.system_service import system_service
-
+        async with db_manager.get_session(app_id, ctx.settings, ctx.tier) as session:
             system_service.deploy_schema(session, ctx)
 
             # 3. Create Owner User
@@ -437,20 +418,17 @@ async def store_setup(payload: StoreSetupRequest):
 @router.post("/clients/{app_id}/inject/user", dependencies=[Depends(verify_dev_access)])
 async def inject_user(app_id: str, payload: InjectUserRequest):
     """Injects a user directly into the client's business DB."""
-    from src.core.dispatcher.core_types import CoreContext
-    from src.infrastructure.db.db_manager import db_manager
-
-    app_info = infrastructure_registry.get_app_by_id(app_id)
+    app_info = business_registry.get_app_by_id(app_id)
     if not app_info:
         raise HTTPException(status_code=404, detail="App not found")
 
     ctx = CoreContext(
-        agent_id="dev_inject",
-        app_id=app_id,
-        dev_id="SYSTEM",
-        mode="TEST",
-        db_config=app_info["db_config"],
+        user_id="dev_inject",
+        business_id=app_id,
+        role="OWNER",
         tier=app_info["tier"],
+        mode="TEST",
+        settings=app_info["db_config"],
     )
 
     async with db_manager.get_session(
@@ -467,20 +445,17 @@ async def inject_user(app_id: str, payload: InjectUserRequest):
 )
 async def inject_product(app_id: str, payload: InjectProductRequest):
     """Injects a product/variant directly into the client's business DB."""
-    from src.core.dispatcher.core_types import CoreContext
-    from src.infrastructure.db.db_manager import db_manager
-
-    app_info = infrastructure_registry.get_app_by_id(app_id)
+    app_info = business_registry.get_app_by_id(app_id)
     if not app_info:
         raise HTTPException(status_code=404, detail="App not found")
 
     ctx = CoreContext(
-        agent_id="dev_inject",
-        app_id=app_id,
-        dev_id="SYSTEM",
-        mode="TEST",
-        db_config=app_info["db_config"],
+        user_id="dev_inject",
+        business_id=app_id,
+        role="OWNER",
         tier=app_info["tier"],
+        mode="TEST",
+        settings=app_info["db_config"],
     )
 
     async with db_manager.get_session(
@@ -504,20 +479,17 @@ async def inject_product(app_id: str, payload: InjectProductRequest):
 )
 async def inject_alias(app_id: str, payload: InjectAliasRequest):
     """Injects a payment alias directly into the client's business DB."""
-    from src.core.dispatcher.core_types import CoreContext
-    from src.infrastructure.db.db_manager import db_manager
-
-    app_info = infrastructure_registry.get_app_by_id(app_id)
+    app_info = business_registry.get_app_by_id(app_id)
     if not app_info:
         raise HTTPException(status_code=404, detail="App not found")
 
     ctx = CoreContext(
-        agent_id="dev_inject",
-        app_id=app_id,
-        dev_id="SYSTEM",
-        mode="TEST",
-        db_config=app_info["db_config"],
+        user_id="dev_inject",
+        business_id=app_id,
+        role="OWNER",
         tier=app_info["tier"],
+        mode="TEST",
+        settings=app_info["db_config"],
     )
 
     async with db_manager.get_session(

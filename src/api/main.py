@@ -19,6 +19,7 @@ from src.api.routes import (
     gateway,
     infra,
     sdk,
+    universal_admin,
 )
 from src.core.admin_service import admin_service
 from src.core.dispatcher.context_middleware import context_middleware
@@ -176,6 +177,7 @@ ai_gateway.register_command(
 
 # 2. Include Modular Routes
 app.include_router(gateway.router)
+app.include_router(universal_admin.router)
 app.include_router(discovery.router)
 app.include_router(business.router)
 app.include_router(infra.router)

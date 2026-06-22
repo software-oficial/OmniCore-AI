@@ -186,18 +186,17 @@ class AIGateway:
         effective_tier = jwt_tier or app_context.get("tier", "FREE")
 
         ctx = CoreContext(
-            agent_id=agent_id,
-            app_id=app_context["business_id"],
-            dev_id="SYSTEM",
-            mode=mode,
-            db_config=app_context["db_config"],
+            user_id=agent_id,
+            business_id=app_context["business_id"],
+            role=app_context.get("role", "EMPLOYEE"),
             tier=effective_tier,
-            entity="API",
+            mode=mode,
+            settings=app_context.get("db_config", {}),
             execution_strategy=execution_strategy,
         )
 
         logger.info(
-            f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Tier={ctx.tier} | Strategy={ctx.execution_strategy} | Host={(ctx.db_config or {}).get('host')}"
+            f"🔍 DB CONFIG RESOLVED: App={ctx.app_id} | Mode={ctx.mode} | Tier={ctx.tier} | Strategy={ctx.execution_strategy} | Host={(ctx.settings or {}).get('host')}"
         )
 
         # 4. Execution Path
@@ -301,7 +300,7 @@ class AIGateway:
 
         try:
             async with db_manager.get_session(
-                ctx.app_id, ctx.db_config or {}, ctx.tier
+                ctx.app_id, ctx.settings or {}, ctx.tier
             ) as session:
                 results = []
 
@@ -471,7 +470,7 @@ class AIGateway:
 
         try:
             async with db_manager.get_session(
-                ctx.app_id, ctx.db_config or {}, ctx.tier
+                ctx.app_id, ctx.settings or {}, ctx.tier
             ) as session:
                 # Security Check
                 is_allowed, error_res = governance_service.validate_access(
@@ -540,7 +539,7 @@ class AIGateway:
                     try:
                         query = f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}'"
                         with db_manager.get_session_sync(
-                            ctx.app_id, ctx.db_config or {}, ctx.tier
+                            ctx.app_id, ctx.settings or {}, ctx.tier
                         ) as session:
                             columns = [row[0] for row in session.execute(query).all()]
 

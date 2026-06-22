@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
 from src.infrastructure.repositories.base_repository import BaseRepository
 
 logger = logging.getLogger("OmniCore.SalesRepository")
@@ -29,10 +30,10 @@ class SalesRepository(BaseRepository):
             ),
             {"monto": monto_inicial, "app_id": self.app_id},
         )
-        return result.rowcount
+        return int(result.rowcount)
 
     def get_cash_box(self) -> Optional[Dict[str, Any]]:
-        return (
+        row = (
             self.session.execute(
                 text("SELECT * FROM cash_box WHERE app_id = :app_id"),
                 {"app_id": self.app_id},
@@ -40,6 +41,7 @@ class SalesRepository(BaseRepository):
             .mappings()
             .first()
         )
+        return dict(row) if row else None
 
     def close_cash_box(self, monto_real: float) -> None:
         self.session.execute(
@@ -56,7 +58,9 @@ class SalesRepository(BaseRepository):
     def update_cash_box_totals(self, amount: float, is_digital: bool) -> None:
         column = "ventas_digital" if is_digital else "ventas_efectivo"
         self.session.execute(
-            text(f"UPDATE cash_box SET {column} = {column} + :total WHERE app_id = :app_id"),
+            text(
+                f"UPDATE cash_box SET {column} = {column} + :total WHERE app_id = :app_id"
+            ),
             {"total": amount, "app_id": self.app_id},
         )
 
@@ -88,7 +92,7 @@ class SalesRepository(BaseRepository):
                 "vuelto": vuelto,
             },
         )
-        return result.scalar()
+        return int(result.scalar())
 
     def add_sale_item(
         self,
@@ -115,7 +119,7 @@ class SalesRepository(BaseRepository):
         )
 
     def get_sale_by_id(self, sale_id: int) -> Optional[Dict[str, Any]]:
-        return (
+        row = (
             self.session.execute(
                 text("SELECT * FROM sales WHERE id = :id AND app_id = :app_id"),
                 {"id": sale_id, "app_id": self.app_id},
@@ -123,24 +127,24 @@ class SalesRepository(BaseRepository):
             .mappings()
             .first()
         )
+        return dict(row) if row else None
 
     def update_sale_status(self, sale_id: int, status: str) -> None:
         self.session.execute(
-            text("UPDATE sales SET status = :status WHERE id = :id AND app_id = :app_id"),
+            text(
+                "UPDATE sales SET status = :status WHERE id = :id AND app_id = :app_id"
+            ),
             {"status": status, "id": sale_id, "app_id": self.app_id},
         )
 
     def get_sale_items(self, sale_id: int) -> List[Dict[str, Any]]:
-        return (
-            self.session.execute(
-                text(
-                    "SELECT sku, quantity FROM sale_items WHERE sale_id = :id"
-                ),
+        return [
+            dict(row)
+            for row in self.session.execute(
+                text("SELECT sku, quantity FROM sale_items WHERE sale_id = :id"),
                 {"id": sale_id},
-            )
-            .mappings()
-            .all()
-        )
+            ).mappings()
+        ]
 
     # --- Alias Management ---
     def add_alias(self, alias_id: str, nombre: str, limite: float) -> None:
@@ -152,14 +156,17 @@ class SalesRepository(BaseRepository):
         )
 
     def get_alias_by_name(self, nombre: str) -> Optional[Dict[str, Any]]:
-        return (
+        row = (
             self.session.execute(
-                text("SELECT * FROM aliases WHERE nombre = :nombre AND app_id = :app_id"),
+                text(
+                    "SELECT * FROM aliases WHERE nombre = :nombre AND app_id = :app_id"
+                ),
                 {"nombre": nombre, "app_id": self.app_id},
             )
             .mappings()
             .first()
         )
+        return dict(row) if row else None
 
     def update_alias_accumulation(self, nombre: str, amount: float) -> None:
         self.session.execute(
@@ -170,9 +177,13 @@ class SalesRepository(BaseRepository):
         )
 
     def list_all_aliases(self) -> List[Dict[str, Any]]:
-        return self.session.execute(
-            text("SELECT * FROM aliases WHERE app_id = :app_id"), {"app_id": self.app_id}
-        ).mappings().all()
+        return [
+            dict(row)
+            for row in self.session.execute(
+                text("SELECT * FROM aliases WHERE app_id = :app_id"),
+                {"app_id": self.app_id},
+            ).mappings()
+        ]
 
     def delete_alias(self, alias_id: str) -> None:
         self.session.execute(
@@ -191,13 +202,12 @@ class SalesRepository(BaseRepository):
         return float(res or 0)
 
     def get_daily_breakdown(self, date: str) -> List[Dict[str, Any]]:
-        return (
-            self.session.execute(
+        return [
+            dict(row)
+            for row in self.session.execute(
                 text(
                     "SELECT payment_method, SUM(total_amount) as sum FROM sales WHERE DATE(created_at) = :date AND app_id = :app_id GROUP BY payment_method"
                 ),
                 {"date": date, "app_id": self.app_id},
-            )
-            .mappings()
-            .all()
-        )
+            ).mappings()
+        ]
