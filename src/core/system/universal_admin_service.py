@@ -54,11 +54,7 @@ class UniversalAdminService:
                 )
 
                 # 3. Assign Default Infrastructure (Crucial for DB Pool initialization)
-                # To allow the UUS to work immediately, we map the business to the core DB.
-                # In a real scenario, these would be external credentials.
                 try:
-                    # Using a fixed set of values derived from the environment or defaults
-                    # To avoid complex parsing, we use a simplified mapping for the simulation.
                     session.execute(
                         text(
                             """
@@ -79,6 +75,19 @@ class UniversalAdminService:
                 except Exception as infra_e:
                     logger.warning(
                         f"Could not set default infra for {business_id}: {infra_e}"
+                    )
+
+                # 4. Initialize Cash Box (Crucial for Sales Flow)
+                try:
+                    session.execute(
+                        text(
+                            "INSERT INTO cash_box (app_id, abierta, efectivo_inicial) VALUES (:app_id, false, 0)"
+                        ),
+                        {"app_id": business_id},
+                    )
+                except Exception as cash_e:
+                    logger.error(
+                        f"Could not initialize cash box for {business_id}: {cash_e}"
                     )
 
                 # Generate a long-lived token for immediate use

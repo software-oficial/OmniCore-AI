@@ -9,19 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from config.settings import config
-from src.api.routes import (
-    admin,
-    agent,
-    auth,
-    business,
-    cash_box,
-    dev,
-    discovery,
-    gateway,
-    infra,
-    sdk,
-    universal_admin,
-)
+from src.api.router_loader import load_routers
 from src.core.admin_service import admin_service
 from src.core.dispatcher.context_middleware import context_middleware
 from src.core.dispatcher.gateway import ai_gateway
@@ -176,18 +164,9 @@ ai_gateway.register_command(
     description="Assign a minimum required plan to a specific business command.",
 )
 
-# 2. Include Modular Routes
-app.include_router(gateway.router)
-app.include_router(universal_admin.router)
-app.include_router(cash_box.router)
-app.include_router(discovery.router)
-app.include_router(business.router)
-app.include_router(infra.router)
-app.include_router(agent.router)
-app.include_router(admin.router)
-app.include_router(auth.router)
-app.include_router(dev.router)
-app.include_router(sdk.router)
+# 2. Include Modular Routes dynamically
+for router in load_routers():
+    app.include_router(router)
 
 
 # 3. Serve Frontend Panel
