@@ -15,7 +15,7 @@ class StockImportUseCase:
     """
 
     def __init__(self, session: Session):
-        self.repo = StockRepository(session)
+        self.session = session
 
     def _auto_detect_mapping(self, raw_data: List[Dict[str, Any]]) -> Dict[str, str]:
         """
@@ -123,6 +123,7 @@ class StockImportUseCase:
         self, context: CoreContext, products: List[Dict[str, Any]]
     ) -> ServiceResponse:
         try:
+            repo = StockRepository(self.session, context.app_id)
             success_count = 0
             error_count = 0
 
@@ -139,12 +140,10 @@ class StockImportUseCase:
                         error_count += 1
                         continue
 
-                    _ = self.repo.upsert_product(
+                    _ = repo.upsert_product(
                         code, name, price, quantity, category, is_weight
                     )
-                    self.repo.record_movement(
-                        code, quantity, "BULK_IMPORT", context.user_id
-                    )
+                    repo.record_movement(code, quantity, "BULK_IMPORT", context.user_id)
                     success_count += 1
                 except Exception as e:
                     logger.error(

@@ -536,14 +536,15 @@ class SalesService:
             # 4. Atomic Persistence
             sale_query = text(
                 """
-                INSERT INTO sales (client_name, total_amount, status) 
-                VALUES (:name, :total, 'COMPLETED') 
+                INSERT INTO sales (app_id, client_name, total_amount, status) 
+                VALUES (:app_id, :name, :total, 'COMPLETED') 
                 RETURNING id
             """
             )
             sale_id = session.execute(
                 sale_query,
                 {
+                    "app_id": context.app_id,
                     "name": cliente,
                     "total": total_amount,
                 },

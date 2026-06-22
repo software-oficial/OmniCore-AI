@@ -64,7 +64,7 @@ class StockService:
     def get_sync_delta(
         self, session: Session, context: CoreContext, since: str
     ) -> ServiceResponse:
-        return StockSyncUseCase(session).execute_get_delta(since)
+        return StockSyncUseCase(session).execute_get_delta(context, since)
 
     @command(
         name="stock.import_validated",

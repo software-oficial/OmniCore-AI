@@ -15,12 +15,13 @@ class StockAuditUseCase:
     """
 
     def __init__(self, session: Session):
-        self.repo = StockRepository(session)
+        self.session = session
 
     def execute_audit(
         self, context: CoreContext, audit_data: List[Dict[str, Any]]
     ) -> ServiceResponse:
         try:
+            repo = StockRepository(self.session, context.app_id)
             results = []
             discrepancies = 0
 
@@ -32,7 +33,7 @@ class StockAuditUseCase:
                     continue
 
                 # Lock product and get current quantity
-                recorded_qty = self.repo.get_product_quantity_for_update(code)
+                recorded_qty = repo.get_product_quantity_for_update(code)
 
                 if recorded_qty is None:
                     results.append(
@@ -48,8 +49,8 @@ class StockAuditUseCase:
 
                 if diff != 0:
                     discrepancies += 1
-                    self.repo.update_product_quantity(code, physical_qty)
-                    self.repo.record_movement(
+                    repo.update_product_quantity(code, physical_qty)
+                    repo.record_movement(
                         code, diff, "AUDIT_DISCREPANCY", context.user_id
                     )
                     results.append(
