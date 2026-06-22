@@ -48,7 +48,7 @@ class AuthService:
             )
 
     def register_user(
-        self, session: Session, email: str, password: str, role: str = "user"
+        self, session: Session, email: str, password: str, role: str = "owner"
     ) -> ServiceResponse:
         """Registers a new system user."""
         try:
@@ -56,14 +56,13 @@ class AuthService:
 
             from sqlalchemy.exc import IntegrityError
 
+            from src.infrastructure.repositories.user_repository import UserRepository
+
+            user_repo = UserRepository(session)
             password_hash = hashlib.sha256(password.encode()).hexdigest()
-            result = session.execute(
-                text(
-                    "INSERT INTO users (id, email, password_hash) VALUES (gen_random_uuid(), :email, :hash) RETURNING id"
-                ),
-                {"email": email, "hash": password_hash},
+            user_id = user_repo.create_user(
+                email, password_hash, app_id=None, role=role
             )
-            user_id = result.scalar()
             session.commit()
             return ServiceResponse.success_res(
                 data={"user_id": user_id}, message="User registered successfully."
@@ -188,7 +187,7 @@ class AuthService:
         context: CoreContext,
         username: str,
         password: str,
-        role: str = "empleado",
+        role: str = "employee",
     ) -> ServiceResponse:
         """Invites a new employee."""
         try:
@@ -196,15 +195,13 @@ class AuthService:
 
             from sqlalchemy.exc import IntegrityError
 
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            from src.infrastructure.repositories.user_repository import UserRepository
 
-            query = text(
-                """
-                INSERT INTO users (id, email, password_hash)
-                VALUES (gen_random_uuid(), :username, :hash)
-                """
+            user_repo = UserRepository(session)
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            user_repo.create_user(
+                username, password_hash, app_id=context.app_id, role=role
             )
-            session.execute(query, {"username": username, "hash": password_hash})
             session.commit()
             return ServiceResponse.success_res(
                 message=f"Employee {username} created successfully."

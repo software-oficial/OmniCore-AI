@@ -16,13 +16,25 @@ class UserRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_user(self, email: str, password_hash: str) -> None:
-        self.session.execute(
+    def create_user(
+        self,
+        email: str,
+        password_hash: str,
+        app_id: Optional[str] = None,
+        role: str = "owner",
+    ) -> str:
+        result = self.session.execute(
             text(
-                "INSERT INTO users (email, password_hash) VALUES (:email, :password_hash)"
+                "INSERT INTO users (id, email, password_hash, app_id, role) VALUES (gen_random_uuid(), :email, :password_hash, :app_id, :role) RETURNING id"
             ),
-            {"email": email, "password_hash": password_hash},
+            {
+                "email": email,
+                "password_hash": password_hash,
+                "app_id": app_id,
+                "role": role,
+            },
         )
+        return result.scalar()
 
     def update_user_role(self, email: str, role: str) -> int:
         result = self.session.execute(

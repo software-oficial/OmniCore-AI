@@ -22,7 +22,9 @@ class UserManagementUseCase:
         self, email: str, password: str, role: str = "employee"
     ) -> ServiceResponse:
         try:
-            self.repo.create_user(email, password)
+            self.repo.create_user(
+                email, password, app_id=self.context.app_id, role=role
+            )
             return ServiceResponse.success_res(
                 message=f"Employee {email} created successfully."
             )
