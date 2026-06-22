@@ -82,7 +82,7 @@ class CoreDbManager:
 
         -- 3. Stock Flexible (Universal Schema)
         CREATE TABLE IF NOT EXISTS stock (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             business_id TEXT REFERENCES businesses(id),
             sku TEXT NOT NULL,
             data TEXT DEFAULT '{}',
@@ -92,7 +92,7 @@ class CoreDbManager:
 
         -- 4. Credenciales Dinámicas (APIs Externas)
         CREATE TABLE IF NOT EXISTS credentials (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             business_id TEXT REFERENCES businesses(id),
             provider TEXT NOT NULL,
             data TEXT DEFAULT '{}',
@@ -101,7 +101,7 @@ class CoreDbManager:
 
         -- 5. Registro de Ventas Unificado
         CREATE TABLE IF NOT EXISTS sales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             business_id TEXT REFERENCES businesses(id),
             client_name TEXT,
             total_amount REAL,
@@ -122,7 +122,7 @@ class CoreDbManager:
         );
 
         CREATE TABLE IF NOT EXISTS system_audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id TEXT,
             business_id TEXT,
             command TEXT,
