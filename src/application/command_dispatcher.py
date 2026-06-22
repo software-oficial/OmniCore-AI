@@ -182,6 +182,10 @@ class CommandDispatcher:
         try:
             from src.infrastructure.db.core_db_manager import core_db_manager
 
+            logger.info(
+                f"Logging audit for command: {command}, status: {result.success}, app_id: {ctx.app_id}"
+            )
+
             audit_query = "INSERT INTO system_audit_log (agent_id, app_id, command, status, message) VALUES (:agent_id, :app_id, :command, :status, :message)"
             core_db_manager.execute_raw(
                 audit_query,
@@ -193,8 +197,9 @@ class CommandDispatcher:
                     "message": result.message[:255],
                 },
             )
+            logger.info("Audit log successfully inserted.")
         except Exception as e:
-            logger.error(f"Audit log failure: {e}")
+            logger.error(f"Audit log failure: {e}", exc_info=True)
 
 
 # Singleton for the entire system
