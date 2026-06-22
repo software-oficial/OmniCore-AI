@@ -14,6 +14,7 @@ from src.api.routes import (
     agent,
     auth,
     business,
+    cash_box,
     dev,
     discovery,
     gateway,
@@ -178,6 +179,7 @@ ai_gateway.register_command(
 # 2. Include Modular Routes
 app.include_router(gateway.router)
 app.include_router(universal_admin.router)
+app.include_router(cash_box.router)
 app.include_router(discovery.router)
 app.include_router(business.router)
 app.include_router(infra.router)

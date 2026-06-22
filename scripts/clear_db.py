@@ -7,7 +7,9 @@ tables_to_clear = [
     "system_audit_log",
     "sale_items",
     "sales",
+    "transactions",
     "cash_box",
+    "stock",
     "products",
     "aliases",
     "app_infrastructure",
@@ -17,6 +19,13 @@ tables_to_clear = [
     "api_tokens",
     "user_credentials",
     "users",
+    "user_profiles",
+    "user_permissions",
+    "service_credentials",
+    "businesses",
+    "business_settings",
+    "governance_tiers",
+    "governance_commands",
 ]
 
 for table in tables_to_clear:

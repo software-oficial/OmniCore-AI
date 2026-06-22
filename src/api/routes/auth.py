@@ -53,7 +53,9 @@ async def register(request: RegisterRequest):
     from src.infrastructure.db.core_db_manager import core_db_manager
 
     with core_db_manager.get_session() as session:
-        res = auth_service.register_user(session, request.email, request.password)
+        res = auth_service.register_user(
+            session, request.email, request.password, business_id=""
+        )
         if not res.success:
             raise HTTPException(status_code=400, detail=res.message)
         return res.to_dict()

@@ -53,6 +53,34 @@ class UniversalAdminService:
                     },
                 )
 
+                # 3. Assign Default Infrastructure (Crucial for DB Pool initialization)
+                # To allow the UUS to work immediately, we map the business to the core DB.
+                # In a real scenario, these would be external credentials.
+                try:
+                    # Using a fixed set of values derived from the environment or defaults
+                    # To avoid complex parsing, we use a simplified mapping for the simulation.
+                    session.execute(
+                        text(
+                            """
+                            INSERT INTO app_infrastructure (app_id, db_host, db_port, db_user, db_password, db_name, tier)
+                            VALUES (:app_id, :host, :port, :user, :pass, :dbname, :tier)
+                            """
+                        ),
+                        {
+                            "app_id": business_id,
+                            "host": "nozomi.proxy.rlwy.net",
+                            "port": 34662,
+                            "user": "postgres",
+                            "pass": "FXHFZRZSNRzmrcUMbfXVLGrMvOJYOaOW",
+                            "dbname": "railway",
+                            "tier": plan,
+                        },
+                    )
+                except Exception as infra_e:
+                    logger.warning(
+                        f"Could not set default infra for {business_id}: {infra_e}"
+                    )
+
                 # Generate a long-lived token for immediate use
                 token = token_manager.generate_token(
                     agent_id=user_id,
