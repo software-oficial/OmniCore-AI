@@ -50,7 +50,9 @@ class OmniLogger:
             "payload": payload or {},
         }
 
-    def _emit(self, level: str, category: str, message: str, **kwargs):
+    def _emit(
+        self, level: str, category: str, message: str, exc_info: bool = False, **kwargs
+    ):
         """Pushes the log to the async queue instead of writing to DB synchronously."""
         log_entry = self._format_log(level, category, message, **kwargs)
 
@@ -61,7 +63,7 @@ class OmniLogger:
         elif level == "WARNING":
             self.logger.warning(formatted_msg)
         elif level == "ERROR":
-            self.logger.error(formatted_msg)
+            self.logger.error(formatted_msg, exc_info=exc_info)
         elif level == "CRITICAL":
             self.logger.critical(formatted_msg)
         else:
@@ -106,8 +108,10 @@ class OmniLogger:
     def warning(self, category: str, message: str, **kwargs):
         self._emit("WARNING", category, message, **kwargs)
 
-    def error(self, category: str, message: str, **kwargs):
-        self._emit("ERROR", category, message, **kwargs)
+    def error(
+        self, message: str, category: str = "SYSTEM", exc_info: bool = False, **kwargs
+    ):
+        self._emit("ERROR", category, message, exc_info=exc_info, **kwargs)
 
     def critical(self, category: str, message: str, **kwargs):
         self._emit("CRITICAL", category, message, **kwargs)

@@ -19,7 +19,7 @@ class MenuManager:
         pass
 
     def get_all_menus(self, session: Session, context: CoreContext) -> ServiceResponse:
-        return MenuManagementUseCase(session).list_menus()
+        return MenuManagementUseCase(session).list_menus(context.credential_id or "")
 
     def get_menu_by_name(
         self, session: Session, context: CoreContext, name: str

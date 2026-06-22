@@ -104,3 +104,7 @@ class CoreContext:
         self.execution_strategy = execution_strategy
         self.active_credentials: Dict[str, Any] = {}
         self.credential_id: Optional[str] = None
+
+    @property
+    def agent_id(self) -> str:
+        return self.user_id

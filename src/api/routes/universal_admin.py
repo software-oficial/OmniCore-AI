@@ -47,7 +47,7 @@ async def setup(req: SetupRequest):
 @router.post("/employees/add")
 async def add_employee(req: EmployeeRequest):
     res = universal_admin_service.add_employee(
-        req.business_id, req.username, req.password, req.role
+        req.business_id, req.username, req.password, str(req.role or "EMPLOYEE")
     )
     if not res.success:
         raise HTTPException(status_code=400, detail=res.message)

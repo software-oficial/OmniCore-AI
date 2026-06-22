@@ -61,7 +61,7 @@ class BusinessRegistry:
             return None
 
     def register_business(
-        self, owner_id: str, business_name: str, tier: str = "FREE"
+        self, owner_id: str, business_name: str, plan: str = "FREE"
     ) -> str:
         """Registers a new business with default sandbox configuration."""
         db_config = {
@@ -72,7 +72,7 @@ class BusinessRegistry:
             "dbname": f"db_{business_name.lower().replace(' ', '_')}",
         }
         return self.register_app(
-            agent_id=owner_id, app_name=business_name, db_config=db_config, tier=tier
+            agent_id=owner_id, app_name=business_name, db_config=db_config, tier=plan
         )
 
     def register_app(

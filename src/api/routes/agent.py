@@ -37,5 +37,7 @@ async def register_business(
         }
 
     except Exception:
-        engine_logger.error("Project creation error", exc_info=True)
+        engine_logger.error(
+            message="Project creation error", category="SYSTEM", exc_info=True
+        )
         raise HTTPException(status_code=500, detail="Failed to create project.")

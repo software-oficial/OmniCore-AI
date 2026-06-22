@@ -42,9 +42,8 @@ class AdminService:
         try:
             business_id = business_registry.register_business(
                 owner_id=params["owner_id"],
-                name=params["app_name"],
-                db_config=params["db_config"],
-                tier=params.get("tier", "FREE"),
+                business_name=params["app_name"],
+                plan=params.get("tier", "FREE"),
             )
             return ServiceResponse.success_res(
                 data={"business_id": business_id},
@@ -113,7 +112,7 @@ class AdminService:
         return auth_service.create_api_token(
             session=session,
             user_id=cast(str, user_id),
-            agent_id=cast(str, business_id), # Reusing agent_id field as business_id
+            agent_id=cast(str, business_id),  # Reusing agent_id field as business_id
             token_name=cast(str, token_name),
         )
 

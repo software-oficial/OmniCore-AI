@@ -113,7 +113,7 @@ class UserService:
         Returns a comprehensive list of users and their current access levels.
         """
         try:
-            repo = UserRepository(session)
+            repo = UserRepository(session, context.business_id)
             users = repo.list_users()
 
             detailed_users = []

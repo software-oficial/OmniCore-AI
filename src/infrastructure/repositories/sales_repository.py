@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -30,7 +30,7 @@ class SalesRepository(BaseRepository):
             ),
             {"monto": monto_inicial, "app_id": self.app_id},
         )
-        return int(result.rowcount)
+        return int(cast(Any, result).rowcount)
 
     def get_cash_box(self) -> Optional[Dict[str, Any]]:
         row = (

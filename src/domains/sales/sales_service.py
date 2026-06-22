@@ -325,7 +325,7 @@ class SalesService:
                 ),
             )
 
-            if result.rowcount == 0:
+            if cast(Any, result).rowcount == 0:
                 return ServiceResponse.error_res(
                     "Cash box not found for the specified credential",
                     "CASH_BOX_NOT_FOUND",

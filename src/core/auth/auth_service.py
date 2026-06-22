@@ -48,9 +48,14 @@ class AuthService:
             )
 
     def register_user(
-        self, session: Session, email: str, password: str, role: str = "owner"
+        self,
+        session: Session,
+        email: str,
+        password: str,
+        business_id: str,
+        role: str = "owner",
     ) -> ServiceResponse:
-        """Registers a new system user."""
+        """Registers a new system user for a specific business."""
         try:
             import hashlib
 
@@ -58,11 +63,9 @@ class AuthService:
 
             from src.infrastructure.repositories.user_repository import UserRepository
 
-            user_repo = UserRepository(session)
+            user_repo = UserRepository(session, business_id)
             password_hash = hashlib.sha256(password.encode()).hexdigest()
-            user_id = user_repo.create_user(
-                email, password_hash, app_id=None, role=role
-            )
+            user_id = user_repo.create_user(email, password_hash, role=role)
             session.commit()
             return ServiceResponse.success_res(
                 data={"user_id": user_id}, message="User registered successfully."
@@ -197,11 +200,9 @@ class AuthService:
 
             from src.infrastructure.repositories.user_repository import UserRepository
 
-            user_repo = UserRepository(session)
+            user_repo = UserRepository(session, context.business_id)
             password_hash = hashlib.sha256(password.encode()).hexdigest()
-            user_repo.create_user(
-                username, password_hash, app_id=context.app_id, role=role
-            )
+            user_repo.create_user(username, password_hash, role=role)
             session.commit()
             return ServiceResponse.success_res(
                 message=f"Employee {username} created successfully."
